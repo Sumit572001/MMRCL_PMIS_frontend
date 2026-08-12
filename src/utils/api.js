@@ -22,8 +22,8 @@ api.interceptors.request.use(
 
 // Auth Endpoints
 export const authAPI = {
-  login: async (email, password) => {
-    const response = await api.post('/api/auth/login', { email, password });
+  login: async (loginId, password) => {
+    const response = await api.post('/api/auth/login', { email: loginId, userId: loginId, password });
     if (response.data.success) {
       localStorage.setItem('pmis_token', response.data.token);
       localStorage.setItem('pmis_user', JSON.stringify(response.data.user));

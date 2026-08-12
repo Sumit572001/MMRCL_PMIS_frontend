@@ -1090,20 +1090,20 @@ function App() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
-                  Email Address
+                  User ID
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   required
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   className="appearance-none block w-full px-4 py-2.5 bg-white/60 border border-white/80 placeholder-slate-500 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white/90 text-sm transition shadow-sm backdrop-blur-md"
-                  placeholder="contractor@pmis.com"
+                  placeholder="Enter User ID (e.g. NECPL, MMRCL, PMC)"
                 />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
-                  Secret Password
+                  Password
                 </label>
                 <div className="relative">
                   <input
@@ -1207,11 +1207,11 @@ function App() {
         <div className="border-t border-slate-100 pt-4 space-y-3">
           <div className="flex items-center space-x-3 px-2">
             <div className="bg-gradient-to-tr from-sky-500 to-teal-400 h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-base shadow flex-shrink-0">
-              {(currentUser.role === 'Contractor' ? 'Contractor' : currentUser.role === 'Site Engineer' ? 'Engineer' : currentUser.name.split(' (')[0]).charAt(0)}
+              {(currentUser.name ? currentUser.name.split(' (')[0] : currentUser.userId || 'User').charAt(0)}
             </div>
             <div className="text-left">
               <span className="block text-sm font-bold text-slate-900 leading-tight whitespace-normal break-words">
-                {currentUser.role === 'Contractor' ? 'Contractor' : currentUser.role === 'Site Engineer' ? 'Engineer' : currentUser.name.split(' (')[0]}
+                {currentUser.name ? currentUser.name.split(' (')[0] : currentUser.userId || 'User'}
               </span>
             </div>
           </div>
@@ -1451,22 +1451,20 @@ function App() {
                     <p className="text-xs text-slate-500 mt-0.5">Browse and manage packages, files, and documents for {activeSection}</p>
                   </div>
                 </div>
-                {currentUser.role !== 'Contractor' && (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowTenderFolderModal(true)}
-                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm"
-                    >
-                      <Folder className="mr-1.5 h-4 w-4 fill-current text-white" /> Create Folder
-                    </button>
-                    <button
-                      onClick={() => setShowTenderUploadModal(true)}
-                      className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm"
-                    >
-                      <UploadCloud className="mr-1.5 h-4 w-4" /> Upload File
-                    </button>
-                  </div>
-                )}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setShowTenderFolderModal(true)}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm"
+                  >
+                    <Folder className="mr-1.5 h-4 w-4 fill-current text-white" /> Create Folder
+                  </button>
+                  <button
+                    onClick={() => setShowTenderUploadModal(true)}
+                    className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm"
+                  >
+                    <UploadCloud className="mr-1.5 h-4 w-4" /> Upload File
+                  </button>
+                </div>
               </div>
 
               {tenderLoading ? (
@@ -1482,6 +1480,12 @@ function App() {
                     const currentFolders = tenderFolders.filter(f => f.parentFolder === selectedTenderFolderId);
                     const targetFolderRef = selectedTenderFolderId || 'Root';
                     const currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                    const isFullRights = currentUser && (
+                      currentUser.role === 'Site Engineer' ||
+                      (currentUser.userId && currentUser.userId.toUpperCase() === 'NECPL') ||
+                      (currentUser.email && currentUser.email.toLowerCase().includes('necpl')) ||
+                      (currentUser.name && currentUser.name.toUpperCase().includes('NECPL'))
+                    );
                     
                     if (currentFolders.length === 0 && currentFiles.length === 0) {
                       return (
@@ -1515,8 +1519,8 @@ function App() {
                                     </div>
                                   </div>
 
-                                  {/* Three dots option menu (Engineer / Admin Only) */}
-                                  {currentUser.role !== 'Contractor' && (
+                                  {/* Three dots option menu (NECPL / Admin Only for folder delete) */}
+                                  {isFullRights && (
                                     <div className="relative">
                                       <button
                                         onClick={(e) => {
@@ -1610,34 +1614,34 @@ function App() {
                                             <Download className="mr-1.5 h-3.5 w-3.5" /> Download
                                           </button>
 
-                                           {/* Rename & Delete options menu (Engineer / Admin Only) */}
-                                           {currentUser.role !== 'Contractor' && (
-                                             <div className="relative inline-block text-left">
-                                               <button
-                                                 onClick={(e) => {
-                                                   e.stopPropagation();
-                                                   setActiveFileMenuId(activeFileMenuId === doc._id ? null : doc._id);
-                                                 }}
-                                                 className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition"
-                                               >
-                                                 <MoreVertical className="h-4 w-4" />
-                                               </button>
+                                           {/* Rename & Delete options menu */}
+                                           <div className="relative inline-block text-left">
+                                             <button
+                                               onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 setActiveFileMenuId(activeFileMenuId === doc._id ? null : doc._id);
+                                               }}
+                                               className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition"
+                                             >
+                                               <MoreVertical className="h-4 w-4" />
+                                             </button>
 
-                                               {/* Dropdown Menu */}
-                                               {activeFileMenuId === doc._id && (
-                                                 <div className="absolute right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-28 z-20 animate-fade-in text-left text-xs">
-                                                   <button
-                                                     onClick={(e) => {
-                                                       e.stopPropagation();
-                                                       setRenameFileId(doc._id);
-                                                       setRenameFileNameInput(doc.name);
-                                                       setShowRenameModal(true);
-                                                       setActiveFileMenuId(null);
-                                                     }}
-                                                     className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition"
-                                                   >
-                                                     Rename
-                                                   </button>
+                                             {/* Dropdown Menu */}
+                                             {activeFileMenuId === doc._id && (
+                                               <div className="absolute right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-28 z-20 animate-fade-in text-left text-xs">
+                                                 <button
+                                                   onClick={(e) => {
+                                                     e.stopPropagation();
+                                                     setRenameFileId(doc._id);
+                                                     setRenameFileNameInput(doc.name);
+                                                     setShowRenameModal(true);
+                                                     setActiveFileMenuId(null);
+                                                   }}
+                                                   className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition"
+                                                 >
+                                                   Rename
+                                                 </button>
+                                                 {isFullRights && (
                                                    <button
                                                      onClick={(e) => {
                                                        e.stopPropagation();
@@ -1650,10 +1654,10 @@ function App() {
                                                    >
                                                      Delete
                                                    </button>
-                                                 </div>
-                                               )}
-                                             </div>
-                                           )}
+                                                 )}
+                                               </div>
+                                             )}
+                                           </div>
                                         </div>
                                       </td>
                                     </tr>
