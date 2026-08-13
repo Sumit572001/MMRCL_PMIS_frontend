@@ -170,6 +170,10 @@ export const generalDocsAPI = {
   renameDocument: async (section, id, name) => {
     const response = await api.put(`/api/${section}/${id}`, { name });
     return response.data;
+  },
+  updateRemark: async (section, id, remark) => {
+    const response = await api.put(`/api/${section}/${id}/remark`, { remark });
+    return response.data;
   }
 };
 

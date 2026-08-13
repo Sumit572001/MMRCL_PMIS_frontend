@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Shield, 
-  FileText, 
-  UploadCloud, 
-  History, 
-  Share2, 
-  Printer, 
-  CheckCircle2, 
-  Clock, 
-  AlertTriangle, 
-  Layers, 
-  Download, 
+import {
+  Shield,
+  FileText,
+  UploadCloud,
+  History,
+  Share2,
+  Printer,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Layers,
+  Download,
   ExternalLink,
   Lock,
   User,
@@ -34,7 +34,10 @@ import {
   Folder,
   File,
   ChevronLeft,
-  MoreVertical
+  MoreVertical,
+  MessageSquare,
+  MessageCircle,
+  Send
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -47,7 +50,7 @@ function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [activeSection, setActiveSection] = useState('Project Details');
-  
+
   // Data lists
   const [matrixItems, setMatrixItems] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -65,7 +68,7 @@ function App() {
   const [matrixSearch, setMatrixSearch] = useState('');
   const [docSearch, setDocSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  
+
   // Tender Documents States
   const [tenderDocs, setTenderDocs] = useState([]);
   const [tenderFolders, setTenderFolders] = useState([]);
@@ -87,7 +90,42 @@ function App() {
   const [renameFileId, setRenameFileId] = useState(null);
   const [renameFileNameInput, setRenameFileNameInput] = useState('');
   const [renameFileSaving, setRenameFileSaving] = useState(false);
-  
+
+  // Remark Modal State
+  const [showRemarkModal, setShowRemarkModal] = useState(false);
+  const [selectedDocForRemark, setSelectedDocForRemark] = useState(null);
+  const [remarkText, setRemarkText] = useState('');
+  const [remarkSaving, setRemarkSaving] = useState(false);
+
+  const handleOpenRemarkModal = (doc) => {
+    setSelectedDocForRemark(doc);
+    setRemarkText('');
+    setShowRemarkModal(true);
+  };
+
+  const handleSaveRemark = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedDocForRemark || !remarkText.trim()) return;
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec) return;
+
+    setRemarkSaving(true);
+    try {
+      const res = await generalDocsAPI.updateRemark(apiSec, selectedDocForRemark._id, remarkText);
+      if (res.success) {
+        setRemarkText('');
+        if (res.data) {
+          setSelectedDocForRemark(res.data);
+        }
+        await fetchGeneralDocs();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to post remark');
+    } finally {
+      setRemarkSaving(false);
+    }
+  };
+
   // File Preview Modal States
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -567,13 +605,13 @@ function App() {
 
       const blob = new Blob([response.data], { type: response.headers['content-type'] });
       const url = window.URL.createObjectURL(blob);
-      
+
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
-      
+
       link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (err) {
@@ -613,11 +651,11 @@ function App() {
       setPreviewBlobUrl(blobUrl);
 
       if (
-        detectedType.includes('text') || 
-        detectedType.includes('json') || 
-        filename.toLowerCase().endsWith('.txt') || 
-        filename.toLowerCase().endsWith('.csv') || 
-        filename.toLowerCase().endsWith('.json') || 
+        detectedType.includes('text') ||
+        detectedType.includes('json') ||
+        filename.toLowerCase().endsWith('.txt') ||
+        filename.toLowerCase().endsWith('.csv') ||
+        filename.toLowerCase().endsWith('.json') ||
         filename.toLowerCase().endsWith('.md')
       ) {
         const text = await blob.text();
@@ -698,17 +736,17 @@ function App() {
   };
 
   // Filter matrix elements based on search
-  const filteredMatrix = matrixItems.filter(item => 
+  const filteredMatrix = matrixItems.filter(item =>
     item.name.toLowerCase().includes(matrixSearch.toLowerCase()) ||
     item.code.toLowerCase().includes(matrixSearch.toLowerCase())
   );
 
   // Filter document register based on search and status
   const filteredDocs = documents.filter(doc => {
-    const matchSearch = doc.title.toLowerCase().includes(docSearch.toLowerCase()) || 
-                        doc.documentNumber.toLowerCase().includes(docSearch.toLowerCase()) ||
-                        doc.submittalMatrixId?.name.toLowerCase().includes(docSearch.toLowerCase());
-    
+    const matchSearch = doc.title.toLowerCase().includes(docSearch.toLowerCase()) ||
+      doc.documentNumber.toLowerCase().includes(docSearch.toLowerCase()) ||
+      doc.submittalMatrixId?.name.toLowerCase().includes(docSearch.toLowerCase());
+
     if (statusFilter === 'All') return matchSearch;
     if (statusFilter === 'Pending') return matchSearch && doc.status === 'Pending Engineer Review';
     if (statusFilter === 'Comments Issued') return matchSearch && doc.status === 'Engineer Reviewed - Comments Issued';
@@ -747,7 +785,7 @@ function App() {
     const latestVersion = receiptDoc.versions[receiptDoc.versions.length - 1];
     const expected = receiptDoc.submittalMatrixId.paperCopies;
     const received = latestVersion.hardCopiesReceived;
-    
+
     return (
       <div className="p-8 max-w-3xl mx-auto bg-white text-black min-h-screen">
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-6">
@@ -803,7 +841,7 @@ function App() {
         <div className="mb-6">
           <h3 className="font-bold text-slate-800 uppercase mb-2 text-sm">PMIS Hard-Copy Handover Audit</h3>
           <p className="text-xs text-slate-500 mb-3">Verification of physical print counts as per the employer requirements submittal matrix:</p>
-          
+
           <table className="w-full text-sm border-collapse border border-slate-300">
             <thead>
               <tr className="bg-slate-100 text-center">
@@ -875,13 +913,13 @@ function App() {
         </div>
 
         <div className="mt-16 no-print flex justify-end space-x-3 bg-slate-900 p-4 rounded-xl text-white">
-          <button 
+          <button
             onClick={() => setShowPrintReceipt(false)}
             className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-sm font-semibold rounded-lg transition"
           >
             Back to Dashboard
           </button>
-          <button 
+          <button
             onClick={() => window.print()}
             className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-sm font-semibold rounded-lg flex items-center transition"
           >
@@ -966,14 +1004,14 @@ function App() {
                           <Lock className="h-5 w-5 text-slate-400" />
                         </div>
                         <input
-                           type="password"
-                           name="passcode"
-                           id="passcode"
-                           required
-                           value={guestPasscode}
-                           onChange={(e) => setGuestPasscode(e.target.value)}
-                           className="pl-10 block w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm py-2.5 focus:bg-white transition"
-                           placeholder="••••••••"
+                          type="password"
+                          name="passcode"
+                          id="passcode"
+                          required
+                          value={guestPasscode}
+                          onChange={(e) => setGuestPasscode(e.target.value)}
+                          className="pl-10 block w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm py-2.5 focus:bg-white transition"
+                          placeholder="••••••••"
                         />
                       </div>
                     </div>
@@ -996,7 +1034,7 @@ function App() {
                     <p className="font-semibold">Authentication Successful</p>
                     <p className="text-xs">Document metadata and stream tokens unlocked.</p>
                   </div>
-                  
+
                   <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
                     <span className="text-slate-500 block text-xs">Unlocked File</span>
                     <p className="font-semibold text-sm text-slate-850 truncate">{guestDocData.version.originalName}</p>
@@ -1040,7 +1078,7 @@ function App() {
     return (
       <div className="min-h-screen relative flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 overflow-hidden bg-slate-950 select-none">
         {/* Building Background Image (Full Clarity & Visibility) */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 scale-105"
           style={{ backgroundImage: `url('/uploads/metro_bhawan.jpg')` }}
         />
@@ -1052,10 +1090,10 @@ function App() {
           <div className="flex justify-between items-center space-x-4">
             {/* Left Logo (MMRCL) */}
             <div className="flex-shrink-0 bg-white/80 p-2 rounded-2xl shadow-md border border-white/70 flex items-center justify-center overflow-hidden backdrop-blur-md">
-              <img 
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10" 
-                alt="MMRCL Logo" 
-                className="h-14 w-14 object-contain rounded-xl" 
+              <img
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10"
+                alt="MMRCL Logo"
+                className="h-14 w-14 object-contain rounded-xl"
               />
             </div>
 
@@ -1071,10 +1109,10 @@ function App() {
 
             {/* Right Logo (NYATI) */}
             <div className="flex-shrink-0 bg-white/80 p-2 rounded-2xl shadow-md border border-white/70 flex items-center justify-center overflow-hidden backdrop-blur-md">
-              <img 
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAGavyGhFQr76WetCwQPPqyKRjiAKfgJFBiNxZlNlzO_J75_6Un9uDyaI&s=10" 
-                alt="Nyati Group Logo" 
-                className="h-14 w-14 object-contain rounded-xl" 
+              <img
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAGavyGhFQr76WetCwQPPqyKRjiAKfgJFBiNxZlNlzO_J75_6Un9uDyaI&s=10"
+                alt="Nyati Group Logo"
+                className="h-14 w-14 object-contain rounded-xl"
               />
             </div>
           </div>
@@ -1163,10 +1201,10 @@ function App() {
         <div className="space-y-6">
           <div className="flex items-center space-x-3 px-2 py-1.5 border-b border-slate-100 pb-4">
             <div className="flex-shrink-0 bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center">
-              <img 
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10" 
-                alt="MMRCL Logo" 
-                className="h-8 w-auto object-contain" 
+              <img
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10"
+                alt="MMRCL Logo"
+                className="h-8 w-auto object-contain"
               />
             </div>
             <div>
@@ -1185,18 +1223,16 @@ function App() {
                 <button
                   key={sec.id}
                   onClick={() => setActiveSection(sec.name)}
-                  className={`w-full flex items-start space-x-3 px-3 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 relative group ${
-                    isActive 
-                      ? 'bg-sky-50 text-sky-700 border border-sky-100' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 border border-transparent'
-                  }`}
+                  className={`w-full flex items-start space-x-3 px-3 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 relative group ${isActive
+                    ? 'bg-sky-50 text-sky-700 border border-sky-100'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 border border-transparent'
+                    }`}
                 >
                   {isActive && (
                     <span className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r bg-sky-500"></span>
                   )}
-                  <IconComp className={`h-4 w-4 flex-shrink-0 transition-colors duration-200 mt-0.5 ${
-                    isActive ? 'text-sky-600' : 'text-slate-400 group-hover:text-slate-555'
-                  }`} />
+                  <IconComp className={`h-4 w-4 flex-shrink-0 transition-colors duration-200 mt-0.5 ${isActive ? 'text-sky-600' : 'text-slate-400 group-hover:text-slate-555'
+                    }`} />
                   <span className="whitespace-normal break-words pr-2">{sec.name}</span>
                 </button>
               );
@@ -1235,10 +1271,10 @@ function App() {
               <div className="flex justify-between items-center bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-x-6">
                 {/* Left Logo (MMRCL) */}
                 <div className="flex-shrink-0">
-                  <img 
-                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10" 
-                    alt="MMRCL Logo" 
-                    className="h-20 w-auto object-contain" 
+                  <img
+                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10"
+                    alt="MMRCL Logo"
+                    className="h-20 w-auto object-contain"
                   />
                 </div>
                 {/* Centered Project Name */}
@@ -1252,10 +1288,10 @@ function App() {
                 </div>
                 {/* Right Logo (NYATI) */}
                 <div className="flex-shrink-0">
-                  <img 
-                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAGavyGhFQr76WetCwQPPqyKRjiAKfgJFBiNxZlNlzO_J75_6Un9uDyaI&s=10" 
-                    alt="Nyati Group Logo" 
-                    className="h-20 w-auto object-contain rounded-lg" 
+                  <img
+                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAGavyGhFQr76WetCwQPPqyKRjiAKfgJFBiNxZlNlzO_J75_6Un9uDyaI&s=10"
+                    alt="Nyati Group Logo"
+                    className="h-20 w-auto object-contain rounded-lg"
                   />
                 </div>
               </div>
@@ -1263,9 +1299,9 @@ function App() {
               {/* Building Rendering Hero Banner (Full height image display with centered max-width) */}
               <div className="flex justify-center">
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-w-4xl md:max-w-5xl w-full p-2 flex justify-center">
-                  <img 
-                    src="/uploads/metro_bhawan.jpg" 
-                    alt="Metro Bhawan Building Architectural Rendering" 
+                  <img
+                    src="/uploads/metro_bhawan.jpg"
+                    alt="Metro Bhawan Building Architectural Rendering"
                     className="w-full h-auto rounded-xl object-contain hover:scale-[1.005] transition-transform duration-300"
                     onError={(e) => { e.target.src = '/uploads/metro_bhawan_building.png'; }}
                   />
@@ -1395,10 +1431,10 @@ function App() {
                   </div>
                   <ul className="space-y-2 text-xs list-disc pl-4 text-slate-800 leading-relaxed">
                     <li>
-                      Built-up Area: 
+                      Built-up Area:
                       <span className="block pl-2 text-xs font-semibold text-slate-800">
-                        Tower-A = 62,711.06 Sft<br/>
-                        Tower-B = 76,004.60 Sft<br/>
+                        Tower-A = 62,711.06 Sft<br />
+                        Tower-B = 76,004.60 Sft<br />
                         Tower-C = 1,18,134.90 Sft
                       </span>
                     </li>
@@ -1427,8 +1463,8 @@ function App() {
           ) : generalDocSections.includes(activeSection) ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700 relative">
               {(activeFolderMenuId || activeFileMenuId) && (
-                <div 
-                  className="fixed inset-0 z-10 bg-transparent" 
+                <div
+                  className="fixed inset-0 z-10 bg-transparent"
                   onClick={() => {
                     setActiveFolderMenuId(null);
                     setActiveFileMenuId(null);
@@ -1486,7 +1522,7 @@ function App() {
                       (currentUser.email && currentUser.email.toLowerCase().includes('necpl')) ||
                       (currentUser.name && currentUser.name.toUpperCase().includes('NECPL'))
                     );
-                    
+
                     if (currentFolders.length === 0 && currentFiles.length === 0) {
                       return (
                         <div className="text-center py-20 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 font-semibold italic text-sm">
@@ -1566,45 +1602,81 @@ function App() {
                               </span>
                             </div>
 
-                            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm min-h-[220px] pb-12">
                               <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
                                 <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
                                   <tr>
-                                    <th scope="col" className="px-6 py-4 max-w-md">Document Title</th>
-                                    <th scope="col" className="px-6 py-4">File Info</th>
-                                    <th scope="col" className="px-6 py-4">Uploaded By</th>
-                                    <th scope="col" className="px-6 py-4">Upload Date</th>
-                                    <th scope="col" className="px-6 py-4 text-right">Action</th>
+                                    <th scope="col" className="px-6 py-4 whitespace-nowrap">Document Title</th>
+                                    <th scope="col" className="px-6 py-4 whitespace-nowrap">File Info</th>
+                                    <th scope="col" className="px-6 py-4 whitespace-nowrap">Uploaded By</th>
+                                    <th scope="col" className="px-6 py-4 whitespace-nowrap">Upload Date</th>
+                                    <th scope="col" className="px-6 py-4 whitespace-nowrap text-center">Remark</th>
+                                    <th scope="col" className="px-6 py-4 whitespace-nowrap text-right">Action</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                  {currentFiles.map((doc) => (
+                                  {currentFiles.map((doc, docIndex) => (
                                     <tr key={doc._id} className="hover:bg-slate-50/50 transition">
-                                      <td className="px-6 py-4 font-semibold text-slate-800 flex items-start space-x-3 max-w-md">
-                                        <File className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                                      <td className="px-6 py-4 font-semibold text-slate-800 flex items-center space-x-3 min-w-0">
+                                        <File className="h-4 w-4 text-slate-400 flex-shrink-0" />
                                         <div className="min-w-0 flex-1">
                                           <button
                                             onClick={() => handleViewGeneralDoc(doc)}
-                                            className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-normal break-all break-words leading-snug block max-w-sm"
-                                            title="Click to view file"
+                                            className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate block max-w-sm md:max-w-md"
+                                            title={doc.name}
                                           >
                                             {doc.name}
                                           </button>
-                                          <span className="block text-[10px] text-slate-400 font-mono mt-0.5 whitespace-normal break-all max-w-sm">{doc.originalName}</span>
+                                          <span className="block text-[10px] text-slate-400 font-mono mt-0.5 whitespace-nowrap truncate max-w-sm md:max-w-md" title={doc.originalName}>{doc.originalName}</span>
                                         </div>
                                       </td>
-                                      <td className="px-6 py-4 text-slate-600">
+                                      <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
                                         <span className="font-semibold block text-xs">{(doc.fileSize / 1024).toFixed(1)} KB</span>
                                         <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[140px]">{doc.mimeType}</span>
                                       </td>
-                                      <td className="px-6 py-4">
-                                        <span className="font-semibold block text-slate-700 text-xs">{doc.uploadedBy?.name || 'System Seeded'}</span>
-                                        <span className="text-[10px] text-slate-400 block mt-0.5">{doc.uploadedBy?.role || 'Portal'}</span>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="font-semibold block text-slate-700 text-xs">
+                                          {doc.uploadedBy?.name && doc.uploadedBy.name !== 'System Seeded' ? doc.uploadedBy.name : 'NECPL'}
+                                        </span>
                                       </td>
-                                      <td className="px-6 py-4 text-slate-600 text-xs font-medium">
+                                      <td className="px-6 py-4 text-slate-600 text-xs font-medium whitespace-nowrap">
                                         {new Date(doc.uploadedAt).toLocaleDateString()}
                                       </td>
-                                      <td className="px-6 py-4 text-right">
+                                      <td className="px-6 py-4 text-center whitespace-nowrap">
+                                        {(() => {
+                                          const remarkList = doc.remarks && doc.remarks.length > 0
+                                            ? doc.remarks
+                                            : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
+                                          const msgCount = remarkList.length;
+
+                                          return (
+                                            <button
+                                              onClick={() => handleOpenRemarkModal(doc)}
+                                              className={`inline-flex items-center px-3 py-1.5 rounded-xl border transition shadow-sm font-semibold text-xs cursor-pointer relative group ${msgCount > 0
+                                                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                                                : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+                                                }`}
+                                              title={msgCount > 0 ? `Latest remark: "${remarkList[remarkList.length - 1].text}"` : 'Add Remark'}
+                                            >
+                                              {msgCount > 0 ? (
+                                                <>
+                                                  <MessageCircle className="mr-1.5 h-3.5 w-3.5 text-emerald-600 fill-emerald-100" />
+                                                  <span>Remarks</span>
+                                                  <span className="ml-2 px-1.5 py-0.2 bg-emerald-600 text-white rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm">
+                                                    {msgCount}
+                                                  </span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+                                                  <span>Remark</span>
+                                                </>
+                                              )}
+                                            </button>
+                                          );
+                                        })()}
+                                      </td>
+                                      <td className="px-6 py-4 text-right whitespace-nowrap">
                                         <div className="flex items-center justify-end space-x-2">
                                           <button
                                             onClick={() => handleDownloadGeneralDoc(doc)}
@@ -1614,50 +1686,50 @@ function App() {
                                             <Download className="mr-1.5 h-3.5 w-3.5" /> Download
                                           </button>
 
-                                           {/* Rename & Delete options menu */}
-                                           <div className="relative inline-block text-left">
-                                             <button
-                                               onClick={(e) => {
-                                                 e.stopPropagation();
-                                                 setActiveFileMenuId(activeFileMenuId === doc._id ? null : doc._id);
-                                               }}
-                                               className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition"
-                                             >
-                                               <MoreVertical className="h-4 w-4" />
-                                             </button>
+                                          {/* Rename & Delete options menu */}
+                                          <div className="relative inline-block text-left">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveFileMenuId(activeFileMenuId === doc._id ? null : doc._id);
+                                              }}
+                                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition"
+                                            >
+                                              <MoreVertical className="h-4 w-4" />
+                                            </button>
 
-                                             {/* Dropdown Menu */}
-                                             {activeFileMenuId === doc._id && (
-                                               <div className="absolute right-0 bottom-full mb-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-28 z-20 animate-fade-in text-left text-xs">
-                                                 <button
-                                                   onClick={(e) => {
-                                                     e.stopPropagation();
-                                                     setRenameFileId(doc._id);
-                                                     setRenameFileNameInput(doc.name);
-                                                     setShowRenameModal(true);
-                                                     setActiveFileMenuId(null);
-                                                   }}
-                                                   className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition"
-                                                 >
-                                                   Rename
-                                                 </button>
-                                                 {isFullRights && (
-                                                   <button
-                                                     onClick={(e) => {
-                                                       e.stopPropagation();
-                                                       if (window.confirm(`Are you sure you want to delete the file "${doc.name}"?`)) {
-                                                         handleDeleteDocument(doc._id);
-                                                       }
-                                                       setActiveFileMenuId(null);
-                                                     }}
-                                                     className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition"
-                                                   >
-                                                     Delete
-                                                   </button>
-                                                 )}
-                                               </div>
-                                             )}
-                                           </div>
+                                            {/* Dropdown Menu */}
+                                            {activeFileMenuId === doc._id && (
+                                              <div className={`absolute right-0 ${docIndex < 2 ? 'top-full mt-1' : 'bottom-full mb-1'} bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-32 z-30 animate-fade-in text-left text-xs`}>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setRenameFileId(doc._id);
+                                                    setRenameFileNameInput(doc.name);
+                                                    setShowRenameModal(true);
+                                                    setActiveFileMenuId(null);
+                                                  }}
+                                                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center"
+                                                >
+                                                  Rename
+                                                </button>
+                                                {isFullRights && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      if (window.confirm(`Are you sure you want to delete the file "${doc.name}"?`)) {
+                                                        handleDeleteDocument(doc._id);
+                                                      }
+                                                      setActiveFileMenuId(null);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center"
+                                                  >
+                                                    Delete
+                                                  </button>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       </td>
                                     </tr>
@@ -1873,8 +1945,8 @@ function App() {
                             const latestVersion = doc.versions[doc.versions.length - 1];
                             const expectedPaper = doc.submittalMatrixId?.paperCopies || { A1: 0, A3: 0, A4: 0 };
                             const receivedPaper = latestVersion?.hardCopiesReceived || { A1: 0, A3: 0, A4: 0 };
-                            
-                            const paperMet = 
+
+                            const paperMet =
                               receivedPaper.A1 >= expectedPaper.A1 &&
                               receivedPaper.A3 >= expectedPaper.A3 &&
                               receivedPaper.A4 >= expectedPaper.A4;
@@ -2076,11 +2148,11 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Create PMIS Submittal</h3>
                 <p className="text-xs text-slate-400">{selectedMatrixItem.code}: {selectedMatrixItem.name}</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowUploadModal(false);
                   setUploadFile(null);
-                }} 
+                }}
                 className="text-slate-500 hover:text-white font-semibold text-sm"
               >
                 ✕
@@ -2174,12 +2246,12 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Upload Document</h3>
                 <p className="text-xs text-slate-400">Target Folder: {selectedTenderFolder || 'Root (No Folder)'}</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowTenderUploadModal(false);
                   setTenderUploadFile(null);
                   setTenderUploadName('');
-                }} 
+                }}
                 className="text-slate-555 hover:text-white font-semibold text-sm"
               >
                 ✕
@@ -2243,11 +2315,11 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Create New Folder</h3>
                 <p className="text-xs text-slate-400">Add a new folder to Tender Documents Ledger</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowTenderFolderModal(false);
                   setTenderFolderNameInput('');
-                }} 
+                }}
                 className="text-slate-555 hover:text-white font-semibold text-sm"
               >
                 ✕
@@ -2300,12 +2372,12 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Rename File</h3>
                 <p className="text-xs text-slate-400">Update file title in the system</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowRenameModal(false);
                   setRenameFileNameInput('');
                   setRenameFileId(null);
-                }} 
+                }}
                 className="text-slate-500 hover:text-white font-semibold text-sm"
               >
                 ✕
@@ -2359,11 +2431,11 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Upload New Document Revision</h3>
                 <p className="text-xs text-slate-400">{selectedDocForRevision.documentNumber}: {selectedDocForRevision.title}</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setSelectedDocForRevision(null);
                   setUploadFile(null);
-                }} 
+                }}
                 className="text-slate-500 hover:text-white font-semibold text-sm"
               >
                 ✕
@@ -2573,7 +2645,7 @@ function App() {
 
             <form onSubmit={handleVerifyHardCopies} className="space-y-4 text-xs">
               <p className="text-slate-400 text-[10px]">Enter counts actually handed over at site:</p>
-              
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-slate-400 font-semibold mb-1">A1 Copies Received</label>
@@ -2638,11 +2710,11 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Generate Secure Sharing Link</h3>
                 <p className="text-xs text-slate-400">{selectedDocForShare.documentNumber} (Rev {selectedVersionForShare.revision})</p>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowShareModal(false);
                   setGeneratedShareLink('');
-                }} 
+                }}
                 className="text-slate-500 hover:text-white font-semibold text-sm"
               >
                 ✕
@@ -2753,7 +2825,7 @@ function App() {
               {historyDoc.versions.map((ver, idx) => (
                 <div key={ver._id} className="relative border-l-2 border-slate-800 pl-4 ml-2 pb-2">
                   <div className="absolute -left-1.5 top-0 bg-sky-400 w-3 h-3 rounded-full border border-slate-950"></div>
-                  
+
                   <div className="flex justify-between items-center mb-1 flex-wrap gap-1">
                     <span className="text-sm font-bold text-white">Revision {ver.revision}</span>
                     <div className="flex items-center space-x-2">
@@ -2813,7 +2885,7 @@ function App() {
                 </div>
               ))}
             </div>
-            
+
             <div className="pt-2 border-t border-slate-800 flex justify-end">
               <button
                 onClick={() => setShowHistoryModal(false)}
@@ -2978,6 +3050,130 @@ function App() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp-style Remark Chat Modal */}
+      {showRemarkModal && selectedDocForRemark && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600 border border-emerald-100">
+                  <MessageCircle className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-bold text-slate-900 text-base">File Remarks & Discussion</h3>
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                      {(selectedDocForRemark.remarks?.length) || (selectedDocForRemark.remark ? 1 : 0)} messages
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium truncate max-w-xs">{selectedDocForRemark.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRemarkModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Thread Messages Area */}
+            <div className="flex-1 py-4 px-3 space-y-3 overflow-y-auto min-h-[220px] max-h-[360px] bg-slate-50/50 rounded-xl my-3 border border-slate-100">
+              {(() => {
+                const remarksList = selectedDocForRemark.remarks && selectedDocForRemark.remarks.length > 0
+                  ? selectedDocForRemark.remarks
+                  : (selectedDocForRemark.remark ? [{
+                    text: selectedDocForRemark.remark,
+                    userName: selectedDocForRemark.uploadedBy?.name || 'System User',
+                    userRole: selectedDocForRemark.uploadedBy?.role || 'Portal',
+                    createdAt: selectedDocForRemark.uploadedAt
+                  }] : []);
+
+                if (remarksList.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400 space-y-2">
+                      <MessageCircle className="h-10 w-10 text-slate-300 stroke-[1.5]" />
+                      <p className="text-xs font-bold text-slate-500">No remarks added yet</p>
+                    </div>
+                  );
+                }
+
+                return remarksList.map((msg, idx) => {
+                  const authorName = msg.userName || 'User';
+                  const isMe = currentUser && (
+                    (authorName.toLowerCase() === (currentUser.name || '').toLowerCase()) ||
+                    (authorName.toLowerCase() === (currentUser.userId || '').toLowerCase()) ||
+                    (msg.user && msg.user === currentUser._id)
+                  );
+
+                  const roleText = msg.userRole || '';
+                  const isMMRCL = roleText.includes('Employer') || authorName.toUpperCase().includes('MMRCL');
+                  const isNECPL = authorName.toUpperCase().includes('NECPL') || roleText.includes('Site Engineer');
+
+                  const badgeColor = isMMRCL
+                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                    : isNECPL
+                      ? 'bg-sky-100 text-sky-800 border-sky-200'
+                      : 'bg-purple-100 text-purple-800 border-purple-200';
+
+                  return (
+                    <div
+                      key={msg._id || idx}
+                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                    >
+                      <div className="flex items-center space-x-1.5 mb-1 px-1 text-[10px] text-slate-400">
+                        <span className="font-semibold text-slate-700">{isMe ? 'You' : authorName}</span>
+                        {roleText && roleText !== 'Portal' && roleText !== 'Member' && roleText !== authorName && (
+                          <span className={`px-1.5 py-0.2 rounded border text-[9px] font-bold ${badgeColor}`}>
+                            {roleText}
+                          </span>
+                        )}
+                        <span>• {new Date(msg.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+
+                      <div
+                        className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-xs leading-relaxed shadow-sm ${isMe
+                          ? 'bg-emerald-600 text-white rounded-tr-none font-medium'
+                          : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none font-medium'
+                          }`}
+                      >
+                        {msg.text}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+
+            {/* WhatsApp-style Input Send Bar */}
+            <form onSubmit={handleSaveRemark} className="flex items-center space-x-2 pt-2 border-t border-slate-100 flex-shrink-0">
+              <input
+                type="text"
+                value={remarkText}
+                onChange={(e) => setRemarkText(e.target.value)}
+                placeholder="Type your remark here..."
+                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+              />
+              <button
+                type="submit"
+                disabled={remarkSaving || !remarkText.trim()}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition shadow-sm disabled:opacity-40 flex items-center space-x-1.5 cursor-pointer"
+              >
+                {remarkSaving ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>Send</span>
+                    <Send className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </button>
+            </form>
           </div>
         </div>
       )}
