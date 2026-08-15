@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create Axios Instance
 const api = axios.create({
-  baseURL: '', // Using relative path because Vite proxied /api and /uploads to port 5005
+  baseURL: `https://${window.location.hostname}:5005`,
   timeout: 30000,
 });
 
@@ -11,7 +11,7 @@ api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('pmis_token');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`; 
     }
     return config;
   },

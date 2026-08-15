@@ -1080,7 +1080,7 @@ function App() {
         {/* Building Background Image (Full Clarity & Visibility) */}
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 scale-105"
-          style={{ backgroundImage: `url('/uploads/metro_bhawan.jpg')` }}
+          style={{ backgroundImage: `url('https://projectmanagement.nyatigroup.com:5005/uploads/metro_bhawan.jpg')` }}
         />
         {/* Soft Vignette Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-slate-900/10 to-slate-950/30" />
@@ -1300,10 +1300,9 @@ function App() {
               <div className="flex justify-center">
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-w-4xl md:max-w-5xl w-full p-2 flex justify-center">
                   <img
-                    src="/uploads/metro_bhawan.jpg"
+                    src="https://projectmanagement.nyatigroup.com:5005/uploads/metro_bhawan.jpg"
                     alt="Metro Bhawan Building Architectural Rendering"
                     className="w-full h-auto rounded-xl object-contain hover:scale-[1.005] transition-transform duration-300"
-                    onError={(e) => { e.target.src = '/uploads/metro_bhawan_building.png'; }}
                   />
                 </div>
               </div>
