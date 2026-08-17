@@ -1,8 +1,17 @@
 import axios from 'axios';
 
-// Create Axios Instance
+// Dynamic Base URL handling for local (http) vs production server (https)
+const getBaseURL = () => {
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname || 'localhost';
+    return `${protocol}//${hostname}:5005`;
+  }
+  return 'http://localhost:5005';
+};
+
 const api = axios.create({
-  baseURL: `https://${window.location.hostname}:5005`,
+  baseURL: getBaseURL(),
   timeout: 30000,
 });
 
