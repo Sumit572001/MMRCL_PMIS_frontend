@@ -37,7 +37,8 @@ import {
   MoreVertical,
   MessageSquare,
   MessageCircle,
-  Send
+  Send,
+  FolderKanban
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -45,8 +46,8 @@ function App() {
   // Authentication & RBAC states
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [loginEmail, setLoginEmail] = useState('contractor@pmis.com');
-  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [activeSection, setActiveSection] = useState('Project Details');
@@ -269,6 +270,8 @@ function App() {
   const handleLogout = () => {
     authAPI.logout();
     setCurrentUser(null);
+    setLoginEmail('');
+    setLoginPassword('');
     setMatrixItems([]);
     setDocuments([]);
   };
@@ -1200,18 +1203,13 @@ function App() {
       <aside className="w-64 border-r border-slate-200 bg-white flex flex-col justify-between p-4 sticky top-0 h-screen z-30 select-none flex-shrink-0">
         <div className="space-y-6">
           <div className="flex items-center space-x-3 px-2 py-1.5 border-b border-slate-100 pb-4">
-            <div className="flex-shrink-0 bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center">
-              <img
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10"
-                alt="MMRCL Logo"
-                className="h-8 w-auto object-contain"
-              />
+            <div className="flex-shrink-0 bg-gradient-to-br from-sky-500 to-indigo-600 p-2.5 rounded-xl shadow-md text-white flex items-center justify-center">
+              <FolderKanban className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-base font-bold tracking-tight text-slate-900 flex items-center">
-                MMRCL PMIS
+              <h1 className="text-sm font-bold tracking-tight text-slate-900 leading-snug">
+                Project Management Information System (PMIS)
               </h1>
-              <p className="text-xs text-slate-500 font-medium">Employer's Requirements</p>
             </div>
           </div>
 
