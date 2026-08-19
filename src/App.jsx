@@ -38,7 +38,9 @@ import {
   MessageSquare,
   MessageCircle,
   Send,
-  FolderKanban
+  FolderKanban,
+  KeyRound,
+  Mail
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -51,6 +53,102 @@ function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [activeSection, setActiveSection] = useState('Project Details');
+
+  // Captcha states
+  const [captchaCode, setCaptchaCode] = useState('');
+  const [captchaInput, setCaptchaInput] = useState('');
+
+  const generateCaptcha = () => {
+    const chars = '23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCaptchaCode(code);
+    setCaptchaInput('');
+  };
+
+  // Forgot Password modal states
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [forgotUserId, setForgotUserId] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [showForgotNewPassword, setShowForgotNewPassword] = useState(false);
+  const [showForgotConfirmPassword, setShowForgotConfirmPassword] = useState(false);
+  const [forgotCaptchaCode, setForgotCaptchaCode] = useState('');
+  const [forgotCaptchaInput, setForgotCaptchaInput] = useState('');
+  const [forgotSubmitted, setForgotSubmitted] = useState(false);
+  const [forgotErrorMsg, setForgotErrorMsg] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const generateForgotCaptcha = () => {
+    const chars = '23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setForgotCaptchaCode(code);
+    setForgotCaptchaInput('');
+  };
+
+  const handleOpenForgotPassword = () => {
+    setForgotUserId('');
+    setForgotNewPassword('');
+    setForgotConfirmPassword('');
+    setForgotErrorMsg('');
+    setForgotSubmitted(false);
+    generateForgotCaptcha();
+    setShowForgotPasswordModal(true);
+  };
+
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setForgotErrorMsg('');
+
+    if (!forgotUserId.trim()) {
+      setForgotErrorMsg('Please enter your User ID or Registered Email.');
+      return;
+    }
+
+    if (!forgotNewPassword.trim()) {
+      setForgotErrorMsg('Please enter your new password.');
+      return;
+    }
+
+    if (forgotNewPassword.length < 4) {
+      setForgotErrorMsg('New password must be at least 4 characters long.');
+      return;
+    }
+
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotErrorMsg('New password and confirm password do not match!');
+      return;
+    }
+
+    if (!forgotCaptchaInput.trim()) {
+      setForgotErrorMsg('Please enter the CAPTCHA verification code.');
+      return;
+    }
+
+    if (forgotCaptchaInput.trim().toUpperCase() !== forgotCaptchaCode.toUpperCase()) {
+      setForgotErrorMsg('Invalid CAPTCHA code! Please try again.');
+      generateForgotCaptcha();
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await authAPI.resetPassword(forgotUserId, forgotNewPassword);
+      if (res.success) {
+        setForgotSubmitted(true);
+      }
+    } catch (err) {
+      setForgotErrorMsg(err.response?.data?.message || 'Password reset failed. Please check your User ID.');
+      generateForgotCaptcha();
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   // Data lists
   const [matrixItems, setMatrixItems] = useState([]);
@@ -208,6 +306,7 @@ function App() {
 
   // Check auth on load
   useEffect(() => {
+    generateCaptcha();
     const checkAuth = async () => {
       const token = localStorage.getItem('pmis_token');
       if (token) {
@@ -237,6 +336,18 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+
+    if (!captchaInput.trim()) {
+      setErrorMsg('Please enter the CAPTCHA code.');
+      return;
+    }
+
+    if (captchaInput.trim().toUpperCase() !== captchaCode.toUpperCase()) {
+      setErrorMsg('Invalid CAPTCHA code! Please try again.');
+      generateCaptcha();
+      return;
+    }
+
     try {
       const res = await authAPI.login(loginEmail, loginPassword);
       if (res.success) {
@@ -245,6 +356,7 @@ function App() {
       }
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Login failed. Try again.');
+      generateCaptcha();
     }
   };
 
@@ -274,6 +386,7 @@ function App() {
     setLoginPassword('');
     setMatrixItems([]);
     setDocuments([]);
+    generateCaptcha();
   };
 
   // Handle Document Upload (Initial package)
@@ -1143,9 +1256,18 @@ function App() {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleOpenForgotPassword}
+                    className="text-xs font-bold text-sky-800 hover:text-sky-950 transition underline underline-offset-2"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -1168,6 +1290,54 @@ function App() {
                   </button>
                 </div>
               </div>
+
+              {/* CAPTCHA SECTION */}
+              <div>
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5 flex items-center justify-between">
+                  <span>Captcha Verification</span>
+                  <span className="text-[10px] text-slate-600 font-semibold uppercase">Case-insensitive</span>
+                </label>
+                <div className="flex items-center space-x-3">
+                  {/* Styled Captcha Display Box */}
+                  <div className="relative flex items-center justify-between px-3 py-2 bg-slate-900/90 border border-white/60 rounded-xl shadow-inner select-none overflow-hidden min-w-[140px] backdrop-blur-md">
+                    {/* Background Noise SVG Lines */}
+                    <svg className="absolute inset-0 w-full h-full opacity-35 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                      <line x1="0" y1="12" x2="100%" y2="28" stroke="#0ea5e9" strokeWidth="2" strokeDasharray="4 2" />
+                      <line x1="0" y1="32" x2="100%" y2="14" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="3 3" />
+                      <line x1="15%" y1="0" x2="85%" y2="100%" stroke="#10b981" strokeWidth="1" />
+                    </svg>
+
+                    {/* Captcha Text */}
+                    <div className="relative z-10 font-mono text-lg font-black tracking-widest text-slate-100 italic select-none pl-1" style={{ letterSpacing: '0.22em', textShadow: '2px 2px 4px rgba(0,0,0,0.6)' }}>
+                      <span className="inline-block transform -skew-x-6 text-sky-400">{captchaCode.slice(0, 2)}</span>
+                      <span className="inline-block transform skew-x-3 text-amber-300">{captchaCode.slice(2, 4)}</span>
+                      <span className="inline-block transform -skew-x-3 text-emerald-400">{captchaCode.slice(4, 6)}</span>
+                    </div>
+
+                    {/* Refresh Button */}
+                    <button
+                      type="button"
+                      onClick={generateCaptcha}
+                      className="relative z-10 ml-2 p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition duration-150 active:rotate-180"
+                      title="Refresh CAPTCHA"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Captcha Input Field */}
+                  <input
+                    type="text"
+                    required
+                    name="captchaInput"
+                    autoComplete="off"
+                    value={captchaInput}
+                    onChange={(e) => setCaptchaInput(e.target.value)}
+                    className="appearance-none block w-full px-4 py-2.5 bg-white/60 border border-white/80 placeholder-slate-500 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white/90 text-sm font-bold tracking-wider transition shadow-sm backdrop-blur-md"
+                    placeholder="Enter Code"
+                  />
+                </div>
+              </div>
             </div>
 
             <div>
@@ -1180,8 +1350,193 @@ function App() {
             </div>
           </form>
 
-
         </div>
+
+        {/* Forgot Password Modal */}
+        {showForgotPasswordModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in select-none">
+            <div className="relative w-full max-w-md p-6 md:p-8 bg-white/95 backdrop-blur-xl rounded-3xl border border-white/80 shadow-2xl text-slate-900">
+              {/* Header */}
+              <div className="flex items-center space-x-3 border-b border-slate-100 pb-4 mb-5">
+                <div className="p-3 bg-sky-100 text-sky-700 rounded-2xl">
+                  <KeyRound className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 leading-snug">
+                    Reset Account Password
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    MMRCL NECPL PMIS Credential Recovery
+                  </p>
+                </div>
+              </div>
+
+              {forgotSubmitted ? (
+                <div className="space-y-4 text-center py-4">
+                  <div className="flex justify-center">
+                    <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full animate-bounce">
+                      <CheckCircle2 className="h-12 w-12" />
+                    </div>
+                  </div>
+                  <h4 className="text-base font-bold text-slate-900">
+                    Password Reset Successfully!
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-200 font-medium">
+                    Your password has been updated for User ID <strong className="text-slate-900">{forgotUserId}</strong>. You can now sign in using your new password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPasswordModal(false)}
+                    className="w-full py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-sm transition shadow-md"
+                  >
+                    Back to Sign In
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+                  {forgotErrorMsg && (
+                    <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-xs flex items-center shadow-sm">
+                      <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0 text-rose-600" />
+                      <span>{forgotErrorMsg}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                      User ID / Registered Email
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        value={forgotUserId}
+                        onChange={(e) => setForgotUserId(e.target.value)}
+                        className="appearance-none block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition"
+                        placeholder="Enter User ID (e.g. NECPL, MMRCL)"
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <User className="h-4 w-4" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                      New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showForgotNewPassword ? 'text' : 'password'}
+                        required
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        className="appearance-none block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition"
+                        placeholder="Enter new password"
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <Lock className="h-4 w-4" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotNewPassword(!showForgotNewPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                      >
+                        {showForgotNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                      Confirm New Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showForgotConfirmPassword ? 'text' : 'password'}
+                        required
+                        value={forgotConfirmPassword}
+                        onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                        className="appearance-none block w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition"
+                        placeholder="Re-enter new password"
+                      />
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <Lock className="h-4 w-4" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
+                      >
+                        {showForgotConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* CAPTCHA SECTION FOR RESET */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5 flex items-center justify-between">
+                      <span>Captcha Verification</span>
+                      <span className="text-[10px] text-slate-500 font-semibold uppercase">Case-insensitive</span>
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <div className="relative flex items-center justify-between px-3 py-2 bg-slate-900/90 border border-slate-700 rounded-xl shadow-inner select-none overflow-hidden min-w-[130px]">
+                        <svg className="absolute inset-0 w-full h-full opacity-35 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                          <line x1="0" y1="12" x2="100%" y2="28" stroke="#0ea5e9" strokeWidth="2" strokeDasharray="4 2" />
+                          <line x1="0" y1="32" x2="100%" y2="14" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="3 3" />
+                        </svg>
+                        <div className="relative z-10 font-mono text-base font-black tracking-widest text-slate-100 italic select-none pl-1" style={{ letterSpacing: '0.22em' }}>
+                          <span className="inline-block transform -skew-x-6 text-sky-400">{forgotCaptchaCode.slice(0, 2)}</span>
+                          <span className="inline-block transform skew-x-3 text-amber-300">{forgotCaptchaCode.slice(2, 4)}</span>
+                          <span className="inline-block transform -skew-x-3 text-emerald-400">{forgotCaptchaCode.slice(4, 6)}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={generateForgotCaptcha}
+                          className="relative z-10 ml-2 p-1 text-slate-400 hover:text-white rounded-lg transition"
+                          title="Refresh CAPTCHA"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        required
+                        name="forgotCaptchaInput"
+                        autoComplete="off"
+                        value={forgotCaptchaInput}
+                        onChange={(e) => setForgotCaptchaInput(e.target.value)}
+                        className="appearance-none block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-bold tracking-wider transition"
+                        placeholder="Enter Code"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPasswordModal(false)}
+                      className="w-1/2 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={forgotLoading}
+                      className="w-1/2 py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-sm transition flex justify-center items-center shadow-md shadow-sky-600/20"
+                    >
+                      {forgotLoading ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Reset Password'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
