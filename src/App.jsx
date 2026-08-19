@@ -40,7 +40,8 @@ import {
   Send,
   FolderKanban,
   KeyRound,
-  Mail
+  Mail,
+  LayoutDashboard
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -1542,6 +1543,7 @@ function App() {
   }
 
   const sidebarSections = [
+    { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'details', name: 'Project Details', icon: Building },
     { id: 'tender', name: 'Tender Documents', icon: FileText },
     { id: 'contractual', name: 'Contractual', icon: FileCheck },
@@ -1618,7 +1620,21 @@ function App() {
 
 
         <main className="flex-1 p-6 space-y-6 overflow-y-auto">
-          {activeSection === 'Project Details' ? (
+          {activeSection === 'Dashboard' ? (
+            <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
+              <div className="bg-white border border-slate-200 p-8 rounded-2xl shadow-sm text-center py-20 space-y-3">
+                <div className="flex justify-center">
+                  <div className="p-4 bg-sky-50 text-sky-600 rounded-2xl border border-sky-100">
+                    <LayoutDashboard className="h-10 w-10" />
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">PMIS Dashboard</h3>
+                <p className="text-sm text-slate-500 max-w-md mx-auto">
+                  Dashboard section is currently blank. Ready for custom widgets & analytics.
+                </p>
+              </div>
+            </div>
+          ) : activeSection === 'Project Details' ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
               {/* Header Title Banner with Partner Logos */}
               <div className="flex justify-between items-center bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-x-6">
