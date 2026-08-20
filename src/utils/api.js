@@ -187,6 +187,26 @@ export const generalDocsAPI = {
   updateRemark: async (section, id, remark) => {
     const response = await api.put(`/api/${section}/${id}/remark`, { remark });
     return response.data;
+  },
+  markRemarkRead: async (section, id) => {
+    const response = await api.put(`/api/${section}/${id}/remark/read`);
+    return response.data;
+  },
+  deleteRemark: async (section, id, remarkId) => {
+    const response = await api.delete(`/api/${section}/${id}/remark/${remarkId}`);
+    return response.data;
+  },
+  getAllUploads: async () => {
+    const response = await api.get('/api/tender/all-uploads');
+    return response.data;
+  },
+  markDocumentViewed: async (section, id) => {
+    const response = await api.put(`/api/${section}/${id}/viewed`);
+    return response.data;
+  },
+  markAllNotificationsRead: async () => {
+    const response = await api.put('/api/tender/mark-all-read');
+    return response.data;
   }
 };
 

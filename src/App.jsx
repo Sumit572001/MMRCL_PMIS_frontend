@@ -41,6 +41,8 @@ import {
   FolderKanban,
   KeyRound,
   Mail,
+  Trash2,
+  Bell,
   LayoutDashboard
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
@@ -167,6 +169,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'documents' | 'logs'
   const [matrixSearch, setMatrixSearch] = useState('');
   const [docSearch, setDocSearch] = useState('');
+  const [generalDocSearch, setGeneralDocSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
   // Tender Documents States
@@ -197,10 +200,58 @@ function App() {
   const [remarkText, setRemarkText] = useState('');
   const [remarkSaving, setRemarkSaving] = useState(false);
 
-  const handleOpenRemarkModal = (doc) => {
+  const currentUserId = currentUser ? (currentUser._id || currentUser.id || currentUser.userId || 'user').toString() : '';
+
+  const hasUnreadRemarks = (doc) => {
+    if (!doc || !doc.remarks || doc.remarks.length === 0) return false;
+    return doc.remarks.some(msg => {
+      const authorName = (msg.userName || '').toLowerCase();
+      const myName = (currentUser?.name || '').toLowerCase();
+      const myUserId = (currentUser?.userId || '').toLowerCase();
+      const isAuthor = (msg.user && msg.user.toString() === currentUserId) ||
+                       (authorName && authorName === myName) ||
+                       (authorName && authorName === myUserId);
+      if (isAuthor) return false;
+      if (!msg.readBy) return true;
+      return !msg.readBy.includes(currentUserId);
+    });
+  };
+
+  const handleOpenRemarkModal = async (doc) => {
     setSelectedDocForRemark(doc);
     setRemarkText('');
     setShowRemarkModal(true);
+
+    const apiSec = getApiSectionName(activeSection);
+    if (apiSec && doc._id) {
+      try {
+        const res = await generalDocsAPI.markRemarkRead(apiSec, doc._id);
+        if (res.success && res.data) {
+          setSelectedDocForRemark(res.data);
+          await fetchGeneralDocs();
+        }
+      } catch (err) {
+        console.error('Failed to mark remark read:', err);
+      }
+    }
+  };
+
+  const handleDeleteRemark = async (remarkId) => {
+    if (!selectedDocForRemark || !remarkId) return;
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec) return;
+
+    if (!window.confirm('Are you sure you want to delete this remark message?')) return;
+
+    try {
+      const res = await generalDocsAPI.deleteRemark(apiSec, selectedDocForRemark._id, remarkId);
+      if (res.success && res.data) {
+        setSelectedDocForRemark(res.data);
+        await fetchGeneralDocs();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete remark');
+    }
   };
 
   const handleSaveRemark = async (e) => {
@@ -224,6 +275,75 @@ function App() {
     } finally {
       setRemarkSaving(false);
     }
+  };
+
+  // Notification & Upload Tracking States
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [allRecentUploads, setAllRecentUploads] = useState([]);
+
+  const fetchAllUploads = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await generalDocsAPI.getAllUploads();
+      if (res.success && res.data) {
+        setAllRecentUploads(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch all uploads for notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchAllUploads();
+      const timer = setInterval(() => {
+        fetchAllUploads();
+      }, 8000);
+      return () => clearInterval(timer);
+    }
+  }, [currentUser]);
+
+  const isDocumentUnviewed = (doc) => {
+    if (!doc) return false;
+    if (!doc.viewedBy) return true;
+    return !doc.viewedBy.includes(currentUserId);
+  };
+
+  const unviewedUploadsCount = allRecentUploads.filter(isDocumentUnviewed).length;
+
+  const handleMarkDocumentViewed = async (doc) => {
+    if (!doc || !doc._id) return;
+    const secName = doc.section || activeSection;
+    const apiSec = getApiSectionName(secName);
+    if (!apiSec) return;
+
+    try {
+      await generalDocsAPI.markDocumentViewed(apiSec, doc._id);
+      fetchGeneralDocs();
+      fetchAllUploads();
+    } catch (err) {
+      console.error('Failed to mark document viewed:', err);
+    }
+  };
+
+  const handleSelectNotification = async (doc) => {
+    setShowNotificationPanel(false);
+    handleMarkDocumentViewed(doc);
+
+    const mappedSec = doc.section === 'tender' ? 'Tender Documents'
+      : doc.section === 'contractual' ? 'Contractual'
+      : doc.section === 'drawing' ? 'Project Drawings'
+      : doc.section === 'monitor' ? 'Project Monitoring & Control'
+      : doc.section === 'quality' ? 'Quality Management'
+      : doc.section === 'ehs' ? 'Environment, Health, and Safety (EHS)'
+      : doc.section === 'mep' ? 'MEP'
+      : doc.section === 'registrations' ? 'Project Documents & Registration'
+      : doc.section;
+
+    if (mappedSec && activeSection !== mappedSec) {
+      setActiveSection(mappedSec);
+    }
+    handleViewGeneralDoc(doc);
   };
 
   // File Preview Modal States
@@ -596,23 +716,24 @@ function App() {
   ];
 
   const getApiSectionName = (secName) => {
-    switch (secName) {
-      case 'Tender Documents': return 'tender';
-      case 'Contractual': return 'contractual';
-      case 'Project Monitoring & Control': return 'monitor';
-      case 'Project Drawings': return 'drawing';
-      case 'Quality Management': return 'quality';
-      case 'Environment, Health, and Safety (EHS)': return 'ehs';
-      case 'MEP': return 'mep';
-      case 'Project Documents & Registration': return 'registrations';
-      default: return '';
-    }
+    if (!secName) return '';
+    const lower = secName.toLowerCase();
+    if (lower === 'tender documents' || lower === 'tender') return 'tender';
+    if (lower === 'contractual') return 'contractual';
+    if (lower === 'project monitoring & control' || lower === 'monitor') return 'monitor';
+    if (lower === 'project drawings' || lower === 'drawing') return 'drawing';
+    if (lower === 'quality management' || lower === 'quality') return 'quality';
+    if (lower.includes('ehs') || lower.includes('safety')) return 'ehs';
+    if (lower === 'mep') return 'mep';
+    if (lower.includes('registration') || lower === 'registrations') return 'registrations';
+    return lower;
   };
 
   // Fetch general documents and folders when active section changes
   useEffect(() => {
     if (generalDocSections.includes(activeSection) && currentUser) {
       setFolderPath([]); // Reset folder path when switching sections
+      setGeneralDocSearch(''); // Reset search filter when switching sections
       fetchGeneralDocs();
     }
   }, [activeSection, currentUser]);
@@ -738,7 +859,8 @@ function App() {
   };
 
   const handleDownloadGeneralDoc = (doc) => {
-    const apiSec = getApiSectionName(activeSection);
+    handleMarkDocumentViewed(doc);
+    const apiSec = getApiSectionName(doc.section || activeSection);
     if (!apiSec) return;
     const url = generalDocsAPI.getDownloadUrl(apiSec, doc._id);
     handleDownloadSecureFile(url, doc.originalName || doc.name);
@@ -786,7 +908,8 @@ function App() {
   };
 
   const handleViewGeneralDoc = (doc) => {
-    const apiSec = getApiSectionName(activeSection);
+    handleMarkDocumentViewed(doc);
+    const apiSec = getApiSectionName(doc.section || activeSection);
     if (!apiSec) return;
     const viewUrl = generalDocsAPI.getViewUrl(apiSec, doc._id);
     const downloadUrl = generalDocsAPI.getDownloadUrl(apiSec, doc._id);
@@ -860,9 +983,11 @@ function App() {
 
   // Filter document register based on search and status
   const filteredDocs = documents.filter(doc => {
-    const matchSearch = doc.title.toLowerCase().includes(docSearch.toLowerCase()) ||
-      doc.documentNumber.toLowerCase().includes(docSearch.toLowerCase()) ||
-      doc.submittalMatrixId?.name.toLowerCase().includes(docSearch.toLowerCase());
+    const q = docSearch.toLowerCase();
+    const matchSearch = doc.title.toLowerCase().includes(q) ||
+      doc.documentNumber.toLowerCase().includes(q) ||
+      doc.submittalMatrixId?.name.toLowerCase().includes(q) ||
+      (doc.versions && doc.versions.some(v => v.originalName && v.originalName.toLowerCase().includes(q)));
 
     if (statusFilter === 'All') return matchSearch;
     if (statusFilter === 'Pending') return matchSearch && doc.status === 'Pending Engineer Review';
@@ -1574,6 +1699,7 @@ function App() {
             {sidebarSections.map((sec) => {
               const IconComp = sec.icon;
               const isActive = activeSection === sec.name;
+              const sectionHasUnread = (activeSection === sec.name && tenderDocs.some(hasUnreadRemarks));
               return (
                 <button
                   key={sec.id}
@@ -1585,6 +1711,12 @@ function App() {
                 >
                   {isActive && (
                     <span className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r bg-sky-500"></span>
+                  )}
+                  {sectionHasUnread && (
+                    <span className="absolute right-2 top-3 flex h-2.5 w-2.5" title="New Unread Remark in this Section">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                    </span>
                   )}
                   <IconComp className={`h-4 w-4 flex-shrink-0 transition-colors duration-200 mt-0.5 ${isActive ? 'text-sky-600' : 'text-slate-400 group-hover:text-slate-555'
                     }`} />
@@ -1636,8 +1768,8 @@ function App() {
             </div>
           ) : activeSection === 'Project Details' ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
-              {/* Header Title Banner with Partner Logos */}
-              <div className="flex justify-between items-center bg-white border border-slate-200 p-6 rounded-2xl shadow-sm space-x-6">
+              {/* Header Title Banner with Partner Logos & Notification Bell */}
+              <div className="sticky top-0 z-40 flex justify-between items-center bg-white/95 backdrop-blur-md border border-slate-200 p-6 rounded-2xl shadow-md space-x-6">
                 {/* Left Logo (MMRCL) */}
                 <div className="flex-shrink-0">
                   <img
@@ -1655,13 +1787,130 @@ function App() {
                     Project Management & Monitoring Portal
                   </p>
                 </div>
-                {/* Right Logo (NYATI) */}
-                <div className="flex-shrink-0">
+                {/* Right Area: Nyati Logo + Notification Bell */}
+                <div className="flex items-center space-x-4 flex-shrink-0">
                   <img
                     src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAGavyGhFQr76WetCwQPPqyKRjiAKfgJFBiNxZlNlzO_J75_6Un9uDyaI&s=10"
                     alt="Nyati Group Logo"
                     className="h-20 w-auto object-contain rounded-lg"
                   />
+
+                  {/* Notification Bell Button */}
+                  <div className="relative z-50">
+                    <button
+                      onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+                      className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition border border-slate-200 cursor-pointer relative shadow-sm"
+                      title="View Document Upload Notifications"
+                    >
+                      <Bell className="h-5 w-5 text-slate-700" />
+                      {unviewedUploadsCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-5 w-5 bg-rose-600 text-white text-[10px] font-black items-center justify-center shadow-sm">
+                            {unviewedUploadsCount}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Floating Notifications Dropdown */}
+                    {showNotificationPanel && (
+                      <div className="absolute right-0 top-14 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
+                        {/* Header */}
+                        <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Bell className="h-4 w-4 text-sky-400" />
+                            <h4 className="font-bold text-xs">New Upload Notifications</h4>
+                            {unviewedUploadsCount > 0 && (
+                              <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold">
+                                {unviewedUploadsCount} Unread
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {unviewedUploadsCount > 0 && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await generalDocsAPI.markAllNotificationsRead();
+                                    await fetchAllUploads();
+                                    await fetchGeneralDocs();
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }}
+                                className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded text-[10px] font-bold transition cursor-pointer"
+                                title="Mark all notifications as read"
+                              >
+                                Clear All
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setShowNotificationPanel(false)}
+                              className="text-slate-400 hover:text-white p-1 rounded-lg text-xs font-bold"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* List */}
+                        <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+                          {allRecentUploads.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400 space-y-2">
+                              <Bell className="h-8 w-8 mx-auto text-slate-300 stroke-1" />
+                              <p className="text-xs font-semibold">No recent document uploads</p>
+                            </div>
+                          ) : (
+                            allRecentUploads.map((doc) => {
+                              const isUnviewed = isDocumentUnviewed(doc);
+                              const uploader = doc.uploadedBy?.name || 'User';
+                              const folderDisplayName = doc.folderName || doc.folder;
+                              return (
+                                <div
+                                  key={doc._id}
+                                  onClick={() => handleSelectNotification(doc)}
+                                  className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-emerald-50/80 border-l-4 border-l-emerald-500' : 'bg-white'}`}
+                                >
+                                  <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${isUnviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                    <FileText className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={doc.name}>{doc.name}</h5>
+                                      {isUnviewed && (
+                                        <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                                          NEW
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Section & Folder info */}
+                                    <div className="flex items-center flex-wrap gap-1 text-[10px]">
+                                      <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-semibold border border-sky-200">
+                                        📂 Section: {doc.section || 'General'}
+                                      </span>
+                                      {folderDisplayName && folderDisplayName !== 'Root' && (
+                                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-semibold border border-amber-200">
+                                          📁 Folder: {folderDisplayName}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
+                                      <span>By: <strong className="text-slate-700">{uploader}</strong></span>
+                                      <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1840,7 +2089,7 @@ function App() {
                   }}
                 />
               )}
-              <div className="flex justify-between items-center bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <div className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/95 backdrop-blur-md p-5 rounded-xl border border-slate-200 shadow-md gap-4">
                 <div className="flex items-center space-x-3">
                   {folderPath.length > 0 && (
                     <button
@@ -1856,16 +2105,156 @@ function App() {
                     <p className="text-xs text-slate-500 mt-0.5">Browse and manage packages, files, and documents for {activeSection}</p>
                   </div>
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex items-center space-x-2 w-full md:w-auto">
+                  {/* Search Box for PDFs / Documents */}
+                  <div className="relative flex-1 md:w-72">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search className="h-4 w-4 text-slate-400" />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder={selectedTenderFolder ? `Search in "${selectedTenderFolder}"...` : `Search files in Root...`}
+                      value={generalDocSearch}
+                      onChange={(e) => setGeneralDocSearch(e.target.value)}
+                      className="pl-9 pr-8 py-2 block w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs focus:bg-white transition"
+                    />
+                    {generalDocSearch && (
+                      <button
+                        onClick={() => setGeneralDocSearch('')}
+                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700 font-bold text-xs"
+                        title="Clear Search"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Notification Bell Button */}
+                  <div className="relative z-50">
+                    <button
+                      onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+                      className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition border border-slate-200 cursor-pointer relative"
+                      title="View Document Upload Notifications"
+                    >
+                      <Bell className="h-4 w-4 text-slate-600" />
+                      {unviewedUploadsCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-600 text-white text-[9px] font-black items-center justify-center shadow-sm">
+                            {unviewedUploadsCount}
+                          </span>
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Floating Notifications Dropdown (z-[9999] floats over all cards) */}
+                    {showNotificationPanel && (
+                      <div className="absolute right-0 top-11 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Bell className="h-4 w-4 text-sky-400" />
+                            <h4 className="font-bold text-xs">New Upload Notifications</h4>
+                            {unviewedUploadsCount > 0 && (
+                              <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold">
+                                {unviewedUploadsCount} Unread
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {unviewedUploadsCount > 0 && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await generalDocsAPI.markAllNotificationsRead();
+                                    await fetchAllUploads();
+                                    await fetchGeneralDocs();
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }}
+                                className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded text-[10px] font-bold transition cursor-pointer"
+                                title="Mark all notifications as read"
+                              >
+                                Clear All
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setShowNotificationPanel(false)}
+                              className="text-slate-400 hover:text-white p-1 rounded-lg text-xs font-bold"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* List */}
+                        <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+                          {allRecentUploads.length === 0 ? (
+                            <div className="p-8 text-center text-slate-400 space-y-2">
+                              <Bell className="h-8 w-8 mx-auto text-slate-300 stroke-1" />
+                              <p className="text-xs font-semibold">No recent document uploads</p>
+                            </div>
+                          ) : (
+                            allRecentUploads.map((doc) => {
+                              const isUnviewed = isDocumentUnviewed(doc);
+                              const uploader = doc.uploadedBy?.name || 'User';
+                              const folderDisplayName = doc.folderName || doc.folder;
+                              return (
+                                <div
+                                  key={doc._id}
+                                  onClick={() => handleSelectNotification(doc)}
+                                  className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-emerald-50/80 border-l-4 border-l-emerald-500' : 'bg-white'}`}
+                                >
+                                  <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${isUnviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                    <FileText className="h-4 w-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={doc.name}>{doc.name}</h5>
+                                      {isUnviewed && (
+                                        <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                                          NEW
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Section & Folder info */}
+                                    <div className="flex items-center flex-wrap gap-1 text-[10px]">
+                                      <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-semibold border border-sky-200">
+                                        📂 Section: {doc.section || 'General'}
+                                      </span>
+                                      {folderDisplayName && folderDisplayName !== 'Root' && (
+                                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-semibold border border-amber-200">
+                                          📁 Folder: {folderDisplayName}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
+                                      <span>By: <strong className="text-slate-700">{uploader}</strong></span>
+                                      <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     onClick={() => setShowTenderFolderModal(true)}
-                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm"
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm whitespace-nowrap"
                   >
                     <Folder className="mr-1.5 h-4 w-4 fill-current text-white" /> Create Folder
                   </button>
                   <button
                     onClick={() => setShowTenderUploadModal(true)}
-                    className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm"
+                    className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm whitespace-nowrap"
                   >
                     <UploadCloud className="mr-1.5 h-4 w-4" /> Upload File
                   </button>
@@ -1882,9 +2271,12 @@ function App() {
 
                   {/* Folders Grid and Files Table at current path level */}
                   {(() => {
-                    const currentFolders = tenderFolders.filter(f => f.parentFolder === selectedTenderFolderId);
+                    const q = generalDocSearch.trim().toLowerCase();
+                    const isSearching = Boolean(q);
+
+                    let currentFolders = tenderFolders.filter(f => f.parentFolder === selectedTenderFolderId);
                     const targetFolderRef = selectedTenderFolderId || 'Root';
-                    const currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                    let currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
                     const isFullRights = currentUser && (
                       currentUser.role === 'Site Engineer' ||
                       (currentUser.userId && currentUser.userId.toUpperCase() === 'NECPL') ||
@@ -1892,10 +2284,37 @@ function App() {
                       (currentUser.name && currentUser.name.toUpperCase().includes('NECPL'))
                     );
 
+                    if (isSearching) {
+                      currentFolders = currentFolders.filter(f => f.name.toLowerCase().includes(q));
+                      currentFiles = currentFiles.filter(d =>
+                        (d.name && d.name.toLowerCase().includes(q)) ||
+                        (d.originalName && d.originalName.toLowerCase().includes(q))
+                      );
+                    }
+
                     if (currentFolders.length === 0 && currentFiles.length === 0) {
                       return (
-                        <div className="text-center py-20 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-400 font-semibold italic text-sm">
-                          This folder is empty. Create a folder or upload a file to begin!
+                        <div className="text-center py-20 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
+                          {isSearching ? (
+                            <>
+                              <div className="flex justify-center text-slate-400">
+                                <Search className="h-10 w-10 stroke-1" />
+                              </div>
+                              <p className="text-slate-600 font-semibold text-sm">
+                                No files or folders matching "{generalDocSearch}" found inside {selectedTenderFolder ? `"${selectedTenderFolder}"` : 'Root'}.
+                              </p>
+                              <button
+                                onClick={() => setGeneralDocSearch('')}
+                                className="px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-600 border border-sky-200 font-semibold rounded-xl text-xs transition"
+                              >
+                                Clear Search Filter
+                              </button>
+                            </>
+                          ) : (
+                            <p className="text-slate-400 font-semibold italic text-sm">
+                              This folder is empty. Create a folder or upload a file to begin!
+                            </p>
+                          )}
                         </div>
                       );
                     }
@@ -1907,19 +2326,37 @@ function App() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
                             {currentFolders.map(folder => {
                               const folderName = folder.name;
-                              const count = tenderDocs.filter(d => d.folder === folder._id || d.folder === folderName).length;
+                              const folderDocs = tenderDocs.filter(d => d.folder === folder._id || d.folder === folderName);
+                              const count = folderDocs.length;
+                              const folderHasUnread = folderDocs.some(hasUnreadRemarks);
                               return (
                                 <div
                                   key={folder._id}
-                                  onClick={() => setFolderPath(prev => [...prev, folder])}
+                                  onClick={() => {
+                                    if (isSearching) setGeneralDocSearch('');
+                                    setFolderPath(prev => [...prev, folder]);
+                                  }}
                                   className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white hover:border-sky-400 hover:shadow-md cursor-pointer transition duration-200 flex items-start justify-between shadow-sm group relative z-20"
                                 >
                                   <div className="flex items-start space-x-4">
-                                    <div className="p-4 bg-amber-50 text-amber-500 rounded-2xl group-hover:bg-amber-100 transition flex-shrink-0">
+                                    <div className="p-4 bg-amber-50 text-amber-500 rounded-2xl group-hover:bg-amber-100 transition flex-shrink-0 relative">
                                       <Folder className="h-8 w-8 fill-current" />
+                                      {folderHasUnread && (
+                                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-600"></span>
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="space-y-1 flex-1 min-w-0">
-                                      <h4 className="font-bold text-slate-900 text-base group-hover:text-sky-600 transition whitespace-normal break-words leading-tight" title={folderName}>{folderName}</h4>
+                                      <div className="flex items-center space-x-2">
+                                        <h4 className="font-bold text-slate-900 text-base group-hover:text-sky-600 transition whitespace-normal break-words leading-tight" title={folderName}>{folderName}</h4>
+                                        {folderHasUnread && (
+                                          <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 text-[10px] font-bold rounded-full animate-pulse">
+                                            New Remark
+                                          </span>
+                                        )}
+                                      </div>
                                       <p className="text-xs text-slate-500 font-semibold">{count} {count === 1 ? 'document' : 'documents'} inside</p>
                                     </div>
                                   </div>
@@ -1965,10 +2402,20 @@ function App() {
                         {/* Files Table */}
                         {currentFiles.length > 0 && (
                           <div className="space-y-4 pt-6 border-t border-slate-100">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                {selectedTenderFolder ? `Files inside "${selectedTenderFolder}"` : 'Files (At Root)'}
+                                {isSearching
+                                  ? `Search Results in ${selectedTenderFolder ? `"${selectedTenderFolder}"` : 'Root'} (${currentFiles.length} ${currentFiles.length === 1 ? 'file' : 'files'} found)`
+                                  : selectedTenderFolder ? `Files inside "${selectedTenderFolder}"` : 'Files (At Root)'}
                               </span>
+                              {isSearching && (
+                                <button
+                                  onClick={() => setGeneralDocSearch('')}
+                                  className="text-xs text-sky-600 hover:text-sky-700 font-semibold transition cursor-pointer"
+                                >
+                                  Clear Search
+                                </button>
+                              )}
                             </div>
 
                             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm min-h-[220px] pb-12">
@@ -1984,21 +2431,36 @@ function App() {
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                  {currentFiles.map((doc, docIndex) => (
-                                    <tr key={doc._id} className="hover:bg-slate-50/50 transition">
-                                      <td className="px-6 py-4 font-semibold text-slate-800 flex items-center space-x-3 min-w-0">
-                                        <File className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                                        <div className="min-w-0 flex-1">
-                                          <button
-                                            onClick={() => handleViewGeneralDoc(doc)}
-                                            className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate block max-w-sm md:max-w-md"
-                                            title={doc.name}
-                                          >
-                                            {doc.name}
-                                          </button>
-                                          <span className="block text-[10px] text-slate-400 font-mono mt-0.5 whitespace-nowrap truncate max-w-sm md:max-w-md" title={doc.originalName}>{doc.originalName}</span>
-                                        </div>
-                                      </td>
+                                  {currentFiles.map((doc, docIndex) => {
+                                    const isUnviewed = isDocumentUnviewed(doc);
+                                    return (
+                                      <tr
+                                        key={doc._id}
+                                        className={`transition ${isUnviewed
+                                          ? 'bg-emerald-50/80 hover:bg-emerald-100/80 border-l-4 border-l-emerald-500 font-medium'
+                                          : 'hover:bg-slate-50/50'
+                                          }`}
+                                      >
+                                        <td className="px-6 py-4 font-semibold text-slate-800 flex items-center space-x-3 min-w-0">
+                                          <File className={`h-4 w-4 flex-shrink-0 ${isUnviewed ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center space-x-2">
+                                              <button
+                                                onClick={() => handleViewGeneralDoc(doc)}
+                                                className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate block max-w-sm md:max-w-md"
+                                                title={doc.name}
+                                              >
+                                                {doc.name}
+                                              </button>
+                                              {isUnviewed && (
+                                                <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm flex-shrink-0 animate-pulse">
+                                                  NEW UPLOAD
+                                                </span>
+                                              )}
+                                            </div>
+                                            <span className="block text-[10px] text-slate-400 font-mono mt-0.5 whitespace-nowrap truncate max-w-sm md:max-w-md" title={doc.originalName}>{doc.originalName}</span>
+                                          </div>
+                                        </td>
                                       <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
                                         <span className="font-semibold block text-xs">{(doc.fileSize / 1024).toFixed(1)} KB</span>
                                         <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[140px]">{doc.mimeType}</span>
@@ -2017,21 +2479,30 @@ function App() {
                                             ? doc.remarks
                                             : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
                                           const msgCount = remarkList.length;
+                                          const isUnread = hasUnreadRemarks(doc);
 
                                           return (
                                             <button
                                               onClick={() => handleOpenRemarkModal(doc)}
-                                              className={`inline-flex items-center px-3 py-1.5 rounded-xl border transition shadow-sm font-semibold text-xs cursor-pointer relative group ${msgCount > 0
-                                                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
-                                                : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+                                              className={`inline-flex items-center px-3 py-1.5 rounded-xl border transition shadow-sm font-semibold text-xs cursor-pointer relative group ${isUnread
+                                                ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
+                                                : msgCount > 0
+                                                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                                                  : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
                                                 }`}
-                                              title={msgCount > 0 ? `Latest remark: "${remarkList[remarkList.length - 1].text}"` : 'Add Remark'}
+                                              title={isUnread ? 'New Unread Remark Message!' : (msgCount > 0 ? `Latest remark: "${remarkList[remarkList.length - 1].text}"` : 'Add Remark')}
                                             >
+                                              {isUnread && (
+                                                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+                                                </span>
+                                              )}
                                               {msgCount > 0 ? (
                                                 <>
-                                                  <MessageCircle className="mr-1.5 h-3.5 w-3.5 text-emerald-600 fill-emerald-100" />
+                                                  <MessageCircle className={`mr-1.5 h-3.5 w-3.5 ${isUnread ? 'text-rose-600 fill-rose-100' : 'text-emerald-600 fill-emerald-100'}`} />
                                                   <span>Remarks</span>
-                                                  <span className="ml-2 px-1.5 py-0.2 bg-emerald-600 text-white rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm">
+                                                  <span className={`ml-2 px-1.5 py-0.2 text-white rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm ${isUnread ? 'bg-rose-600' : 'bg-emerald-600'}`}>
                                                     {msgCount}
                                                   </span>
                                                 </>
@@ -2102,7 +2573,8 @@ function App() {
                                         </div>
                                       </td>
                                     </tr>
-                                  ))}
+                                  );
+                                })}
                                 </tbody>
                               </table>
                             </div>
@@ -2138,7 +2610,7 @@ function App() {
               {/* Matrix List Tab */}
               {activeTab === 'matrix' && (
                 <div className="space-y-4 animate-fade-in">
-                  <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="sticky top-0 z-20 flex justify-between items-center bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-md">
                     <div className="relative w-80">
                       <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Search className="h-4 w-4 text-slate-400" />
@@ -2260,7 +2732,7 @@ function App() {
               {/* Documents Register Tab */}
               {activeTab === 'documents' && (
                 <div className="space-y-4 animate-fade-in">
-                  <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm gap-4 flex-wrap">
+                  <div className="sticky top-0 z-20 flex justify-between items-center bg-white/95 backdrop-blur-md p-4 rounded-xl border border-slate-200 shadow-md gap-4 flex-wrap">
                     <div className="relative flex-1 max-w-sm">
                       <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Search className="h-4 w-4 text-slate-400" />
