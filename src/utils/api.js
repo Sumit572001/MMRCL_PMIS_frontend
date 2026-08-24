@@ -227,6 +227,37 @@ export const generalDocsAPI = {
   resetAllRemarks: async () => {
     const response = await api.put('/api/tender/reset-all-remarks');
     return response.data;
+  },
+  uploadSubDocument: async (section, id, formData) => {
+    const response = await api.post(`/api/${section}/${id}/sub-document`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+  renameSubDocument: async (section, id, subId, name) => {
+    const response = await api.put(`/api/${section}/${id}/sub-document/${subId}/rename`, { name });
+    return response.data;
+  },
+  deleteSubDocument: async (section, id, subId) => {
+    const response = await api.delete(`/api/${section}/${id}/sub-document/${subId}`);
+    return response.data;
+  },
+  addSubDocRemark: async (section, id, subId, payload) => {
+    const isFormData = payload instanceof FormData;
+    const response = await api.post(
+      `/api/${section}/${id}/sub-document/${subId}/remark`,
+      payload,
+      isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}
+    );
+    return response.data;
+  },
+  markSubDocRemarksRead: async (section, id, subId) => {
+    const response = await api.put(`/api/${section}/${id}/sub-document/${subId}/remark/read`);
+    return response.data;
+  },
+  clearSubDocRemarks: async (section, id, subId) => {
+    const response = await api.delete(`/api/${section}/${id}/sub-document/${subId}/remarks/clear-all`);
+    return response.data;
   }
 };
 

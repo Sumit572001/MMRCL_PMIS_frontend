@@ -46,7 +46,9 @@ import {
   LayoutDashboard,
   Paperclip,
   X,
-  Image
+  Image,
+  Plus,
+  ChevronDown
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -205,6 +207,100 @@ function App() {
   const [remarkSaving, setRemarkSaving] = useState(false);
   const remarkFileInputRef = useRef(null);
 
+  // Sub-Document / Revision Upload Modal State
+  const [showSubDocModal, setShowSubDocModal] = useState(false);
+  const [selectedParentDoc, setSelectedParentDoc] = useState(null);
+  const [subDocTitleInput, setSubDocTitleInput] = useState('');
+  const [subDocFileInput, setSubDocFileInput] = useState(null);
+  const [subDocSaving, setSubDocSaving] = useState(false);
+  const [expandedSubDocMap, setExpandedSubDocMap] = useState({});
+
+  const handleUploadSubDocument = async (e) => {
+    e.preventDefault();
+    if (!subDocFileInput) {
+      alert('Please select a file to upload');
+      return;
+    }
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !selectedParentDoc) return;
+
+    setSubDocSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', subDocFileInput);
+      if (subDocTitleInput.trim()) {
+        formData.append('name', subDocTitleInput.trim());
+      }
+
+      const res = await generalDocsAPI.uploadSubDocument(apiSec, selectedParentDoc._id, formData);
+      if (res.success) {
+        setExpandedSubDocMap(prev => ({ ...prev, [selectedParentDoc._id]: true }));
+        setShowSubDocModal(false);
+        setSelectedParentDoc(null);
+        setSubDocTitleInput('');
+        setSubDocFileInput(null);
+        await fetchGeneralDocs();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to upload sub-document');
+    } finally {
+      setSubDocSaving(false);
+    }
+  };
+
+  // Sub-Document menu, rename & delete state
+  const [activeSubFileMenuId, setActiveSubFileMenuId] = useState(null);
+  const [renameSubDocModal, setRenameSubDocModal] = useState(false);
+  const [selectedParentForSubRename, setSelectedParentForSubRename] = useState(null);
+  const [selectedSubDocForRename, setSelectedSubDocForRename] = useState(null);
+  const [subRenameNameInput, setSubRenameNameInput] = useState('');
+
+  const handleViewGeneralSubDoc = (parentDoc, subDoc) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !subDoc.filePath) return;
+    const url = generalDocsAPI.getDownloadUrl(apiSec, subDoc.filePath);
+    window.open(url, '_blank');
+  };
+
+  const handleDownloadGeneralSubDoc = (parentDoc, subDoc) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !subDoc.filePath) return;
+    const url = generalDocsAPI.getDownloadUrl(apiSec, subDoc.filePath);
+    window.open(url, '_blank');
+  };
+
+  const handleDeleteSubDocument = async (parentDocId, subDocId) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec) return;
+    try {
+      const res = await generalDocsAPI.deleteSubDocument(apiSec, parentDocId, subDocId);
+      if (res.success) {
+        await fetchGeneralDocs();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete sub-document');
+    }
+  };
+
+  const handleRenameSubDocumentSubmit = async (e) => {
+    e.preventDefault();
+    if (!subRenameNameInput.trim() || !selectedParentForSubRename || !selectedSubDocForRename) return;
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec) return;
+    try {
+      const res = await generalDocsAPI.renameSubDocument(apiSec, selectedParentForSubRename._id, selectedSubDocForRename._id, subRenameNameInput.trim());
+      if (res.success) {
+        setRenameSubDocModal(false);
+        setSelectedParentForSubRename(null);
+        setSelectedSubDocForRename(null);
+        setSubRenameNameInput('');
+        await fetchGeneralDocs();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to rename sub-document');
+    }
+  };
+
   const currentUserId = currentUser ? (currentUser._id || currentUser.id || currentUser.userId || 'user').toString() : '';
 
   const hasUnreadRemarks = (doc) => {
@@ -238,24 +334,66 @@ function App() {
   };
 
   const handleClearDocumentRemarks = async () => {
-    if (!selectedDocForRemark) return;
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec) return;
 
     if (!window.confirm('Are you sure you want to clear all chat messages for this document?')) return;
 
     try {
-      const res = await generalDocsAPI.clearDocumentRemarks(apiSec, selectedDocForRemark._id);
-      if (res.success && res.data) {
-        setSelectedDocForRemark(res.data);
-        await fetchGeneralDocs();
+      if (selectedSubDocForRemark && selectedParentForSubRemark) {
+        const res = await generalDocsAPI.clearSubDocRemarks(apiSec, selectedParentForSubRemark._id, selectedSubDocForRemark._id);
+        if (res.success && res.data) {
+          const updatedSub = (res.data.subDocuments || []).find(s => s._id.toString() === selectedSubDocForRemark._id.toString());
+          if (updatedSub) setSelectedSubDocForRemark(updatedSub);
+          await fetchGeneralDocs();
+        }
+        return;
+      }
+
+      if (selectedDocForRemark) {
+        const res = await generalDocsAPI.clearDocumentRemarks(apiSec, selectedDocForRemark._id);
+        if (res.success && res.data) {
+          setSelectedDocForRemark(res.data);
+          await fetchGeneralDocs();
+        }
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to clear remarks');
     }
   };
 
+  const handleOpenSubDocRemarkModal = (parentDoc, subDoc, e) => {
+    if (e) e.stopPropagation();
+    setSelectedDocForRemark(null);
+    setSelectedParentForSubRemark(parentDoc);
+    setSelectedSubDocForRemark(subDoc);
+    setRemarkText('');
+    setRemarkFile(null);
+    if (remarkFileInputRef.current) {
+      remarkFileInputRef.current.value = '';
+    }
+    setShowRemarkModal(true);
+
+    // Mark remarks as read in background (don't block modal opening)
+    const apiSec = getApiSectionName(activeSection);
+    if (apiSec && parentDoc._id && subDoc._id) {
+      generalDocsAPI.markSubDocRemarksRead(apiSec, parentDoc._id, subDoc._id)
+        .then(res => {
+          if (res && res.success && res.data) {
+            const freshSub = (res.data.subDocuments || []).find(
+              s => (s._id || s.id).toString() === (subDoc._id || subDoc.id).toString()
+            );
+            if (freshSub) setSelectedSubDocForRemark(freshSub);
+            fetchGeneralDocs();
+          }
+        })
+        .catch(err => console.error('Failed to mark sub-doc remark read:', err));
+    }
+  };
+
   const handleOpenRemarkModal = async (doc) => {
+    setSelectedSubDocForRemark(null);
+    setSelectedParentForSubRemark(null);
     setSelectedDocForRemark(doc);
     setRemarkText('');
     setRemarkFile(null);
@@ -315,12 +453,37 @@ function App() {
 
   const handleSaveRemark = async (e) => {
     if (e) e.preventDefault();
-    if (!selectedDocForRemark || (!remarkText.trim() && !remarkFile)) return;
+    if ((!selectedDocForRemark && !selectedSubDocForRemark) || (!remarkText.trim() && !remarkFile)) return;
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec) return;
 
     setRemarkSaving(true);
     try {
+      if (selectedSubDocForRemark && selectedParentForSubRemark) {
+        let payload;
+        if (remarkFile) {
+          payload = new FormData();
+          if (remarkText.trim()) payload.append('text', remarkText.trim());
+          payload.append('attachments', remarkFile);
+        } else {
+          payload = { text: remarkText.trim() };
+        }
+        const res = await generalDocsAPI.addSubDocRemark(apiSec, selectedParentForSubRemark._id, selectedSubDocForRemark._id, payload);
+        if (res.success) {
+          setRemarkText('');
+          setRemarkFile(null);
+          if (remarkFileInputRef.current) {
+            remarkFileInputRef.current.value = '';
+          }
+          if (res.data) {
+            const updatedSub = (res.data.subDocuments || []).find(s => s._id.toString() === selectedSubDocForRemark._id.toString());
+            if (updatedSub) setSelectedSubDocForRemark(updatedSub);
+          }
+          await fetchGeneralDocs();
+        }
+        return;
+      }
+
       let payload;
       if (remarkFile) {
         payload = new FormData();
@@ -343,7 +506,7 @@ function App() {
         await fetchGeneralDocs();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to post remark');
+      alert(err.response?.data?.message || 'Failed to save remark');
     } finally {
       setRemarkSaving(false);
     }
@@ -2472,106 +2635,127 @@ function App() {
                         )}
 
                         {/* Files Table */}
-                        {currentFiles.length > 0 && (
-                          <div className="space-y-4 pt-6 border-t border-slate-100">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                {isSearching
-                                  ? `Search Results in ${selectedTenderFolder ? `"${selectedTenderFolder}"` : 'Root'} (${currentFiles.length} ${currentFiles.length === 1 ? 'file' : 'files'} found)`
-                                  : selectedTenderFolder ? `Files inside "${selectedTenderFolder}"` : 'Files (At Root)'}
-                              </span>
-                              {isSearching && (
-                                <button
-                                  onClick={() => setGeneralDocSearch('')}
-                                  className="text-xs text-sky-600 hover:text-sky-700 font-semibold transition cursor-pointer"
-                                >
-                                  Clear Search
-                                </button>
-                              )}
-                            </div>
+                        {currentFiles.length > 0 && (() => {
+                          const showRemarkAndApproval = activeSection !== 'Tender Documents' && activeSection !== 'Contractual';
+                          return (
+                            <div className="space-y-4 pt-6 border-t border-slate-100">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                  {isSearching
+                                    ? `Search Results in ${selectedTenderFolder ? `"${selectedTenderFolder}"` : 'Root'} (${currentFiles.length} ${currentFiles.length === 1 ? 'file' : 'files'} found)`
+                                    : selectedTenderFolder ? `Files inside "${selectedTenderFolder}"` : 'Files (At Root)'}
+                                </span>
+                                {isSearching && (
+                                  <button
+                                    onClick={() => setGeneralDocSearch('')}
+                                    className="text-xs text-sky-600 hover:text-sky-700 font-semibold transition cursor-pointer"
+                                  >
+                                    Clear Search
+                                  </button>
+                                )}
+                              </div>
 
-                            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm min-h-[220px] pb-12">
-                              <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
-                                <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
-                                  <tr>
-                                    <th scope="col" className="px-6 py-4 whitespace-nowrap">Document Title</th>
-                                    <th scope="col" className="px-6 py-4 whitespace-nowrap">File Info</th>
-                                    <th scope="col" className="px-6 py-4 whitespace-nowrap">Uploaded By</th>
-                                    <th scope="col" className="px-6 py-4 whitespace-nowrap">Upload Date</th>
-                                    <th scope="col" className="px-6 py-4 whitespace-nowrap text-center">Remark</th>
-                                    <th scope="col" className="px-6 py-4 whitespace-nowrap text-right">Action</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                  {currentFiles.map((doc, docIndex) => {
-                                    const isUnviewed = isDocumentUnviewed(doc);
-                                    return (
-                                      <tr
-                                        key={doc._id}
-                                        className={`transition ${isUnviewed
-                                          ? 'bg-emerald-50/80 hover:bg-emerald-100/80 border-l-4 border-l-emerald-500 font-medium'
-                                          : 'hover:bg-slate-50/50'
-                                          }`}
-                                      >
-                                        <td className="px-6 py-4 font-semibold text-slate-800 flex items-center space-x-3 min-w-0">
-                                          <File className={`h-4 w-4 flex-shrink-0 ${isUnviewed ? 'text-emerald-600' : 'text-slate-400'}`} />
-                                          <div className="min-w-0 flex-1">
-                                            <div className="flex items-center space-x-2">
-                                              <button
-                                                onClick={() => handleViewGeneralDoc(doc)}
-                                                className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate block max-w-sm md:max-w-md"
-                                                title={doc.name}
-                                              >
-                                                {doc.name}
-                                              </button>
-                                              {isUnviewed && (
-                                                <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm flex-shrink-0 animate-pulse">
-                                                  NEW UPLOAD
-                                                </span>
-                                              )}
+                              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm min-h-[220px] pb-12">
+                                <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
+                                    <tr>
+                                      <th scope="col" className={`px-6 py-4 whitespace-nowrap ${showRemarkAndApproval ? 'w-1/3' : 'w-2/5'}`}>Document Title</th>
+                                      <th scope="col" className={`px-6 py-4 whitespace-nowrap ${showRemarkAndApproval ? 'w-[12%]' : 'w-1/5'}`}>File Info</th>
+                                      <th scope="col" className={`px-6 py-4 whitespace-nowrap ${showRemarkAndApproval ? 'w-[12%]' : 'w-1/5'}`}>Uploaded By</th>
+                                      <th scope="col" className={`px-6 py-4 whitespace-nowrap ${showRemarkAndApproval ? 'w-[12%]' : 'w-1/5'}`}>Upload Date</th>
+                                      {showRemarkAndApproval && (
+                                        <>
+                                          <th scope="col" className="px-6 py-4 whitespace-nowrap text-center w-[11%]">Remark</th>
+                                          <th scope="col" className="px-6 py-4 whitespace-nowrap text-center w-[10%]">Approval</th>
+                                        </>
+                                      )}
+                                      <th scope="col" className="px-6 py-4 whitespace-nowrap text-right"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {currentFiles.map((doc, docIndex) => {
+                                      const isUnviewed = isDocumentUnviewed(doc);
+                                      return (
+                                        <React.Fragment key={doc._id}>
+                                          <tr
+                                            className={`transition ${isUnviewed
+                                              ? 'bg-emerald-50/80 hover:bg-emerald-100/80 border-l-4 border-l-emerald-500 font-medium'
+                                              : 'hover:bg-slate-50/50'
+                                              }`}
+                                          >
+                                            <td className="px-6 py-4 font-semibold text-slate-800 flex items-center space-x-3 min-w-0">
+                                              <File className={`h-4 w-4 flex-shrink-0 ${isUnviewed ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                              <div className="min-w-0 flex-1">
+                                                <div className="flex items-center space-x-2">
+                                                  <button
+                                                    onClick={() => handleViewGeneralDoc(doc)}
+                                                    className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate block max-w-sm md:max-w-md"
+                                                    title={doc.name}
+                                                  >
+                                                    {doc.name}
+                                                  </button>
+                                                {isUnviewed && (
+                                                  <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm flex-shrink-0 animate-pulse">
+                                                    NEW UPLOAD
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <span className="block text-[10px] text-slate-400 font-mono mt-0.5 whitespace-nowrap truncate max-w-sm md:max-w-md" title={doc.originalName}>{doc.originalName}</span>
                                             </div>
-                                            <span className="block text-[10px] text-slate-400 font-mono mt-0.5 whitespace-nowrap truncate max-w-sm md:max-w-md" title={doc.originalName}>{doc.originalName}</span>
-                                          </div>
-                                        </td>
-                                      <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
-                                        <span className="font-semibold block text-xs">{(doc.fileSize / 1024).toFixed(1)} KB</span>
-                                        <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[140px]">{doc.mimeType}</span>
-                                      </td>
-                                      <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="font-semibold block text-slate-700 text-xs">
-                                          {doc.uploadedBy?.name && doc.uploadedBy.name !== 'System Seeded' ? doc.uploadedBy.name : 'NECPL'}
-                                        </span>
-                                      </td>
-                                      <td className="px-6 py-4 text-slate-600 text-xs font-medium whitespace-nowrap">
-                                        {new Date(doc.uploadedAt).toLocaleDateString()}
-                                      </td>
-                                      <td className="px-6 py-4 text-center whitespace-nowrap">
-                                        {(() => {
-                                          const remarkList = doc.remarks && doc.remarks.length > 0
-                                            ? doc.remarks
-                                            : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
-                                          const totalMsgCount = remarkList.length;
-                                          const unreadCount = getUnreadRemarksCount(doc);
+                                          </td>
+                                          <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
+                                            <span className="font-semibold block text-xs">{(doc.fileSize / 1024).toFixed(1)} KB</span>
+                                            <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[140px]">{doc.mimeType}</span>
+                                          </td>
+                                          <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="font-semibold block text-slate-700 text-xs">
+                                              {doc.uploadedBy?.name && doc.uploadedBy.name !== 'System Seeded' ? doc.uploadedBy.name : 'NECPL'}
+                                            </span>
+                                          </td>
+                                          <td className="px-6 py-4 text-slate-600 text-xs font-medium whitespace-nowrap">
+                                            {new Date(doc.uploadedAt).toLocaleDateString()}
+                                          </td>
+                                          {showRemarkAndApproval && (
+                                            <>
+                                              <td className="px-6 py-4 text-center whitespace-nowrap">
+                                                {(() => {
+                                                  const remarkList = doc.remarks && doc.remarks.length > 0
+                                                    ? doc.remarks
+                                                    : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
+                                                  const totalMsgCount = remarkList.length;
+                                                  const unreadCount = getUnreadRemarksCount(doc);
 
-                                          return (
-                                            <button
-                                              onClick={() => handleOpenRemarkModal(doc)}
-                                              className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
-                                              title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
-                                            >
-                                              <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
-                                              <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
-                                              {unreadCount > 0 && (
-                                                <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
-                                                  {unreadCount}
-                                                </span>
-                                              )}
-                                            </button>
-                                          );
-                                        })()}
-                                      </td>
+                                                  return (
+                                                    <button
+                                                      onClick={() => handleOpenRemarkModal(doc)}
+                                                      className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
+                                                      title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
+                                                    >
+                                                      <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
+                                                      <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                                      {unreadCount > 0 && (
+                                                        <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
+                                                          {unreadCount}
+                                                        </span>
+                                                      )}
+                                                    </button>
+                                                  );
+                                                })()}
+                                              </td>
+                                              <td className="px-6 py-4 text-center whitespace-nowrap">
+                                                <button
+                                                  type="button"
+                                                  className="inline-flex items-center px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition shadow-sm font-semibold text-xs cursor-pointer"
+                                                  title="Approval Status"
+                                                >
+                                                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                                                  <span>Approve</span>
+                                                </button>
+                                              </td>
+                                            </>
+                                          )}
                                       <td className="px-6 py-4 text-right whitespace-nowrap">
-                                        <div className="flex items-center justify-end space-x-2">
+                                        <div className="flex items-center justify-end space-x-3">
                                           <button
                                             onClick={() => handleDownloadGeneralDoc(doc)}
                                             className="inline-flex items-center px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 rounded-lg border border-slate-200 transition shadow-sm font-semibold text-xs"
@@ -2624,16 +2808,208 @@ function App() {
                                               </div>
                                             )}
                                           </div>
+
+                                          {/* Plus (+) Button for Uploading Sub-Document / Revision */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedParentDoc(doc);
+                                              setSubDocTitleInput('');
+                                              setSubDocFileInput(null);
+                                              setShowSubDocModal(true);
+                                            }}
+                                            className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 hover:text-sky-800 rounded-lg border border-sky-200 transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center"
+                                            title="Attach Sub-Document / New Revision"
+                                          >
+                                            <Plus className="h-4 w-4" />
+                                          </button>
+
+                                          {/* Dropdown Chevron toggle icon if parent doc has sub-documents */}
+                                          {doc.subDocuments && doc.subDocuments.length > 0 && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedSubDocMap(prev => ({ ...prev, [doc._id]: !prev[doc._id] }));
+                                              }}
+                                              className={`p-1.5 rounded-lg border transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center ${expandedSubDocMap[doc._id]
+                                                ? 'bg-slate-800 text-white border-slate-800'
+                                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                                                }`}
+                                              title={expandedSubDocMap[doc._id] ? 'Collapse Sub-Documents' : `Expand ${doc.subDocuments.length} Sub-Document(s)`}
+                                            >
+                                              {expandedSubDocMap[doc._id] ? (
+                                                <ChevronDown className="h-4 w-4" />
+                                              ) : (
+                                                <ChevronRight className="h-4 w-4" />
+                                              )}
+                                            </button>
+                                          )}
                                         </div>
                                       </td>
                                     </tr>
-                                  );
-                                })}
-                                </tbody>
+
+                                    {/* Expanded Sub-Documents Accordion Row */}
+                                    {expandedSubDocMap[doc._id] && doc.subDocuments && doc.subDocuments.length > 0 && (
+                                      <tr key={`subdocs-${doc._id}`} className="bg-slate-50/90 border-b-2 border-sky-100">
+                                        <td colSpan={showRemarkAndApproval ? 7 : 5} className="py-3 px-8">
+                                          <div className="pl-6 border-l-3 border-sky-500 space-y-2">
+                                            <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center space-x-1.5">
+                                              <FileText className="h-3.5 w-3.5 text-sky-600" />
+                                              <span>Sub-Documents / Revisions ({doc.subDocuments.length})</span>
+                                            </div>
+                                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                                              <table className="min-w-full divide-y divide-slate-100 text-xs">
+                                                <thead className="bg-slate-100/80 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                                                  <tr>
+                                                    <th className="px-4 py-2.5 text-left">Sub-Document Title</th>
+                                                    <th className="px-4 py-2.5 text-left">File Info</th>
+                                                    <th className="px-4 py-2.5 text-left">Uploaded By</th>
+                                                    <th className="px-4 py-2.5 text-left">Upload Date</th>
+                                                    {showRemarkAndApproval && (
+                                                      <>
+                                                        <th className="px-4 py-2.5 text-center">Remark</th>
+                                                        <th className="px-4 py-2.5 text-center">Approval</th>
+                                                      </>
+                                                    )}
+                                                    <th className="px-4 py-2.5 text-right">Action</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                  {doc.subDocuments.map((subDoc, subIndex) => (
+                                                    <tr key={subDoc._id || subIndex} className="hover:bg-slate-50 transition">
+                                                      <td className="px-4 py-2.5 font-semibold text-slate-800 flex items-center space-x-2 min-w-0">
+                                                        <FileText className="h-3.5 w-3.5 text-sky-500 flex-shrink-0" />
+                                                        <button
+                                                          onClick={() => handleViewGeneralSubDoc(doc, subDoc)}
+                                                          className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate max-w-sm"
+                                                          title={`Click to view ${subDoc.name}`}
+                                                        >
+                                                          {subDoc.name}
+                                                        </button>
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
+                                                        {(subDoc.fileSize / 1024).toFixed(1)} KB
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-slate-700 font-medium whitespace-nowrap">
+                                                        {subDoc.uploadedByName || 'User'}
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
+                                                        {new Date(subDoc.uploadedAt).toLocaleDateString()}
+                                                      </td>
+                                                      {showRemarkAndApproval && (
+                                                        <>
+                                                          <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                            {(() => {
+                                                              const remarkList = subDoc.remarks && subDoc.remarks.length > 0
+                                                                ? subDoc.remarks
+                                                                : [];
+                                                              const totalMsgCount = remarkList.length;
+                                                              const unreadCount = getUnreadRemarksCount(subDoc);
+
+                                                              return (
+                                                                <button
+                                                                  onClick={(e) => handleOpenSubDocRemarkModal(doc, subDoc, e)}
+                                                                  className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
+                                                                  title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
+                                                                >
+                                                                  <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
+                                                                  <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                                                  {unreadCount > 0 && (
+                                                                    <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
+                                                                      {unreadCount}
+                                                                    </span>
+                                                                  )}
+                                                                </button>
+                                                              );
+                                                            })()}
+                                                          </td>
+                                                          <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                            <button
+                                                              type="button"
+                                                              className="inline-flex items-center px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition shadow-sm font-semibold text-xs cursor-pointer"
+                                                              title="Approval Status"
+                                                            >
+                                                              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                                                              <span>Approve</span>
+                                                            </button>
+                                                          </td>
+                                                        </>
+                                                      )}
+                                                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                                        <div className="flex items-center justify-end space-x-2">
+                                                          <button
+                                                            onClick={() => handleDownloadGeneralSubDoc(doc, subDoc)}
+                                                            className="inline-flex items-center px-2.5 py-1 bg-white hover:bg-slate-50 text-sky-700 hover:text-sky-900 border border-sky-200 rounded-lg transition shadow-sm font-semibold text-[11px] cursor-pointer"
+                                                            title="Download Sub-Document"
+                                                          >
+                                                            <Download className="mr-1 h-3 w-3" /> Download
+                                                          </button>
+
+                                                          {/* 3 Dots Menu for Sub-Document */}
+                                                          <div className="relative inline-block text-left">
+                                                            <button
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setActiveSubFileMenuId(activeSubFileMenuId === subDoc._id ? null : subDoc._id);
+                                                              }}
+                                                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                                              title="More options"
+                                                            >
+                                                              <MoreVertical className="h-4 w-4" />
+                                                            </button>
+
+                                                            {activeSubFileMenuId === subDoc._id && (
+                                                              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 z-[999] text-left text-xs">
+                                                                <button
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedParentForSubRename(doc);
+                                                                    setSelectedSubDocForRename(subDoc);
+                                                                    setSubRenameNameInput(subDoc.name);
+                                                                    setRenameSubDocModal(true);
+                                                                    setActiveSubFileMenuId(null);
+                                                                  }}
+                                                                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
+                                                                >
+                                                                  Rename
+                                                                </button>
+                                                                {isFullRights && (
+                                                                  <button
+                                                                    onClick={(e) => {
+                                                                      e.stopPropagation();
+                                                                      if (window.confirm(`Are you sure you want to delete the sub-document "${subDoc.name}"?`)) {
+                                                                        handleDeleteSubDocument(doc._id, subDoc._id);
+                                                                      }
+                                                                      setActiveSubFileMenuId(null);
+                                                                    }}
+                                                                    className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
+                                                                  >
+                                                                    Delete
+                                                                  </button>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                      </td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                              </tbody>
                               </table>
                             </div>
                           </div>
-                        )}
+                        );
+                      })()}
                       </div>
                     );
                   })()}
@@ -3949,25 +4325,28 @@ function App() {
         </div>
       )}
 
-      {/* WhatsApp-style Remark Chat Modal */}
-      {showRemarkModal && selectedDocForRemark && (
+      {/* View/Add Remark Chat Modal */}
+      {showRemarkModal && (selectedDocForRemark || selectedSubDocForRemark) && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200 flex flex-col h-[85vh]">
-            {/* Modal Header */}
-            <div className="flex justify-between items-center pb-3 border-b border-slate-100 flex-shrink-0">
+          <div className="bg-white rounded-3xl max-w-3xl w-full h-[85vh] p-6 shadow-2xl flex flex-col border border-slate-100 animate-in fade-in zoom-in duration-200">
+
+            {/* Chat Header */}
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100 flex-shrink-0">
               <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600 border border-emerald-100">
-                  <MessageCircle className="h-6 w-6" />
+                <div className="p-2.5 bg-amber-50 rounded-2xl border border-amber-100 text-amber-600">
+                  <MessageSquare className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
                     <h3 className="font-bold text-slate-900 text-base">File Remarks & Discussion</h3>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium truncate max-w-md">{selectedDocForRemark.name}</p>
+                  <p className="text-xs text-slate-500 font-medium truncate max-w-md font-semibold text-amber-800">
+                    {(selectedSubDocForRemark || selectedDocForRemark)?.name}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                {selectedDocForRemark.remarks && selectedDocForRemark.remarks.length > 0 && (
+                {((selectedSubDocForRemark || selectedDocForRemark)?.remarks || []).length > 0 && (
                   <button
                     type="button"
                     onClick={handleClearDocumentRemarks}
@@ -3990,17 +4369,17 @@ function App() {
             {/* Chat Thread Messages Area */}
             <div className="flex-1 py-4 px-4 space-y-4 overflow-y-auto bg-slate-50/60 rounded-xl my-3 border border-slate-100/80 shadow-inner">
               {(() => {
-                const remarksList = selectedDocForRemark.remarks || [];
-
-                if (remarksList.length === 0) {
-                  return (
-                    <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400 space-y-2">
-                      <MessageCircle className="h-12 w-12 text-slate-300 stroke-[1.5]" />
-                      <p className="text-xs font-bold text-slate-500">No remarks added yet</p>
-                      <p className="text-[11px] text-slate-400">Start the conversation or attach relevant files below</p>
-                    </div>
-                  );
-                }
+                const activeChatDoc = selectedSubDocForRemark || selectedDocForRemark;
+                const remarksList = activeChatDoc?.remarks || [];
+                  if (remarksList.length === 0) {
+                    return (
+                      <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400 space-y-2">
+                        <MessageCircle className="h-12 w-12 text-slate-300 stroke-[1.5]" />
+                        <p className="text-xs font-bold text-slate-500">No remarks added yet</p>
+                        <p className="text-[11px] text-slate-400">Start the conversation or attach relevant files below</p>
+                      </div>
+                    );
+                  }
 
                 const formatChatDateHeader = (dateObj) => {
                   const d = new Date(dateObj);
@@ -4196,6 +4575,140 @@ function App() {
                       <Send className="h-3.5 w-3.5" />
                     </>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Sub-Document / Revision Modal */}
+      {showSubDocModal && selectedParentDoc && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 text-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-start pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="font-bold text-lg text-white">Upload Document</h3>
+                <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">
+                  Target File: <span className="text-sky-400 font-semibold">{selectedParentDoc.name}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubDocModal(false);
+                  setSelectedParentDoc(null);
+                }}
+                className="text-slate-400 hover:text-white transition text-sm p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUploadSubDocument} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                  DOCUMENT NAME / TITLE
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Addendum 4 or Tender Drawing Section"
+                  value={subDocTitleInput}
+                  onChange={(e) => setSubDocTitleInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
+                  SELECT FILE (PDF, WORD, EXCEL, ZIP, DWG)
+                </label>
+                <div className="flex items-center space-x-3 bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl">
+                  <label className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg cursor-pointer transition shadow-sm">
+                    Choose File
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => setSubDocFileInput(e.target.files[0] || null)}
+                    />
+                  </label>
+                  <span className="text-xs text-slate-300 truncate max-w-[200px]">
+                    {subDocFileInput ? subDocFileInput.name : 'No file chosen'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSubDocModal(false);
+                    setSelectedParentDoc(null);
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={subDocSaving || !subDocFileInput}
+                  className="px-5 py-2 bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-lg flex items-center space-x-1.5 cursor-pointer"
+                >
+                  {subDocSaving ? 'Uploading...' : 'Upload File'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Sub-Document Modal */}
+      {renameSubDocModal && selectedSubDocForRename && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white text-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-4">
+              <h3 className="font-bold text-base text-slate-900">Rename Sub-Document</h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenameSubDocModal(false);
+                  setSelectedSubDocForRename(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 transition cursor-pointer text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleRenameSubDocumentSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+                  New Name
+                </label>
+                <input
+                  type="text"
+                  value={subRenameNameInput}
+                  onChange={(e) => setSubRenameNameInput(e.target.value)}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:bg-white transition"
+                  autoFocus
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRenameSubDocModal(false);
+                    setSelectedSubDocForRename(null);
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!subRenameNameInput.trim()}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
+                >
+                  Save
                 </button>
               </div>
             </form>
