@@ -184,9 +184,21 @@ export const generalDocsAPI = {
     const response = await api.put(`/api/${section}/${id}`, { name });
     return response.data;
   },
-  updateRemark: async (section, id, remark) => {
-    const response = await api.put(`/api/${section}/${id}/remark`, { remark });
+  updateRemark: async (section, id, data) => {
+    if (data instanceof FormData) {
+      const response = await api.put(`/api/${section}/${id}/remark`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      return response.data;
+    }
+    const payload = typeof data === 'string' ? { text: data } : data;
+    const response = await api.put(`/api/${section}/${id}/remark`, payload);
     return response.data;
+  },
+  getRemarkAttachmentUrl: (section, filePathOrName) => {
+    const filename = (filePathOrName || '').replace(/^.*[\\\/]/, '');
+    const token = localStorage.getItem('pmis_token');
+    return `/api/${section}/remark-attachment/${filename}?token=${token || ''}`;
   },
   markRemarkRead: async (section, id) => {
     const response = await api.put(`/api/${section}/${id}/remark/read`);
@@ -194,6 +206,10 @@ export const generalDocsAPI = {
   },
   deleteRemark: async (section, id, remarkId) => {
     const response = await api.delete(`/api/${section}/${id}/remark/${remarkId}`);
+    return response.data;
+  },
+  clearDocumentRemarks: async (section, id) => {
+    const response = await api.delete(`/api/${section}/${id}/remarks/clear-all`);
     return response.data;
   },
   getAllUploads: async () => {
@@ -206,6 +222,10 @@ export const generalDocsAPI = {
   },
   markAllNotificationsRead: async () => {
     const response = await api.put('/api/tender/mark-all-read');
+    return response.data;
+  },
+  resetAllRemarks: async () => {
+    const response = await api.put('/api/tender/reset-all-remarks');
     return response.data;
   }
 };

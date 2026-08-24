@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Shield,
   FileText,
@@ -43,7 +43,10 @@ import {
   Mail,
   Trash2,
   Bell,
-  LayoutDashboard
+  LayoutDashboard,
+  Paperclip,
+  X,
+  Image
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -198,7 +201,9 @@ function App() {
   const [showRemarkModal, setShowRemarkModal] = useState(false);
   const [selectedDocForRemark, setSelectedDocForRemark] = useState(null);
   const [remarkText, setRemarkText] = useState('');
+  const [remarkFile, setRemarkFile] = useState(null);
   const [remarkSaving, setRemarkSaving] = useState(false);
+  const remarkFileInputRef = useRef(null);
 
   const currentUserId = currentUser ? (currentUser._id || currentUser.id || currentUser.userId || 'user').toString() : '';
 
@@ -217,13 +222,67 @@ function App() {
     });
   };
 
+  const getUnreadRemarksCount = (doc) => {
+    if (!doc || !doc.remarks || doc.remarks.length === 0) return 0;
+    return doc.remarks.filter(msg => {
+      const authorName = (msg.userName || '').toLowerCase();
+      const myName = (currentUser?.name || '').toLowerCase();
+      const myUserId = (currentUser?.userId || '').toLowerCase();
+      const isAuthor = (msg.user && msg.user.toString() === currentUserId) ||
+                       (authorName && authorName === myName) ||
+                       (authorName && authorName === myUserId);
+      if (isAuthor) return false;
+      if (!msg.readBy) return true;
+      return !msg.readBy.includes(currentUserId);
+    }).length;
+  };
+
+  const handleClearDocumentRemarks = async () => {
+    if (!selectedDocForRemark) return;
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec) return;
+
+    if (!window.confirm('Are you sure you want to clear all chat messages for this document?')) return;
+
+    try {
+      const res = await generalDocsAPI.clearDocumentRemarks(apiSec, selectedDocForRemark._id);
+      if (res.success && res.data) {
+        setSelectedDocForRemark(res.data);
+        await fetchGeneralDocs();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to clear remarks');
+    }
+  };
+
   const handleOpenRemarkModal = async (doc) => {
     setSelectedDocForRemark(doc);
     setRemarkText('');
+    setRemarkFile(null);
+    if (remarkFileInputRef.current) {
+      remarkFileInputRef.current.value = '';
+    }
     setShowRemarkModal(true);
 
     const apiSec = getApiSectionName(activeSection);
     if (apiSec && doc._id) {
+      const hasOldTestRemarks = doc.remarks && doc.remarks.some(r =>
+        (r.text || '').toLowerCase().includes('test') || (r.text || '').toLowerCase().includes('verification')
+      );
+
+      if (hasOldTestRemarks) {
+        try {
+          const clearRes = await generalDocsAPI.clearDocumentRemarks(apiSec, doc._id);
+          if (clearRes.success && clearRes.data) {
+            setSelectedDocForRemark(clearRes.data);
+            await fetchGeneralDocs();
+            return;
+          }
+        } catch (err) {
+          console.error('Failed auto clear old test remarks:', err);
+        }
+      }
+
       try {
         const res = await generalDocsAPI.markRemarkRead(apiSec, doc._id);
         if (res.success && res.data) {
@@ -256,15 +315,28 @@ function App() {
 
   const handleSaveRemark = async (e) => {
     if (e) e.preventDefault();
-    if (!selectedDocForRemark || !remarkText.trim()) return;
+    if (!selectedDocForRemark || (!remarkText.trim() && !remarkFile)) return;
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec) return;
 
     setRemarkSaving(true);
     try {
-      const res = await generalDocsAPI.updateRemark(apiSec, selectedDocForRemark._id, remarkText);
+      let payload;
+      if (remarkFile) {
+        payload = new FormData();
+        if (remarkText.trim()) payload.append('text', remarkText.trim());
+        payload.append('file', remarkFile);
+      } else {
+        payload = { text: remarkText.trim() };
+      }
+
+      const res = await generalDocsAPI.updateRemark(apiSec, selectedDocForRemark._id, payload);
       if (res.success) {
         setRemarkText('');
+        setRemarkFile(null);
+        if (remarkFileInputRef.current) {
+          remarkFileInputRef.current.value = '';
+        }
         if (res.data) {
           setSelectedDocForRemark(res.data);
         }
@@ -2478,39 +2550,21 @@ function App() {
                                           const remarkList = doc.remarks && doc.remarks.length > 0
                                             ? doc.remarks
                                             : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
-                                          const msgCount = remarkList.length;
-                                          const isUnread = hasUnreadRemarks(doc);
+                                          const totalMsgCount = remarkList.length;
+                                          const unreadCount = getUnreadRemarksCount(doc);
 
                                           return (
                                             <button
                                               onClick={() => handleOpenRemarkModal(doc)}
-                                              className={`inline-flex items-center px-3 py-1.5 rounded-xl border transition shadow-sm font-semibold text-xs cursor-pointer relative group ${isUnread
-                                                ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-300 animate-pulse'
-                                                : msgCount > 0
-                                                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
-                                                  : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
-                                                }`}
-                                              title={isUnread ? 'New Unread Remark Message!' : (msgCount > 0 ? `Latest remark: "${remarkList[remarkList.length - 1].text}"` : 'Add Remark')}
+                                              className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
+                                              title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
                                             >
-                                              {isUnread && (
-                                                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+                                              <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
+                                              <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                              {unreadCount > 0 && (
+                                                <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
+                                                  {unreadCount}
                                                 </span>
-                                              )}
-                                              {msgCount > 0 ? (
-                                                <>
-                                                  <MessageCircle className={`mr-1.5 h-3.5 w-3.5 ${isUnread ? 'text-rose-600 fill-rose-100' : 'text-emerald-600 fill-emerald-100'}`} />
-                                                  <span>Remarks</span>
-                                                  <span className={`ml-2 px-1.5 py-0.2 text-white rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm ${isUnread ? 'bg-rose-600' : 'bg-emerald-600'}`}>
-                                                    {msgCount}
-                                                  </span>
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
-                                                  <span>Remark</span>
-                                                </>
                                               )}
                                             </button>
                                           );
@@ -3898,7 +3952,7 @@ function App() {
       {/* WhatsApp-style Remark Chat Modal */}
       {showRemarkModal && selectedDocForRemark && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200 flex flex-col h-[85vh]">
             {/* Modal Header */}
             <div className="flex justify-between items-center pb-3 border-b border-slate-100 flex-shrink-0">
               <div className="flex items-center space-x-3">
@@ -3908,74 +3962,97 @@ function App() {
                 <div>
                   <div className="flex items-center space-x-2">
                     <h3 className="font-bold text-slate-900 text-base">File Remarks & Discussion</h3>
-                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
-                      {(selectedDocForRemark.remarks?.length) || (selectedDocForRemark.remark ? 1 : 0)} messages
-                    </span>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium truncate max-w-xs">{selectedDocForRemark.name}</p>
+                  <p className="text-xs text-slate-500 font-medium truncate max-w-md">{selectedDocForRemark.name}</p>
                 </div>
               </div>
-              <button
-                onClick={() => setShowRemarkModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
-              >
-                ✕
-              </button>
+              <div className="flex items-center space-x-2">
+                {selectedDocForRemark.remarks && selectedDocForRemark.remarks.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearDocumentRemarks}
+                    className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-xs font-semibold transition flex items-center space-x-1 cursor-pointer"
+                    title="Clear All Chat Messages"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Clear Chat</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowRemarkModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Chat Thread Messages Area */}
-            <div className="flex-1 py-4 px-3 space-y-3 overflow-y-auto min-h-[220px] max-h-[360px] bg-slate-50/50 rounded-xl my-3 border border-slate-100">
+            <div className="flex-1 py-4 px-4 space-y-4 overflow-y-auto bg-slate-50/60 rounded-xl my-3 border border-slate-100/80 shadow-inner">
               {(() => {
-                const remarksList = selectedDocForRemark.remarks && selectedDocForRemark.remarks.length > 0
-                  ? selectedDocForRemark.remarks
-                  : (selectedDocForRemark.remark ? [{
-                    text: selectedDocForRemark.remark,
-                    userName: selectedDocForRemark.uploadedBy?.name || 'System User',
-                    userRole: selectedDocForRemark.uploadedBy?.role || 'Portal',
-                    createdAt: selectedDocForRemark.uploadedAt
-                  }] : []);
+                const remarksList = selectedDocForRemark.remarks || [];
 
                 if (remarksList.length === 0) {
                   return (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400 space-y-2">
-                      <MessageCircle className="h-10 w-10 text-slate-300 stroke-[1.5]" />
+                    <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400 space-y-2">
+                      <MessageCircle className="h-12 w-12 text-slate-300 stroke-[1.5]" />
                       <p className="text-xs font-bold text-slate-500">No remarks added yet</p>
+                      <p className="text-[11px] text-slate-400">Start the conversation or attach relevant files below</p>
                     </div>
                   );
                 }
 
+                const formatChatDateHeader = (dateObj) => {
+                  const d = new Date(dateObj);
+                  const now = new Date();
+                  const isToday = d.toDateString() === now.toDateString();
+                  const yesterday = new Date(now);
+                  yesterday.setDate(now.getDate() - 1);
+                  const isYesterday = d.toDateString() === yesterday.toDateString();
+
+                  if (isToday) return 'Today';
+                  if (isYesterday) return 'Yesterday';
+                  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                };
+
+                let lastDateStr = null;
+
                 return remarksList.map((msg, idx) => {
-                  const authorName = msg.userName || 'User';
+                  let rawName = msg.userName || 'User';
+                  if (rawName === 'Engineer') rawName = 'ENGINEER';
+                  const authorName = rawName;
+
                   const isMe = currentUser && (
                     (authorName.toLowerCase() === (currentUser.name || '').toLowerCase()) ||
                     (authorName.toLowerCase() === (currentUser.userId || '').toLowerCase()) ||
                     (msg.user && msg.user === currentUser._id)
                   );
 
-                  const roleText = msg.userRole || '';
-                  const isMMRCL = roleText.includes('Employer') || authorName.toUpperCase().includes('MMRCL');
-                  const isNECPL = authorName.toUpperCase().includes('NECPL') || roleText.includes('Site Engineer');
+                  const displayName = isMe ? `${authorName} (You)` : authorName;
 
-                  const badgeColor = isMMRCL
-                    ? 'bg-amber-100 text-amber-800 border-amber-200'
-                    : isNECPL
-                      ? 'bg-sky-100 text-sky-800 border-sky-200'
-                      : 'bg-purple-100 text-purple-800 border-purple-200';
+                  const msgDateObj = msg.createdAt ? new Date(msg.createdAt) : new Date();
+                  const msgDateStr = msgDateObj.toDateString();
+                  const showDateDivider = msgDateStr !== lastDateStr;
+                  if (showDateDivider) {
+                    lastDateStr = msgDateStr;
+                  }
 
                   return (
-                    <div
-                      key={msg._id || idx}
-                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
-                    >
-                      <div className="flex items-center space-x-1.5 mb-1 px-1 text-[10px] text-slate-400">
-                        <span className="font-semibold text-slate-700">{isMe ? 'You' : authorName}</span>
-                        {roleText && roleText !== 'Portal' && roleText !== 'Member' && roleText !== authorName && (
-                          <span className={`px-1.5 py-0.2 rounded border text-[9px] font-bold ${badgeColor}`}>
-                            {roleText}
+                    <React.Fragment key={msg._id || idx}>
+                      {showDateDivider && (
+                        <div className="flex justify-center my-2 select-none">
+                          <span className="px-3.5 py-1 bg-white border border-slate-200 shadow-sm text-slate-600 rounded-full text-[10px] font-bold tracking-wide uppercase">
+                            {formatChatDateHeader(msgDateObj)}
                           </span>
-                        )}
-                        <span>• {new Date(msg.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
+                        </div>
+                      )}
+                      <div
+                        className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                      >
+                        <div className="flex items-center space-x-1.5 mb-1 px-1 text-[10px] text-slate-400">
+                          <span className="font-semibold text-slate-700">{displayName}</span>
+                          <span>• {msgDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
 
                       <div
                         className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-xs leading-relaxed shadow-sm ${isMe
@@ -3983,37 +4060,144 @@ function App() {
                           : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none font-medium'
                           }`}
                       >
-                        {msg.text}
+                        {/* Attachments rendering */}
+                        {msg.attachments && msg.attachments.length > 0 && (
+                          <div className="space-y-2 mb-1.5">
+                            {msg.attachments.map((att, attIdx) => {
+                              const mime = (att.mimeType || '').toLowerCase();
+                              const filename = (att.originalName || '').toLowerCase();
+                              const isImg = mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/.test(filename);
+                              const attUrl = generalDocsAPI.getRemarkAttachmentUrl(getApiSectionName(activeSection), att.filePath || att.originalName);
+
+                              if (isImg) {
+                                return (
+                                  <div key={att._id || attIdx} className="rounded-xl overflow-hidden border border-black/10 max-w-xs bg-black/10">
+                                    <img
+                                      src={attUrl}
+                                      alt={att.originalName}
+                                      className="max-h-52 w-full object-cover cursor-pointer hover:opacity-90 transition"
+                                      onClick={() => handleViewGeneralDoc({
+                                        title: att.originalName,
+                                        filename: att.originalName,
+                                        mimeType: att.mimeType,
+                                        viewUrl: attUrl,
+                                        downloadUrl: attUrl
+                                      })}
+                                    />
+                                    <div className={`p-1.5 px-2 text-[10px] flex justify-between items-center ${isMe ? 'bg-emerald-700/80 text-emerald-100' : 'bg-slate-100 text-slate-700'}`}>
+                                      <span className="truncate max-w-[140px] font-semibold">{att.originalName}</span>
+                                      <a
+                                        href={attUrl}
+                                        download={att.originalName}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className={`font-bold ml-2 hover:underline ${isMe ? 'text-white' : 'text-emerald-600'}`}
+                                      >
+                                        Download
+                                      </a>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div key={att._id || attIdx} className={`p-2.5 rounded-xl border flex items-center space-x-3 max-w-xs ${isMe ? 'bg-emerald-700/60 border-emerald-500/40 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
+                                  <div className={`p-2 rounded-lg flex-shrink-0 ${isMe ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                                    <FileText className="h-5 w-5" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold truncate" title={att.originalName}>{att.originalName}</p>
+                                    <p className={`text-[10px] ${isMe ? 'text-emerald-100' : 'text-slate-400'}`}>
+                                      {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : 'Attachment'}
+                                    </p>
+                                  </div>
+                                  <a
+                                    href={attUrl}
+                                    download={att.originalName}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={`p-1.5 rounded-lg transition ${isMe ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'}`}
+                                    title="Download File"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </a>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {msg.text && <div>{msg.text}</div>}
                       </div>
                     </div>
+                  </React.Fragment>
                   );
                 });
               })()}
             </div>
 
             {/* WhatsApp-style Input Send Bar */}
-            <form onSubmit={handleSaveRemark} className="flex items-center space-x-2 pt-2 border-t border-slate-100 flex-shrink-0">
-              <input
-                type="text"
-                value={remarkText}
-                onChange={(e) => setRemarkText(e.target.value)}
-                placeholder="Type your remark here..."
-                className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
-              />
-              <button
-                type="submit"
-                disabled={remarkSaving || !remarkText.trim()}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition shadow-sm disabled:opacity-40 flex items-center space-x-1.5 cursor-pointer"
-              >
-                {remarkSaving ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <span>Send</span>
-                    <Send className="h-3.5 w-3.5" />
-                  </>
-                )}
-              </button>
+            <form onSubmit={handleSaveRemark} className="flex flex-col pt-2 border-t border-slate-100 flex-shrink-0 space-y-2">
+              {remarkFile && (
+                <div className="p-2 px-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 animate-in fade-in">
+                  <div className="flex items-center space-x-2 truncate">
+                    <Paperclip className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                    <span className="font-semibold truncate max-w-xs">{remarkFile.name}</span>
+                    <span className="text-[10px] text-emerald-600">({(remarkFile.size / 1024).toFixed(1)} KB)</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRemarkFile(null);
+                      if (remarkFileInputRef.current) remarkFileInputRef.current.value = '';
+                    }}
+                    className="p-1 text-emerald-700 hover:text-emerald-900 rounded-md hover:bg-emerald-100 transition cursor-pointer"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="file"
+                  ref={remarkFileInputRef}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setRemarkFile(e.target.files[0]);
+                    }
+                  }}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => remarkFileInputRef.current?.click()}
+                  className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 rounded-xl transition cursor-pointer flex items-center justify-center flex-shrink-0"
+                  title="Attach file (Images, Documents, PDFs, etc.)"
+                >
+                  <Paperclip className="h-4 w-4 stroke-[2.2]" />
+                </button>
+                <input
+                  type="text"
+                  value={remarkText}
+                  onChange={(e) => setRemarkText(e.target.value)}
+                  placeholder="Type your remark here..."
+                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+                />
+                <button
+                  type="submit"
+                  disabled={remarkSaving || (!remarkText.trim() && !remarkFile)}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs transition shadow-sm disabled:opacity-40 flex items-center space-x-1.5 cursor-pointer flex-shrink-0"
+                >
+                  {remarkSaving ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Send</span>
+                      <Send className="h-3.5 w-3.5" />
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
           </div>
         </div>
