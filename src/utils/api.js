@@ -258,6 +258,13 @@ export const generalDocsAPI = {
   clearSubDocRemarks: async (section, id, subId) => {
     const response = await api.delete(`/api/${section}/${id}/sub-document/${subId}/remarks/clear-all`);
     return response.data;
+  },
+  getSubDocDownloadUrl: (section, parentId, subId) => {
+    return `/api/${section}/${parentId}/sub-document/${subId}/download`;
+  },
+  getSubDocViewUrl: (section, parentId, subId) => {
+    const token = localStorage.getItem('pmis_token');
+    return `/api/${section}/${parentId}/sub-document/${subId}/view?token=${token || ''}`;
   }
 };
 

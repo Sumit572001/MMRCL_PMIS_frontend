@@ -206,6 +206,8 @@ function App() {
   const [remarkFile, setRemarkFile] = useState(null);
   const [remarkSaving, setRemarkSaving] = useState(false);
   const remarkFileInputRef = useRef(null);
+  const [selectedParentForSubRemark, setSelectedParentForSubRemark] = useState(null);
+  const [selectedSubDocForRemark, setSelectedSubDocForRemark] = useState(null);
 
   // Sub-Document / Revision Upload Modal State
   const [showSubDocModal, setShowSubDocModal] = useState(false);
@@ -257,16 +259,16 @@ function App() {
 
   const handleViewGeneralSubDoc = (parentDoc, subDoc) => {
     const apiSec = getApiSectionName(activeSection);
-    if (!apiSec || !subDoc.filePath) return;
-    const url = generalDocsAPI.getDownloadUrl(apiSec, subDoc.filePath);
+    if (!apiSec || !subDoc._id || !parentDoc._id) return;
+    const url = generalDocsAPI.getSubDocViewUrl(apiSec, parentDoc._id, subDoc._id);
     window.open(url, '_blank');
   };
 
   const handleDownloadGeneralSubDoc = (parentDoc, subDoc) => {
     const apiSec = getApiSectionName(activeSection);
-    if (!apiSec || !subDoc.filePath) return;
-    const url = generalDocsAPI.getDownloadUrl(apiSec, subDoc.filePath);
-    window.open(url, '_blank');
+    if (!apiSec || !subDoc._id || !parentDoc._id) return;
+    const url = generalDocsAPI.getSubDocDownloadUrl(apiSec, parentDoc._id, subDoc._id);
+    handleDownloadSecureFile(url, subDoc.originalName || subDoc.name || 'download');
   };
 
   const handleDeleteSubDocument = async (parentDocId, subDocId) => {
