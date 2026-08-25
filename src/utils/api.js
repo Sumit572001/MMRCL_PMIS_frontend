@@ -265,7 +265,23 @@ export const generalDocsAPI = {
   getSubDocViewUrl: (section, parentId, subId) => {
     const token = localStorage.getItem('pmis_token');
     return `/api/${section}/${parentId}/sub-document/${subId}/view?token=${token || ''}`;
-  }
+  },
+  updateApprovalAuthority: async (section, id, authority) => {
+    const response = await api.put(`/api/${section}/${id}/approval-authority`, { authority });
+    return response.data;
+  },
+  approveDocument: async (section, id) => {
+    const response = await api.post(`/api/${section}/${id}/approve`);
+    return response.data;
+  },
+  updateSubDocApprovalAuthority: async (section, id, subId, authority) => {
+    const response = await api.put(`/api/${section}/${id}/sub-document/${subId}/approval-authority`, { authority });
+    return response.data;
+  },
+  approveSubDocument: async (section, id, subId) => {
+    const response = await api.post(`/api/${section}/${id}/sub-document/${subId}/approve`);
+    return response.data;
+  },
 };
 
 // Aliases for backward compatibility
