@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  Info,
   Shield,
   FileText,
   UploadCloud,
@@ -48,7 +49,9 @@ import {
   X,
   Image,
   Plus,
-  ChevronDown
+  ChevronDown,
+  FileQuestion,
+  GripVertical
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -277,28 +280,27 @@ function App() {
 
   const canUserApprove = (user, authority) => {
     if (!user || !authority) return false;
-    const authUpper = authority.toUpperCase();
+    const authList = authority.split(',').map(a => a.trim().toUpperCase());
     const userName = (user.name || '').toUpperCase();
     const userId = (user.userId || '').toUpperCase();
     const userOrg = (user.organization || '').toUpperCase();
     const userRole = (user.role || '').toUpperCase();
-    
-    return userName.includes(authUpper) || 
-           userId.includes(authUpper) || 
-           userOrg.includes(authUpper) || 
-           userRole.includes(authUpper);
+
+    return authList.some(authUpper =>
+      userName.includes(authUpper) ||
+      userId.includes(authUpper) ||
+      userOrg.includes(authUpper) ||
+      userRole.includes(authUpper)
+    );
   };
 
   const handleUpdateApprovalAuthority = async (doc, authority) => {
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec || !doc._id) return;
     try {
-      const res = await generalDocsAPI.updateApprovalAuthority(apiSec, doc._id, authority);
-      if (res.success) {
-        await fetchGeneralDocs();
-      }
+      await generalDocsAPI.updateApprovalAuthority(apiSec, doc._id, authority);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update approval authority');
+      console.error('Failed to update approval authority:', err);
     }
   };
 
@@ -307,7 +309,8 @@ function App() {
     if (!apiSec || !doc._id) return;
     try {
       const res = await generalDocsAPI.approveDocument(apiSec, doc._id);
-      if (res.success) {
+      if (res.success && res.data) {
+        setTenderDocs(prevDocs => prevDocs.map(d => d._id === doc._id ? res.data : d));
         await fetchGeneralDocs();
       }
     } catch (err) {
@@ -319,12 +322,9 @@ function App() {
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec || !parentDoc._id || !subDoc._id) return;
     try {
-      const res = await generalDocsAPI.updateSubDocApprovalAuthority(apiSec, parentDoc._id, subDoc._id, authority);
-      if (res.success) {
-        await fetchGeneralDocs();
-      }
+      await generalDocsAPI.updateSubDocApprovalAuthority(apiSec, parentDoc._id, subDoc._id, authority);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update sub-document approval authority');
+      console.error('Failed to update sub-document approval authority:', err);
     }
   };
 
@@ -333,7 +333,8 @@ function App() {
     if (!apiSec || !parentDoc._id || !subDoc._id) return;
     try {
       const res = await generalDocsAPI.approveSubDocument(apiSec, parentDoc._id, subDoc._id);
-      if (res.success) {
+      if (res.success && res.data) {
+        setTenderDocs(prevDocs => prevDocs.map(d => d._id === parentDoc._id ? res.data : d));
         await fetchGeneralDocs();
       }
     } catch (err) {
@@ -351,9 +352,10 @@ function App() {
 
   const renderAuthorityDropdown = (item, isSubDoc = false, parentDoc = null) => {
     const currentVal = item.approvalAuthority || '';
+    const currentArray = currentVal ? currentVal.split(',').map(a => a.trim()).filter(Boolean) : [];
     const dropdownId = isSubDoc ? `${parentDoc._id}-${item._id}` : item._id;
     const isOpen = activeAuthorityDropdownId === dropdownId;
-    
+
     const options = [
       { label: 'None (Default Approved)', value: '' },
       { label: 'NECPL', value: 'NECPL' },
@@ -361,12 +363,44 @@ function App() {
       { label: 'PMC', value: 'PMC' }
     ];
 
-    const handleSelect = async (val) => {
-      setActiveAuthorityDropdownId(null);
-      if (isSubDoc) {
-        await handleUpdateSubDocApprovalAuthority(parentDoc, item, val);
+    const handleSelectOption = async (optValue) => {
+      let nextArray = [];
+      if (!optValue) {
+        nextArray = [];
       } else {
-        await handleUpdateApprovalAuthority(item, val);
+        if (currentArray.includes(optValue)) {
+          nextArray = currentArray.filter(a => a !== optValue);
+        } else {
+          nextArray = [...currentArray, optValue];
+        }
+      }
+
+      const order = ['NECPL', 'MMRCL', 'PMC'];
+      nextArray.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+
+      const newVal = nextArray.join(', ');
+
+      // Optimistic instant local state update for 0ms smooth toggle
+      setTenderDocs(prevDocs => prevDocs.map(d => {
+        if (d._id === item._id) {
+          return { ...d, approvalAuthority: newVal };
+        }
+        if (parentDoc && d._id === parentDoc._id && d.subDocuments) {
+          return {
+            ...d,
+            subDocuments: d.subDocuments.map(sub =>
+              sub._id === item._id ? { ...sub, approvalAuthority: newVal } : sub
+            )
+          };
+        }
+        return d;
+      }));
+
+      // Background silent API sync
+      if (isSubDoc) {
+        handleUpdateSubDocApprovalAuthority(parentDoc, item, newVal);
+      } else {
+        handleUpdateApprovalAuthority(item, newVal);
       }
     };
 
@@ -378,35 +412,47 @@ function App() {
             e.stopPropagation();
             setActiveAuthorityDropdownId(isOpen ? null : dropdownId);
           }}
-          className="inline-flex justify-between items-center w-full px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm cursor-pointer min-w-[120px]"
+          className="inline-flex justify-between items-center w-full px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm cursor-pointer min-w-[125px] max-w-[170px]"
         >
-          <span className={currentVal ? 'text-sky-700' : 'text-slate-400'}>
+          <span className={`truncate ${currentVal ? 'text-sky-700 font-bold' : 'text-slate-400'}`} title={currentVal || 'Assign Auth'}>
             {currentVal || 'Assign Auth'}
           </span>
-          <ChevronDown className="ml-1 h-3.5 w-3.5 text-slate-400" />
+          <ChevronDown className="ml-1 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
         </button>
 
         {isOpen && (
-          <div 
-            className="absolute right-0 mt-1 w-48 rounded-xl bg-white border border-slate-200 shadow-xl z-[999] p-1.5 space-y-1 text-left"
+          <div
+            className="absolute right-0 top-full mt-1 w-56 rounded-xl bg-white border border-slate-200 shadow-2xl z-[9999] p-1.5 space-y-0.5 text-left animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
-            {options.map((opt) => (
-              <label
-                key={opt.value}
-                className="flex items-center space-x-2.5 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer select-none text-xs font-semibold text-slate-700 transition"
-              >
-                <input
-                  type="radio"
-                  name={`auth-${dropdownId}`}
-                  value={opt.value}
-                  checked={currentVal === opt.value}
-                  onChange={() => handleSelect(opt.value)}
-                  className="h-3.5 w-3.5 text-sky-600 focus:ring-sky-500 border-slate-300"
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
+            <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
+              Select Authorities (Multi-select)
+            </div>
+            {options.map((opt) => {
+              const isSelected = !opt.value
+                ? currentArray.length === 0
+                : currentArray.includes(opt.value);
+
+              return (
+                <button
+                  key={opt.value || 'none'}
+                  type="button"
+                  onClick={() => handleSelectOption(opt.value)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors duration-150 cursor-pointer select-none ${
+                    isSelected
+                      ? 'bg-sky-50 text-sky-700 font-bold'
+                      : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="flex-1 text-left whitespace-nowrap">{opt.label}</span>
+                  <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 ml-2">
+                    {isSelected && (
+                      <Check className="h-4 w-4 text-sky-600 stroke-[2.5]" />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -414,7 +460,7 @@ function App() {
   };
 
   const renderApprovalColumn = (item, isSubDoc = false, parentDoc = null) => {
-    const authority = item.approvalAuthority;
+    const authority = item.approvalAuthority || '';
     const status = item.approvalStatus;
     const approvedBy = item.approvedBy;
 
@@ -428,48 +474,60 @@ function App() {
       );
     }
 
-    // 2. Approved by authority state
-    if (status === 'Approved' && approvedBy) {
-      const displayApprovedBy = approvedBy === 'PMC' ? 'PMC & Architect' : approvedBy;
-      return (
-        <div className="inline-flex items-center px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold text-xs shadow-sm">
-          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-          <span>Approve By {displayApprovedBy}</span>
-        </div>
-      );
-    }
+    const authList = authority.split(',').map(a => a.trim()).filter(Boolean);
 
-    // 3. Unapproved state - can the current logged-in user approve?
-    const canApprove = canUserApprove(currentUser, authority);
-    if (canApprove) {
-      return (
-        <button
-          type="button"
-          onClick={async (e) => {
-            e.stopPropagation();
-            if (isSubDoc) {
-              await handleApproveSubDocument(parentDoc, item);
-            } else {
-              await handleApproveDocument(item);
-            }
-          }}
-          className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs transition shadow-sm cursor-pointer animate-pulse hover:animate-none"
-          title={`Click to approve as ${authority}`}
-        >
-          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
-          <span>Approve (As {authority})</span>
-        </button>
-      );
-    }
-
-    // 4. Unapproved state - waiting for the assigned authority
     return (
-      <div 
-        className="inline-flex items-center px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-semibold text-xs shadow-sm"
-        title={`Waiting for ${authority} to approve`}
-      >
-        <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400" />
-        <span>Pending {authority}</span>
+      <div className="flex flex-col items-center justify-center space-y-1 py-1">
+        {authList.map((auth) => {
+          const isThisApproved = status === 'Approved' || (approvedBy && approvedBy.includes(auth));
+
+          if (isThisApproved) {
+            const displayApprovedBy = auth === 'PMC' ? 'PMC & Architect' : auth;
+            return (
+              <div
+                key={auth}
+                className="inline-flex items-center px-3 py-1 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold text-xs shadow-sm whitespace-nowrap"
+              >
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                <span>Approve By {displayApprovedBy}</span>
+              </div>
+            );
+          }
+
+          const canApproveThis = canUserApprove(currentUser, auth);
+          if (canApproveThis) {
+            return (
+              <button
+                key={auth}
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (isSubDoc) {
+                    await handleApproveSubDocument(parentDoc, item);
+                  } else {
+                    await handleApproveDocument(item);
+                  }
+                }}
+                className="inline-flex items-center px-3 py-1 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs transition shadow-sm cursor-pointer animate-pulse hover:animate-none whitespace-nowrap"
+                title={`Click to approve as ${auth}`}
+              >
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                <span>Approve (As {auth})</span>
+              </button>
+            );
+          }
+
+          return (
+            <div
+              key={auth}
+              className="inline-flex items-center px-3 py-1 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-semibold text-xs shadow-sm whitespace-nowrap"
+              title={`Waiting for ${auth} to approve`}
+            >
+              <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+              <span>Pending {auth}</span>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -515,8 +573,8 @@ function App() {
       const myName = (currentUser?.name || '').toLowerCase();
       const myUserId = (currentUser?.userId || '').toLowerCase();
       const isAuthor = (msg.user && msg.user.toString() === currentUserId) ||
-                       (authorName && authorName === myName) ||
-                       (authorName && authorName === myUserId);
+        (authorName && authorName === myName) ||
+        (authorName && authorName === myUserId);
       if (isAuthor) return false;
       if (!msg.readBy) return true;
       return !msg.readBy.includes(currentUserId);
@@ -530,8 +588,8 @@ function App() {
       const myName = (currentUser?.name || '').toLowerCase();
       const myUserId = (currentUser?.userId || '').toLowerCase();
       const isAuthor = (msg.user && msg.user.toString() === currentUserId) ||
-                       (authorName && authorName === myName) ||
-                       (authorName && authorName === myUserId);
+        (authorName && authorName === myName) ||
+        (authorName && authorName === myUserId);
       if (isAuthor) return false;
       if (!msg.readBy) return true;
       return !msg.readBy.includes(currentUserId);
@@ -771,14 +829,15 @@ function App() {
     handleMarkDocumentViewed(doc);
 
     const mappedSec = doc.section === 'tender' ? 'Tender Documents'
-      : doc.section === 'contractual' ? 'Contractual'
-      : doc.section === 'drawing' ? 'Project Drawings'
-      : doc.section === 'monitor' ? 'Project Monitoring & Control'
-      : doc.section === 'quality' ? 'Quality Management'
-      : doc.section === 'ehs' ? 'Environment, Health, and Safety (EHS)'
-      : doc.section === 'mep' ? 'MEP'
-      : doc.section === 'registrations' ? 'Project Documents & Registration'
-      : doc.section;
+      : doc.section === 'contractual' ? 'Contractual Documents'
+        : doc.section === 'drawing' ? 'Project Drawings'
+          : doc.section === 'monitor' ? 'Project Monitoring & Control'
+            : doc.section === 'quality' ? 'Quality Management'
+              : doc.section === 'ehs' ? 'Environment, Health, and Safety (EHS)'
+                : doc.section === 'mep' ? 'MEP'
+                  : doc.section === 'registrations' ? 'Project Documents & Registration'
+                    : doc.section === 'rfi' ? 'RFI'
+                      : doc.section;
 
     if (mappedSec && activeSection !== mappedSec) {
       setActiveSection(mappedSec);
@@ -845,9 +904,238 @@ function App() {
   const [guestDocData, setGuestDocData] = useState(null);
   const [guestError, setGuestError] = useState('');
 
+  // Helper to get company logo for logged in user account
+  const getUserLogo = (user) => {
+    if (!user) return null;
+    const userName = (user.name || user.userId || '').toUpperCase();
+    const userEmail = (user.email || '').toLowerCase();
+
+    if (userName.includes('NECPL') || userName.includes('NYATI') || userEmail.includes('necpl')) {
+      return '/uploads/nyati_logo.png';
+    }
+    if (userName.includes('MMRCL') || userName.includes('MMRC') || userEmail.includes('mmrcl')) {
+      return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10';
+    }
+    return null;
+  };
+
   // Hard Copy Handover Print Receipt View
   const [showPrintReceipt, setShowPrintReceipt] = useState(false);
   const [receiptDoc, setReceiptDoc] = useState(null);
+
+  // RFI Floating Modal States
+  const [showRfiModal, setShowRfiModal] = useState(false);
+  const [rfiSelectedSection, setRfiSelectedSection] = useState('Project Drawings');
+  const [rfiFoldersList, setRfiFoldersList] = useState([]);
+  const [rfiFoldersLoading, setRfiFoldersLoading] = useState(false);
+  const [rfiSelectedMainFolder, setRfiSelectedMainFolder] = useState('Root');
+  const [rfiSelectedSubFolder, setRfiSelectedSubFolder] = useState('');
+  const [rfiSelectedFolder, setRfiSelectedFolder] = useState('Root');
+  const [rfiFileInput, setRfiFileInput] = useState(null);
+  const [rfiFileNameInput, setRfiFileNameInput] = useState('');
+  const [rfiSubmitting, setRfiSubmitting] = useState(false);
+
+  // Drag & Drop State for moving files into folders
+  const [draggedDoc, setDraggedDoc] = useState(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState(null);
+  const draggedDocRef = useRef(null);
+
+  const handleFileDragStart = (e, doc) => {
+    draggedDocRef.current = doc;
+    setDraggedDoc(doc);
+    e.dataTransfer.setData('text/plain', doc._id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleFolderDragOver = (e, folderId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverFolderId !== folderId) {
+      setDragOverFolderId(folderId);
+    }
+  };
+
+  const handleFolderDragLeave = (e, folderId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dragOverFolderId === folderId) {
+      setDragOverFolderId(null);
+    }
+  };
+
+  const handleFolderDrop = async (e, targetFolder) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolderId(null);
+
+    const docToMove = draggedDocRef.current || draggedDoc;
+    setDraggedDoc(null);
+
+    if (!docToMove) {
+      console.warn('No dragged doc ref found');
+      return;
+    }
+
+    const targetFolderIdOrName = targetFolder._id || targetFolder.id || targetFolder.name;
+    const targetFolderName = targetFolder.name;
+
+    // Check if doc is already in this folder
+    if (docToMove.folder === targetFolderIdOrName || docToMove.folder === targetFolderName) {
+      return;
+    }
+
+    try {
+      const currentApiSec = getApiSectionName(activeSection);
+      await generalDocsAPI.moveDocument(currentApiSec, docToMove._id, targetFolderIdOrName);
+      await fetchGeneralDocs();
+    } catch (err) {
+      console.error('Failed to move document via drag & drop:', err);
+      alert('Failed to move document into folder');
+    } finally {
+      draggedDocRef.current = null;
+    }
+  };
+
+  const rfiAvailableSections = [
+    { label: 'Project Monitoring & Control', value: 'Project Monitoring & Control' },
+    { label: 'Project Drawings', value: 'Project Drawings' },
+    { label: 'Quality Management', value: 'Quality Management' },
+    { label: 'Environment, Health, and Safety (EHS)', value: 'Environment, Health, and Safety (EHS)' },
+    { label: 'MEP', value: 'MEP' },
+    { label: 'Project Documents & Registration', value: 'Project Documents & Registration' },
+  ];
+
+  const getFolderId = (f) => f._id || f.id;
+  const getParentFolderId = (f) => {
+    if (!f || !f.parentFolder) return null;
+    if (typeof f.parentFolder === 'object') return f.parentFolder._id || f.parentFolder.id;
+    return f.parentFolder;
+  };
+
+  const rfiMainFolders = rfiFoldersList.filter(f => !getParentFolderId(f));
+
+  const getAllNestedSubfolders = (parentId, depth = 1) => {
+    if (!parentId || parentId === 'Root') return [];
+    let list = [];
+    const directChildren = rfiFoldersList.filter(f => {
+      const pid = getParentFolderId(f);
+      return pid && pid.toString() === parentId.toString();
+    });
+
+    for (const child of directChildren) {
+      const cId = getFolderId(child);
+      list.push({ ...child, depth });
+      const deeper = getAllNestedSubfolders(cId, depth + 1);
+      list = list.concat(deeper);
+    }
+    return list;
+  };
+
+  const handleMainFolderChange = (folderVal) => {
+    setRfiSelectedMainFolder(folderVal);
+    setRfiSelectedSubFolder('');
+    setRfiSelectedFolder(folderVal);
+  };
+
+  const handleSubFolderChange = (subFolderVal) => {
+    setRfiSelectedSubFolder(subFolderVal);
+    if (subFolderVal) {
+      setRfiSelectedFolder(subFolderVal);
+    } else {
+      setRfiSelectedFolder(rfiSelectedMainFolder);
+    }
+  };
+
+  const fetchFoldersForRfiSection = async (secName) => {
+    const apiSec = getApiSectionName(secName);
+    if (!apiSec) return;
+    setRfiFoldersLoading(true);
+    try {
+      const res = await generalDocsAPI.getFolders(apiSec);
+      if (res.success && res.data) {
+        setRfiFoldersList(res.data);
+      } else {
+        setRfiFoldersList([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch folders for RFI section:', err);
+      setRfiFoldersList([]);
+    } finally {
+      setRfiFoldersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showRfiModal && rfiSelectedSection) {
+      fetchFoldersForRfiSection(rfiSelectedSection);
+    }
+  }, [showRfiModal, rfiSelectedSection]);
+
+  const handleOpenRfiModal = () => {
+    setRfiSelectedSection('Project Drawings');
+    setRfiSelectedMainFolder('Root');
+    setRfiSelectedSubFolder('');
+    setRfiSelectedFolder('Root');
+    setRfiFileInput(null);
+    setRfiFileNameInput('');
+    setShowRfiModal(true);
+  };
+
+  const handleRfiFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setRfiFileInput(file);
+      if (!rfiFileNameInput) {
+        const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+        setRfiFileNameInput(nameWithoutExt);
+      }
+    }
+  };
+
+  const handleRfiSubmit = async (e) => {
+    e.preventDefault();
+    if (!rfiFileInput) {
+      alert('Please select an attachment file');
+      return;
+    }
+    if (!rfiFileNameInput.trim()) {
+      alert('Please enter a file name');
+      return;
+    }
+
+    setRfiSubmitting(true);
+    try {
+      const targetApiSec = getApiSectionName(rfiSelectedSection);
+      const fileNameToUse = rfiFileNameInput.trim();
+
+      // 1. Upload to RFI section
+      const rfiFormData = new FormData();
+      rfiFormData.append('file', rfiFileInput);
+      rfiFormData.append('name', fileNameToUse);
+      rfiFormData.append('folder', 'Root');
+      await generalDocsAPI.upload('rfi', rfiFormData);
+
+      // 2. Upload to Target section and folder
+      const targetFormData = new FormData();
+      targetFormData.append('file', rfiFileInput);
+      targetFormData.append('name', fileNameToUse);
+      targetFormData.append('folder', rfiSelectedFolder || 'Root');
+      await generalDocsAPI.upload(targetApiSec, targetFormData);
+
+      setShowRfiModal(false);
+      setRfiFileInput(null);
+      setRfiFileNameInput('');
+
+      await fetchGeneralDocs();
+      await fetchAllUploads();
+    } catch (err) {
+      console.error('RFI submission error:', err);
+      alert(err.response?.data?.message || 'Failed to submit RFI document');
+    } finally {
+      setRfiSubmitting(false);
+    }
+  };
 
   // Fetch all dashboard data
   const loadDashboardData = async () => {
@@ -1146,26 +1434,28 @@ function App() {
 
   const generalDocSections = [
     'Tender Documents',
-    'Contractual',
+    'Contractual Documents',
     'Project Monitoring & Control',
     'Project Drawings',
     'Quality Management',
     'Environment, Health, and Safety (EHS)',
     'MEP',
-    'Project Documents & Registration'
+    'Project Documents & Registration',
+    'RFI'
   ];
 
   const getApiSectionName = (secName) => {
     if (!secName) return '';
     const lower = secName.toLowerCase();
     if (lower === 'tender documents' || lower === 'tender') return 'tender';
-    if (lower === 'contractual') return 'contractual';
+    if (lower === 'contractual documents' || lower === 'contractual') return 'contractual';
     if (lower === 'project monitoring & control' || lower === 'monitor') return 'monitor';
     if (lower === 'project drawings' || lower === 'drawing') return 'drawing';
     if (lower === 'quality management' || lower === 'quality') return 'quality';
     if (lower.includes('ehs') || lower.includes('safety')) return 'ehs';
     if (lower === 'mep') return 'mep';
     if (lower.includes('registration') || lower === 'registrations') return 'registrations';
+    if (lower === 'rfi') return 'rfi';
     return lower;
   };
 
@@ -2111,13 +2401,14 @@ function App() {
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'details', name: 'Project Details', icon: Building },
     { id: 'tender', name: 'Tender Documents', icon: FileText },
-    { id: 'contractual', name: 'Contractual', icon: FileCheck },
+    { id: 'contractual', name: 'Contractual Documents', icon: FileCheck },
     { id: 'monitor', name: 'Project Monitoring & Control', icon: BarChart3 },
     { id: 'drawing', name: 'Project Drawings', icon: Compass },
     { id: 'quality', name: 'Quality Management', icon: Award },
     { id: 'ehs', name: 'Environment, Health, and Safety (EHS)', icon: ShieldAlert },
     { id: 'mep', name: 'MEP', icon: Wrench },
     { id: 'registrations', name: 'Project Documents & Registration', icon: ClipboardList },
+    { id: 'rfi', name: 'RFI', icon: FileQuestion },
   ];
 
   return (
@@ -2139,52 +2430,86 @@ function App() {
             {sidebarSections.map((sec) => {
               const IconComp = sec.icon;
               const isActive = activeSection === sec.name;
+              const isRfi = sec.id === 'rfi';
               const sectionHasUnread = (activeSection === sec.name && tenderDocs.some(hasUnreadRemarks));
+
+              let buttonStyle = 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 border border-transparent';
+              let iconStyle = 'text-slate-400 group-hover:text-slate-600';
+
+              if (isActive) {
+                if (isRfi) {
+                  buttonStyle = 'bg-purple-600 text-white border border-purple-700 shadow-md font-bold';
+                  iconStyle = 'text-white';
+                } else {
+                  buttonStyle = 'bg-sky-50 text-sky-700 border border-sky-100 font-bold';
+                  iconStyle = 'text-sky-600';
+                }
+              } else if (isRfi) {
+                buttonStyle = 'bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200/90 shadow-sm font-extrabold';
+                iconStyle = 'text-purple-600';
+              }
+
               return (
                 <button
                   key={sec.id}
                   onClick={() => setActiveSection(sec.name)}
-                  className={`w-full flex items-start space-x-3 px-3 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 relative group ${isActive
-                    ? 'bg-sky-50 text-sky-700 border border-sky-100'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 border border-transparent'
-                    }`}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 relative group ${buttonStyle}`}
                 >
-                  {isActive && (
-                    <span className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r bg-sky-500"></span>
-                  )}
-                  {sectionHasUnread && (
-                    <span className="absolute right-2 top-3 flex h-2.5 w-2.5" title="New Unread Remark in this Section">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
-                    </span>
-                  )}
-                  <IconComp className={`h-4 w-4 flex-shrink-0 transition-colors duration-200 mt-0.5 ${isActive ? 'text-sky-600' : 'text-slate-400 group-hover:text-slate-555'
-                    }`} />
-                  <span className="whitespace-normal break-words pr-2">{sec.name}</span>
+                  <div className="flex items-center space-x-3 min-w-0">
+                    {isActive && (
+                      <span className={`absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r ${isRfi ? 'bg-purple-300' : 'bg-sky-500'}`}></span>
+                    )}
+                    {sectionHasUnread && (
+                      <span className="absolute right-2 top-3 flex h-2.5 w-2.5" title="New Unread Remark in this Section">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                      </span>
+                    )}
+                    <IconComp className={`h-4 w-4 flex-shrink-0 transition-colors duration-200 ${iconStyle}`} />
+                    <span className="whitespace-normal break-words">{sec.name}</span>
+                  </div>
                 </button>
               );
             })}
           </nav>
         </div>
 
-        <div className="border-t border-slate-100 pt-4 space-y-3">
-          <div className="flex items-center space-x-3 px-2">
-            <div className="bg-gradient-to-tr from-sky-500 to-teal-400 h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-base shadow flex-shrink-0">
-              {(currentUser.name ? currentUser.name.split(' (')[0] : currentUser.userId || 'User').charAt(0)}
+        <div className="border-t border-slate-100 pt-3">
+          <div className="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-slate-50 transition">
+            <div className="flex items-center space-x-3 min-w-0 flex-1">
+              {(() => {
+                const logoUrl = getUserLogo(currentUser);
+                if (logoUrl) {
+                  return (
+                    <div className="h-9 w-9 rounded-full border border-slate-200 bg-white p-0.5 overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <img
+                        src={logoUrl}
+                        alt={currentUser?.name || 'User Logo'}
+                        className="h-full w-full object-contain rounded-full"
+                      />
+                    </div>
+                  );
+                }
+                return (
+                  <div className="bg-gradient-to-tr from-sky-500 to-teal-400 h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-base shadow flex-shrink-0">
+                    {(currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User').charAt(0)}
+                  </div>
+                );
+              })()}
+              <div className="text-left min-w-0 flex-1">
+                <span className="block text-sm font-bold text-slate-900 leading-tight truncate" title={currentUser.name ? currentUser.name.split(' (')[0] : currentUser.userId || 'User'}>
+                  {currentUser.name ? currentUser.name.split(' (')[0] : currentUser.userId || 'User'}
+                </span>
+              </div>
             </div>
-            <div className="text-left">
-              <span className="block text-sm font-bold text-slate-900 leading-tight whitespace-normal break-words">
-                {currentUser.name ? currentUser.name.split(' (')[0] : currentUser.userId || 'User'}
-              </span>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer flex-shrink-0 ml-1"
+              title="Sign Out"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center space-x-2 px-3 py-2 bg-slate-50 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-xl text-sm font-semibold transition-all duration-200"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
-          </button>
         </div>
       </aside>
 
@@ -2194,19 +2519,19 @@ function App() {
         <main className="flex-1 p-6 space-y-6 overflow-y-auto">
           {activeSection === 'Dashboard' ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
-              
+
               {/* Welcome Banner */}
               <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-sky-950 p-8 rounded-2xl shadow-lg border border-slate-800">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
                 <div className="absolute bottom-0 left-0 w-48 h-48 bg-indigo-500/10 rounded-full blur-2xl -ml-16 -mb-16"></div>
-                
+
                 <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
                   <div className="space-y-2">
                     <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
                       Metro Bhawan & Staff Quarters Project
                     </h2>
                   </div>
-                  
+
                   <div className="flex flex-col items-end text-right text-xs text-slate-400 font-semibold space-y-1">
                     <span>Last Updated: {new Date().toLocaleDateString()}</span>
                   </div>
@@ -2215,7 +2540,7 @@ function App() {
 
               {/* Stat Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 {/* Total Documents */}
                 <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm hover:shadow-md transition duration-200 flex items-center space-x-4">
                   <div className="p-3.5 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
@@ -2449,6 +2774,17 @@ function App() {
                     );
                   })()}
                 </div>
+              </div>
+
+              {/* Note Banner */}
+              <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 shadow-sm flex items-center space-x-3 text-amber-900">
+                <div className="p-2 bg-amber-100 text-amber-700 rounded-xl flex-shrink-0">
+                  <Info className="h-5 w-5" />
+                </div>
+                <p className="text-xs md:text-sm font-medium tracking-wide leading-relaxed">
+                  <span className="font-extrabold text-amber-950">Note :- </span>
+                  Dashboard will be updated monthly as per progress review meetings
+                </p>
               </div>
 
             </div>
@@ -2716,7 +3052,7 @@ function App() {
                 <div className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-sm">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <span className="font-bold text-slate-900 text-sm">A). Metro Bhawan</span>
-                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded">Commercial</span>
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded">Phase 1 Commercial Andheri</span>
                   </div>
                   <ul className="space-y-2 text-xs list-disc pl-4 text-slate-800 leading-relaxed">
                     <li>Total construction area: <strong>2,86,817.54 Sft</strong></li>
@@ -2731,7 +3067,7 @@ function App() {
                 <div className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-sm">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <span className="font-bold text-slate-900 text-sm">B). Executive Staff Quarters</span>
-                    <span className="px-2 py-0.5 bg-teal-50 text-teal-700 text-xs font-bold rounded">Residential</span>
+                    <span className="px-2 py-0.5 bg-teal-50 text-teal-700 text-xs font-bold rounded">Phase 2 Residential Andheri</span>
                   </div>
                   <ul className="space-y-2 text-xs list-disc pl-4 text-slate-800 leading-relaxed">
                     <li>
@@ -2753,7 +3089,7 @@ function App() {
                 <div className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-sm">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <span className="font-bold text-slate-900 text-sm">C). Non-Executive Staff Quarters</span>
-                    <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs font-bold rounded">Dharavi site</span>
+                    <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs font-bold rounded">Phase 3 Residential Dharavi</span>
                   </div>
                   <ul className="space-y-2 text-xs list-disc pl-4 text-slate-800 leading-relaxed">
                     <li>Total construction area: <strong>72,194.14 Sft</strong></li>
@@ -2932,18 +3268,29 @@ function App() {
                     )}
                   </div>
 
-                  <button
-                    onClick={() => setShowTenderFolderModal(true)}
-                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm whitespace-nowrap"
-                  >
-                    <Folder className="mr-1.5 h-4 w-4 fill-current text-white" /> Create Folder
-                  </button>
-                  <button
-                    onClick={() => setShowTenderUploadModal(true)}
-                    className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm whitespace-nowrap"
-                  >
-                    <UploadCloud className="mr-1.5 h-4 w-4" /> Upload File
-                  </button>
+                  {activeSection === 'RFI' ? (
+                    <button
+                      onClick={handleOpenRfiModal}
+                      className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs flex items-center transition shadow-sm whitespace-nowrap cursor-pointer"
+                    >
+                      <Plus className="mr-1.5 h-4 w-4" /> Add
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setShowTenderFolderModal(true)}
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm whitespace-nowrap cursor-pointer"
+                      >
+                        <Folder className="mr-1.5 h-4 w-4 fill-current text-white" /> Create Folder
+                      </button>
+                      <button
+                        onClick={() => setShowTenderUploadModal(true)}
+                        className="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm whitespace-nowrap cursor-pointer"
+                      >
+                        <UploadCloud className="mr-1.5 h-4 w-4" /> Upload File
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -2963,6 +3310,7 @@ function App() {
                     let currentFolders = tenderFolders.filter(f => f.parentFolder === selectedTenderFolderId);
                     const targetFolderRef = selectedTenderFolderId || 'Root';
                     let currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                    const isDragAndDropAllowed = !['Dashboard', 'Project Details', 'Tender Documents', 'Contractual Documents'].includes(activeSection);
                     const isFullRights = currentUser && (
                       currentUser.role === 'Site Engineer' ||
                       (currentUser.userId && currentUser.userId.toUpperCase() === 'NECPL') ||
@@ -3015,6 +3363,7 @@ function App() {
                               const folderDocs = tenderDocs.filter(d => d.folder === folder._id || d.folder === folderName);
                               const count = folderDocs.length;
                               const folderHasUnread = folderDocs.some(hasUnreadRemarks);
+                              const isDragTarget = dragOverFolderId === folder._id;
                               return (
                                 <div
                                   key={folder._id}
@@ -3022,8 +3371,27 @@ function App() {
                                     if (isSearching) setGeneralDocSearch('');
                                     setFolderPath(prev => [...prev, folder]);
                                   }}
-                                  className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white hover:border-sky-400 hover:shadow-md cursor-pointer transition duration-200 flex items-start justify-between shadow-sm group relative z-20"
+                                  onDragOver={(e) => {
+                                    if (isDragAndDropAllowed) handleFolderDragOver(e, folder._id);
+                                  }}
+                                  onDragLeave={(e) => {
+                                    if (isDragAndDropAllowed) handleFolderDragLeave(e, folder._id);
+                                  }}
+                                  onDrop={(e) => {
+                                    if (isDragAndDropAllowed) handleFolderDrop(e, folder);
+                                  }}
+                                  className={`glass-panel p-6 rounded-2xl border cursor-pointer transition-all duration-200 flex items-start justify-between shadow-sm group relative z-20 ${
+                                    isDragTarget
+                                      ? 'border-2 border-dashed border-sky-500 bg-sky-50/90 shadow-xl scale-[1.02] ring-4 ring-sky-200'
+                                      : 'border-slate-200 bg-white hover:border-sky-400 hover:shadow-md'
+                                  }`}
                                 >
+                                  {isDragTarget && (
+                                    <div className="absolute inset-0 bg-sky-500/10 backdrop-blur-[1px] border-2 border-dashed border-sky-600 rounded-2xl flex items-center justify-center space-x-2 text-sky-800 font-extrabold text-xs z-30 animate-pulse pointer-events-none">
+                                      <Folder className="h-5 w-5 fill-current text-sky-600" />
+                                      <span>Move "{draggedDocRef.current?.name || draggedDoc?.name || 'file'}" here</span>
+                                    </div>
+                                  )}
                                   <div className="flex items-start space-x-4">
                                     <div className="p-4 bg-amber-50 text-amber-500 rounded-2xl group-hover:bg-amber-100 transition flex-shrink-0 relative">
                                       <Folder className="h-8 w-8 fill-current" />
@@ -3087,7 +3455,7 @@ function App() {
 
                         {/* Files Table */}
                         {currentFiles.length > 0 && (() => {
-                          const showRemarkAndApproval = activeSection !== 'Tender Documents' && activeSection !== 'Contractual';
+                          const showRemarkAndApproval = activeSection !== 'Tender Documents' && activeSection !== 'Contractual Documents';
                           return (
                             <div className="space-y-4 pt-6 border-t border-slate-100">
                               <div className="flex items-center justify-between">
@@ -3106,22 +3474,22 @@ function App() {
                                 )}
                               </div>
 
-                              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm min-h-[220px] pb-12">
+                              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm min-h-[420px] pb-60">
                                 <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
                                   <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
                                     <tr>
-                                      <th scope="col" className={`px-6 py-4 whitespace-nowrap ${showRemarkAndApproval ? 'w-1/3' : 'w-2/5'}`}>Document Title</th>
-                                      <th scope="col" className={`px-6 py-4 whitespace-nowrap ${showRemarkAndApproval ? 'w-[12%]' : 'w-1/5'}`}>File Info</th>
-                                      <th scope="col" className={`px-6 py-4 whitespace-nowrap ${showRemarkAndApproval ? 'w-[12%]' : 'w-1/5'}`}>Uploaded By</th>
-                                      <th scope="col" className={`px-6 py-4 whitespace-nowrap ${showRemarkAndApproval ? 'w-[12%]' : 'w-1/5'}`}>Upload Date</th>
+                                      <th scope="col" className={`px-4 py-3 whitespace-nowrap ${showRemarkAndApproval ? 'w-[26%] md:w-[28%]' : 'w-2/5'}`}>Document Title</th>
+                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showRemarkAndApproval ? 'w-[10%]' : 'w-1/5'}`}>File Info</th>
+                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showRemarkAndApproval ? 'w-[10%]' : 'w-1/5'}`}>Uploaded By</th>
+                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showRemarkAndApproval ? 'w-[11%]' : 'w-1/5'}`}>Date & Time</th>
                                       {showRemarkAndApproval && (
                                         <>
-                                          <th scope="col" className="px-6 py-4 whitespace-nowrap text-center w-[11%]">Remark</th>
-                                          <th scope="col" className="px-6 py-4 whitespace-nowrap text-center w-[12%]">Authority</th>
-                                          <th scope="col" className="px-6 py-4 whitespace-nowrap text-center w-[10%]">Approval</th>
+                                          <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[10%]">Remark</th>
+                                          <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[12%]">Authority</th>
+                                          <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[10%]">Approval</th>
                                         </>
                                       )}
-                                      <th scope="col" className="px-6 py-4 whitespace-nowrap text-right"></th>
+                                      <th scope="col" className="px-3 py-3 whitespace-nowrap text-right"></th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
@@ -3130,331 +3498,349 @@ function App() {
                                       return (
                                         <React.Fragment key={doc._id}>
                                           <tr
-                                            className={`transition ${isUnviewed
+                                            draggable={isDragAndDropAllowed}
+                                            onDragStart={(e) => {
+                                              if (!isDragAndDropAllowed) {
+                                                e.preventDefault();
+                                                return;
+                                              }
+                                              handleFileDragStart(e, doc);
+                                            }}
+                                            onDragEnd={() => {
+                                              setDraggedDoc(null);
+                                              setDragOverFolderId(null);
+                                            }}
+                                            className={`transition ${isDragAndDropAllowed ? 'cursor-grab active:cursor-grabbing select-none' : ''} ${
+                                              isDragAndDropAllowed && draggedDoc?._id === doc._id ? 'opacity-40 bg-sky-100/70 border-2 border-dashed border-sky-400' : ''
+                                            } ${isUnviewed
                                               ? 'bg-emerald-50/80 hover:bg-emerald-100/80 border-l-4 border-l-emerald-500 font-medium'
                                               : 'hover:bg-slate-50/50'
                                               }`}
                                           >
-                                            <td className="px-6 py-4 font-semibold text-slate-800 flex items-center space-x-3 min-w-0">
+                                            <td className="px-4 py-3 font-semibold text-slate-800 flex items-center space-x-2.5 min-w-0">
+                                              {isDragAndDropAllowed && (
+                                                <GripVertical className="h-4 w-4 text-slate-300 group-hover:text-sky-500 cursor-grab flex-shrink-0" title="Drag to move into folder" />
+                                              )}
                                               <File className={`h-4 w-4 flex-shrink-0 ${isUnviewed ? 'text-emerald-600' : 'text-slate-400'}`} />
                                               <div className="min-w-0 flex-1">
-                                                <div className="flex items-center space-x-2">
+                                                <div className="flex items-center space-x-1.5 min-w-0">
                                                   <button
                                                     onClick={() => handleViewGeneralDoc(doc)}
-                                                    className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate block max-w-sm md:max-w-md"
+                                                    className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer truncate block max-w-[160px] md:max-w-[200px] lg:max-w-[230px]"
                                                     title={doc.name}
                                                   >
                                                     {doc.name}
                                                   </button>
-                                                {isUnviewed && (
-                                                  <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm flex-shrink-0 animate-pulse">
-                                                    NEW UPLOAD
-                                                  </span>
-                                                )}
+                                                  {isUnviewed && (
+                                                    <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm flex-shrink-0 animate-pulse">
+                                                      NEW
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <span className="block text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-[160px] md:max-w-[200px] lg:max-w-[230px]" title={doc.originalName}>{doc.originalName}</span>
                                               </div>
-                                              <span className="block text-[10px] text-slate-400 font-mono mt-0.5 whitespace-nowrap truncate max-w-sm md:max-w-md" title={doc.originalName}>{doc.originalName}</span>
-                                            </div>
-                                          </td>
-                                          <td className="px-6 py-4 text-slate-600 whitespace-nowrap">
-                                            <span className="font-semibold block text-xs">{(doc.fileSize / 1024).toFixed(1)} KB</span>
-                                            <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[140px]">{doc.mimeType}</span>
-                                          </td>
-                                          <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="font-semibold block text-slate-700 text-xs">
-                                              {doc.uploadedBy?.name && doc.uploadedBy.name !== 'System Seeded' ? doc.uploadedBy.name : 'NECPL'}
-                                            </span>
-                                          </td>
-                                          <td className="px-6 py-4 text-slate-600 text-xs font-medium whitespace-nowrap">
-                                            {new Date(doc.uploadedAt).toLocaleDateString()}
-                                          </td>
-                                          {showRemarkAndApproval && (
-                                            <>
-                                              <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                {(() => {
-                                                  const remarkList = doc.remarks && doc.remarks.length > 0
-                                                    ? doc.remarks
-                                                    : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
-                                                  const totalMsgCount = remarkList.length;
-                                                  const unreadCount = getUnreadRemarksCount(doc);
+                                            </td>
+                                            <td className="px-3 py-3 text-slate-600 whitespace-nowrap">
+                                              <span className="font-semibold block text-xs">{(doc.fileSize / 1024).toFixed(1)} KB</span>
+                                              <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[110px]">{doc.mimeType}</span>
+                                            </td>
+                                            <td className="px-3 py-3 whitespace-nowrap">
+                                              <span className="font-semibold block text-slate-700 text-xs">
+                                                {doc.uploadedBy?.name && doc.uploadedBy.name !== 'System Seeded' ? doc.uploadedBy.name : 'NECPL'}
+                                              </span>
+                                            </td>
+                                            <td className="px-3 py-3 text-slate-600 text-xs font-medium whitespace-nowrap">
+                                              <span className="block font-semibold text-slate-800">{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                              <span className="block text-[10px] text-slate-400 font-medium">{new Date(doc.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            </td>
+                                            {showRemarkAndApproval && (
+                                              <>
+                                                <td className="px-2 py-3 text-center whitespace-nowrap">
+                                                  {(() => {
+                                                    const remarkList = doc.remarks && doc.remarks.length > 0
+                                                      ? doc.remarks
+                                                      : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
+                                                    const totalMsgCount = remarkList.length;
+                                                    const unreadCount = getUnreadRemarksCount(doc);
 
-                                                  return (
-                                                    <button
-                                                      onClick={() => handleOpenRemarkModal(doc)}
-                                                      className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
-                                                      title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
-                                                    >
-                                                      <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
-                                                      <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
-                                                      {unreadCount > 0 && (
-                                                        <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
-                                                          {unreadCount}
-                                                        </span>
-                                                      )}
-                                                    </button>
-                                                  );
-                                                })()}
-                                              </td>
-                                              <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                {renderAuthorityDropdown(doc, false)}
-                                              </td>
-                                              <td className="px-6 py-4 text-center whitespace-nowrap">
-                                                {renderApprovalColumn(doc, false)}
-                                              </td>
-                                            </>
-                                          )}
-                                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                                        <div className="flex items-center justify-end space-x-3">
-                                          <button
-                                            onClick={() => handleDownloadGeneralDoc(doc)}
-                                            className="inline-flex items-center px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 rounded-lg border border-slate-200 transition shadow-sm font-semibold text-xs"
-                                            title="Download File"
-                                          >
-                                            <Download className="mr-1.5 h-3.5 w-3.5" /> Download
-                                          </button>
-
-                                          {/* Rename & Delete options menu */}
-                                          <div className="relative inline-block text-left">
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setActiveFileMenuId(activeFileMenuId === doc._id ? null : doc._id);
-                                              }}
-                                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition"
-                                            >
-                                              <MoreVertical className="h-4 w-4" />
-                                            </button>
-
-                                            {/* Dropdown Menu */}
-                                            {activeFileMenuId === doc._id && (
-                                              <div className={`absolute right-0 ${docIndex < 2 ? 'top-full mt-1' : 'bottom-full mb-1'} bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-32 z-30 animate-fade-in text-left text-xs`}>
+                                                    return (
+                                                      <button
+                                                        onClick={() => handleOpenRemarkModal(doc)}
+                                                        className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
+                                                        title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
+                                                      >
+                                                        <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
+                                                        <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                                        {unreadCount > 0 && (
+                                                          <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
+                                                            {unreadCount}
+                                                          </span>
+                                                        )}
+                                                      </button>
+                                                    );
+                                                  })()}
+                                                </td>
+                                                <td className="px-2 py-3 text-center whitespace-nowrap">
+                                                  {renderAuthorityDropdown(doc, false)}
+                                                </td>
+                                                <td className="px-2 py-3 text-center whitespace-nowrap">
+                                                  {renderApprovalColumn(doc, false)}
+                                                </td>
+                                              </>
+                                            )}
+                                            <td className="px-3 py-3 text-right whitespace-nowrap">
+                                              <div className="flex items-center justify-end space-x-3">
                                                 <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setRenameFileId(doc._id);
-                                                    setRenameFileNameInput(doc.name);
-                                                    setShowRenameModal(true);
-                                                    setActiveFileMenuId(null);
-                                                  }}
-                                                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center"
+                                                  onClick={() => handleDownloadGeneralDoc(doc)}
+                                                  className="inline-flex items-center px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 rounded-lg border border-slate-200 transition shadow-sm font-semibold text-xs"
+                                                  title="Download File"
                                                 >
-                                                  Rename
+                                                  <Download className="mr-1.5 h-3.5 w-3.5" /> Download
                                                 </button>
-                                                {isFullRights && (
+
+                                                {/* Rename & Delete options menu */}
+                                                <div className="relative inline-block text-left">
                                                   <button
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      if (window.confirm(`Are you sure you want to delete the file "${doc.name}"?`)) {
-                                                        handleDeleteDocument(doc._id);
-                                                      }
-                                                      setActiveFileMenuId(null);
+                                                      setActiveFileMenuId(activeFileMenuId === doc._id ? null : doc._id);
                                                     }}
-                                                    className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center"
+                                                    className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition"
                                                   >
-                                                    Delete
+                                                    <MoreVertical className="h-4 w-4" />
+                                                  </button>
+
+                                                  {/* Dropdown Menu */}
+                                                  {activeFileMenuId === doc._id && (
+                                                    <div className={`absolute right-0 ${docIndex < 2 ? 'top-full mt-1' : 'bottom-full mb-1'} bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-32 z-30 animate-fade-in text-left text-xs`}>
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setRenameFileId(doc._id);
+                                                          setRenameFileNameInput(doc.name);
+                                                          setShowRenameModal(true);
+                                                          setActiveFileMenuId(null);
+                                                        }}
+                                                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center"
+                                                      >
+                                                        Rename
+                                                      </button>
+                                                      {isFullRights && (
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (window.confirm(`Are you sure you want to delete the file "${doc.name}"?`)) {
+                                                              handleDeleteDocument(doc._id);
+                                                            }
+                                                            setActiveFileMenuId(null);
+                                                          }}
+                                                          className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center"
+                                                        >
+                                                          Delete
+                                                        </button>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+
+                                                {/* Plus (+) Button for Uploading Sub-Document / Revision */}
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedParentDoc(doc);
+                                                    setSubDocTitleInput('');
+                                                    setSubDocFileInput(null);
+                                                    setShowSubDocModal(true);
+                                                  }}
+                                                  className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 hover:text-sky-800 rounded-lg border border-sky-200 transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center"
+                                                  title="Attach Sub-Document / New Revision"
+                                                >
+                                                  <Plus className="h-4 w-4" />
+                                                </button>
+
+                                                {/* Dropdown Chevron toggle icon if parent doc has sub-documents */}
+                                                {doc.subDocuments && doc.subDocuments.length > 0 && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setExpandedSubDocMap(prev => ({ ...prev, [doc._id]: !prev[doc._id] }));
+                                                    }}
+                                                    className={`p-1.5 rounded-lg border transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center ${expandedSubDocMap[doc._id]
+                                                      ? 'bg-slate-800 text-white border-slate-800'
+                                                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                                                      }`}
+                                                    title={expandedSubDocMap[doc._id] ? 'Collapse Sub-Documents' : `Expand ${doc.subDocuments.length} Sub-Document(s)`}
+                                                  >
+                                                    {expandedSubDocMap[doc._id] ? (
+                                                      <ChevronDown className="h-4 w-4" />
+                                                    ) : (
+                                                      <ChevronRight className="h-4 w-4" />
+                                                    )}
                                                   </button>
                                                 )}
                                               </div>
-                                            )}
-                                          </div>
+                                            </td>
+                                          </tr>
 
-                                          {/* Plus (+) Button for Uploading Sub-Document / Revision */}
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setSelectedParentDoc(doc);
-                                              setSubDocTitleInput('');
-                                              setSubDocFileInput(null);
-                                              setShowSubDocModal(true);
-                                            }}
-                                            className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 hover:text-sky-800 rounded-lg border border-sky-200 transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center"
-                                            title="Attach Sub-Document / New Revision"
-                                          >
-                                            <Plus className="h-4 w-4" />
-                                          </button>
+                                          {/* Expanded Sub-Documents Accordion Row */}
+                                          {expandedSubDocMap[doc._id] && doc.subDocuments && doc.subDocuments.length > 0 && (
+                                            <tr key={`subdocs-${doc._id}`} className="bg-slate-50/90 border-b-2 border-sky-100">
+                                              <td colSpan={showRemarkAndApproval ? 8 : 5} className="py-3 px-8">
+                                                <div className="pl-6 border-l-3 border-sky-500 space-y-2">
+                                                  <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center space-x-1.5">
+                                                    <FileText className="h-3.5 w-3.5 text-sky-600" />
+                                                    <span>Sub-Documents / Revisions ({doc.subDocuments.length})</span>
+                                                  </div>
+                                                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                                                    <table className="min-w-full divide-y divide-slate-100 text-xs">
+                                                      <thead className="bg-slate-100/80 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                                                        <tr>
+                                                          <th className="px-4 py-2.5 text-left">Sub-Document Title</th>
+                                                          <th className="px-4 py-2.5 text-left">File Info</th>
+                                                          <th className="px-4 py-2.5 text-left">Uploaded By</th>
+                                                          <th className="px-4 py-2.5 text-left">Upload Date</th>
+                                                          {showRemarkAndApproval && (
+                                                            <>
+                                                              <th className="px-4 py-2.5 text-center">Remark</th>
+                                                              <th className="px-4 py-2.5 text-center">Authority</th>
+                                                              <th className="px-4 py-2.5 text-center">Approval</th>
+                                                            </>
+                                                          )}
+                                                          <th className="px-4 py-2.5 text-right">Action</th>
+                                                        </tr>
+                                                      </thead>
+                                                      <tbody className="divide-y divide-slate-100">
+                                                        {doc.subDocuments.map((subDoc, subIndex) => (
+                                                          <tr key={subDoc._id || subIndex} className="hover:bg-slate-50 transition">
+                                                            <td className="px-4 py-2.5 font-semibold text-slate-800 flex items-center space-x-2 min-w-0">
+                                                              <FileText className="h-3.5 w-3.5 text-sky-500 flex-shrink-0" />
+                                                              <button
+                                                                onClick={() => handleViewGeneralSubDoc(doc, subDoc)}
+                                                                className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate max-w-sm"
+                                                                title={`Click to view ${subDoc.name}`}
+                                                              >
+                                                                {subDoc.name}
+                                                              </button>
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
+                                                              {(subDoc.fileSize / 1024).toFixed(1)} KB
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-slate-700 font-medium whitespace-nowrap">
+                                                              {subDoc.uploadedByName || 'User'}
+                                                            </td>
+                                                            <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
+                                                              {new Date(subDoc.uploadedAt).toLocaleDateString()}
+                                                            </td>
+                                                            {showRemarkAndApproval && (
+                                                              <>
+                                                                <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                                  {(() => {
+                                                                    const remarkList = subDoc.remarks && subDoc.remarks.length > 0
+                                                                      ? subDoc.remarks
+                                                                      : [];
+                                                                    const totalMsgCount = remarkList.length;
+                                                                    const unreadCount = getUnreadRemarksCount(subDoc);
 
-                                          {/* Dropdown Chevron toggle icon if parent doc has sub-documents */}
-                                          {doc.subDocuments && doc.subDocuments.length > 0 && (
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setExpandedSubDocMap(prev => ({ ...prev, [doc._id]: !prev[doc._id] }));
-                                              }}
-                                              className={`p-1.5 rounded-lg border transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center ${expandedSubDocMap[doc._id]
-                                                ? 'bg-slate-800 text-white border-slate-800'
-                                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-                                                }`}
-                                              title={expandedSubDocMap[doc._id] ? 'Collapse Sub-Documents' : `Expand ${doc.subDocuments.length} Sub-Document(s)`}
-                                            >
-                                              {expandedSubDocMap[doc._id] ? (
-                                                <ChevronDown className="h-4 w-4" />
-                                              ) : (
-                                                <ChevronRight className="h-4 w-4" />
-                                              )}
-                                            </button>
-                                          )}
-                                        </div>
-                                      </td>
-                                    </tr>
-
-                                    {/* Expanded Sub-Documents Accordion Row */}
-                                    {expandedSubDocMap[doc._id] && doc.subDocuments && doc.subDocuments.length > 0 && (
-                                      <tr key={`subdocs-${doc._id}`} className="bg-slate-50/90 border-b-2 border-sky-100">
-                                        <td colSpan={showRemarkAndApproval ? 8 : 5} className="py-3 px-8">
-                                          <div className="pl-6 border-l-3 border-sky-500 space-y-2">
-                                            <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center space-x-1.5">
-                                              <FileText className="h-3.5 w-3.5 text-sky-600" />
-                                              <span>Sub-Documents / Revisions ({doc.subDocuments.length})</span>
-                                            </div>
-                                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                                              <table className="min-w-full divide-y divide-slate-100 text-xs">
-                                                <thead className="bg-slate-100/80 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                                                  <tr>
-                                                    <th className="px-4 py-2.5 text-left">Sub-Document Title</th>
-                                                    <th className="px-4 py-2.5 text-left">File Info</th>
-                                                    <th className="px-4 py-2.5 text-left">Uploaded By</th>
-                                                    <th className="px-4 py-2.5 text-left">Upload Date</th>
-                                                    {showRemarkAndApproval && (
-                                                      <>
-                                                        <th className="px-4 py-2.5 text-center">Remark</th>
-                                                        <th className="px-4 py-2.5 text-center">Authority</th>
-                                                        <th className="px-4 py-2.5 text-center">Approval</th>
-                                                      </>
-                                                    )}
-                                                    <th className="px-4 py-2.5 text-right">Action</th>
-                                                  </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-100">
-                                                  {doc.subDocuments.map((subDoc, subIndex) => (
-                                                    <tr key={subDoc._id || subIndex} className="hover:bg-slate-50 transition">
-                                                      <td className="px-4 py-2.5 font-semibold text-slate-800 flex items-center space-x-2 min-w-0">
-                                                        <FileText className="h-3.5 w-3.5 text-sky-500 flex-shrink-0" />
-                                                        <button
-                                                          onClick={() => handleViewGeneralSubDoc(doc, subDoc)}
-                                                          className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate max-w-sm"
-                                                          title={`Click to view ${subDoc.name}`}
-                                                        >
-                                                          {subDoc.name}
-                                                        </button>
-                                                      </td>
-                                                      <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
-                                                        {(subDoc.fileSize / 1024).toFixed(1)} KB
-                                                      </td>
-                                                      <td className="px-4 py-2.5 text-slate-700 font-medium whitespace-nowrap">
-                                                        {subDoc.uploadedByName || 'User'}
-                                                      </td>
-                                                      <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
-                                                        {new Date(subDoc.uploadedAt).toLocaleDateString()}
-                                                      </td>
-                                                      {showRemarkAndApproval && (
-                                                        <>
-                                                          <td className="px-4 py-2.5 text-center whitespace-nowrap">
-                                                            {(() => {
-                                                              const remarkList = subDoc.remarks && subDoc.remarks.length > 0
-                                                                ? subDoc.remarks
-                                                                : [];
-                                                              const totalMsgCount = remarkList.length;
-                                                              const unreadCount = getUnreadRemarksCount(subDoc);
-
-                                                              return (
+                                                                    return (
+                                                                      <button
+                                                                        onClick={(e) => handleOpenSubDocRemarkModal(doc, subDoc, e)}
+                                                                        className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
+                                                                        title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
+                                                                      >
+                                                                        <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
+                                                                        <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                                                        {unreadCount > 0 && (
+                                                                          <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
+                                                                            {unreadCount}
+                                                                          </span>
+                                                                        )}
+                                                                      </button>
+                                                                    );
+                                                                  })()}
+                                                                </td>
+                                                                <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                                  {renderAuthorityDropdown(subDoc, true, doc)}
+                                                                </td>
+                                                                <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                                  {renderApprovalColumn(subDoc, true, doc)}
+                                                                </td>
+                                                              </>
+                                                            )}
+                                                            <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                                              <div className="flex items-center justify-end space-x-2">
                                                                 <button
-                                                                  onClick={(e) => handleOpenSubDocRemarkModal(doc, subDoc, e)}
-                                                                  className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
-                                                                  title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
+                                                                  onClick={() => handleDownloadGeneralSubDoc(doc, subDoc)}
+                                                                  className="inline-flex items-center px-2.5 py-1 bg-white hover:bg-slate-50 text-sky-700 hover:text-sky-900 border border-sky-200 rounded-lg transition shadow-sm font-semibold text-[11px] cursor-pointer"
+                                                                  title="Download Sub-Document"
                                                                 >
-                                                                  <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
-                                                                  <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
-                                                                  {unreadCount > 0 && (
-                                                                    <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
-                                                                      {unreadCount}
-                                                                    </span>
-                                                                  )}
+                                                                  <Download className="mr-1 h-3 w-3" /> Download
                                                                 </button>
-                                                              );
-                                                            })()}
-                                                          </td>
-                                                          <td className="px-4 py-2.5 text-center whitespace-nowrap">
-                                                            {renderAuthorityDropdown(subDoc, true, doc)}
-                                                          </td>
-                                                          <td className="px-4 py-2.5 text-center whitespace-nowrap">
-                                                            {renderApprovalColumn(subDoc, true, doc)}
-                                                          </td>
-                                                        </>
-                                                      )}
-                                                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                                                        <div className="flex items-center justify-end space-x-2">
-                                                          <button
-                                                            onClick={() => handleDownloadGeneralSubDoc(doc, subDoc)}
-                                                            className="inline-flex items-center px-2.5 py-1 bg-white hover:bg-slate-50 text-sky-700 hover:text-sky-900 border border-sky-200 rounded-lg transition shadow-sm font-semibold text-[11px] cursor-pointer"
-                                                            title="Download Sub-Document"
-                                                          >
-                                                            <Download className="mr-1 h-3 w-3" /> Download
-                                                          </button>
 
-                                                          {/* 3 Dots Menu for Sub-Document */}
-                                                          <div className="relative inline-block text-left">
-                                                            <button
-                                                              onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setActiveSubFileMenuId(activeSubFileMenuId === subDoc._id ? null : subDoc._id);
-                                                              }}
-                                                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                                                              title="More options"
-                                                            >
-                                                              <MoreVertical className="h-4 w-4" />
-                                                            </button>
-
-                                                            {activeSubFileMenuId === subDoc._id && (
-                                                              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 z-[999] text-left text-xs">
-                                                                <button
-                                                                  onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setSelectedParentForSubRename(doc);
-                                                                    setSelectedSubDocForRename(subDoc);
-                                                                    setSubRenameNameInput(subDoc.name);
-                                                                    setRenameSubDocModal(true);
-                                                                    setActiveSubFileMenuId(null);
-                                                                  }}
-                                                                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
-                                                                >
-                                                                  Rename
-                                                                </button>
-                                                                {isFullRights && (
+                                                                {/* 3 Dots Menu for Sub-Document */}
+                                                                <div className="relative inline-block text-left">
                                                                   <button
                                                                     onClick={(e) => {
                                                                       e.stopPropagation();
-                                                                      if (window.confirm(`Are you sure you want to delete the sub-document "${subDoc.name}"?`)) {
-                                                                        handleDeleteSubDocument(doc._id, subDoc._id);
-                                                                      }
-                                                                      setActiveSubFileMenuId(null);
+                                                                      setActiveSubFileMenuId(activeSubFileMenuId === subDoc._id ? null : subDoc._id);
                                                                     }}
-                                                                    className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
+                                                                    className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                                                    title="More options"
                                                                   >
-                                                                    Delete
+                                                                    <MoreVertical className="h-4 w-4" />
                                                                   </button>
-                                                                )}
+
+                                                                  {activeSubFileMenuId === subDoc._id && (
+                                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 z-[999] text-left text-xs">
+                                                                      <button
+                                                                        onClick={(e) => {
+                                                                          e.stopPropagation();
+                                                                          setSelectedParentForSubRename(doc);
+                                                                          setSelectedSubDocForRename(subDoc);
+                                                                          setSubRenameNameInput(subDoc.name);
+                                                                          setRenameSubDocModal(true);
+                                                                          setActiveSubFileMenuId(null);
+                                                                        }}
+                                                                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
+                                                                      >
+                                                                        Rename
+                                                                      </button>
+                                                                      {isFullRights && (
+                                                                        <button
+                                                                          onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            if (window.confirm(`Are you sure you want to delete the sub-document "${subDoc.name}"?`)) {
+                                                                              handleDeleteSubDocument(doc._id, subDoc._id);
+                                                                            }
+                                                                            setActiveSubFileMenuId(null);
+                                                                          }}
+                                                                          className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
+                                                                        >
+                                                                          Delete
+                                                                        </button>
+                                                                      )}
+                                                                    </div>
+                                                                  )}
+                                                                </div>
                                                               </div>
-                                                            )}
-                                                          </div>
-                                                        </div>
-                                                      </td>
-                                                    </tr>
-                                                  ))}
-                                                </tbody>
-                                              </table>
-                                            </div>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })}
-                              </tbody>
-                              </table>
+                                                            </td>
+                                                          </tr>
+                                                        ))}
+                                                      </tbody>
+                                                    </table>
+                                                  </div>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </React.Fragment>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })()}
+                          );
+                        })()}
                       </div>
                     );
                   })()}
@@ -4816,15 +5202,15 @@ function App() {
               {(() => {
                 const activeChatDoc = selectedSubDocForRemark || selectedDocForRemark;
                 const remarksList = activeChatDoc?.remarks || [];
-                  if (remarksList.length === 0) {
-                    return (
-                      <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400 space-y-2">
-                        <MessageCircle className="h-12 w-12 text-slate-300 stroke-[1.5]" />
-                        <p className="text-xs font-bold text-slate-500">No remarks added yet</p>
-                        <p className="text-[11px] text-slate-400">Start the conversation or attach relevant files below</p>
-                      </div>
-                    );
-                  }
+                if (remarksList.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400 space-y-2">
+                      <MessageCircle className="h-12 w-12 text-slate-300 stroke-[1.5]" />
+                      <p className="text-xs font-bold text-slate-500">No remarks added yet</p>
+                      <p className="text-[11px] text-slate-400">Start the conversation or attach relevant files below</p>
+                    </div>
+                  );
+                }
 
                 const formatChatDateHeader = (dateObj) => {
                   const d = new Date(dateObj);
@@ -4878,82 +5264,82 @@ function App() {
                           <span>• {msgDateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
 
-                      <div
-                        className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-xs leading-relaxed shadow-sm ${isMe
-                          ? 'bg-emerald-600 text-white rounded-tr-none font-medium'
-                          : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none font-medium'
-                          }`}
-                      >
-                        {/* Attachments rendering */}
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="space-y-2 mb-1.5">
-                            {msg.attachments.map((att, attIdx) => {
-                              const mime = (att.mimeType || '').toLowerCase();
-                              const filename = (att.originalName || '').toLowerCase();
-                              const isImg = mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/.test(filename);
-                              const attUrl = generalDocsAPI.getRemarkAttachmentUrl(getApiSectionName(activeSection), att.filePath || att.originalName);
+                        <div
+                          className={`px-4 py-2.5 rounded-2xl max-w-[85%] text-xs leading-relaxed shadow-sm ${isMe
+                            ? 'bg-emerald-600 text-white rounded-tr-none font-medium'
+                            : 'bg-white text-slate-800 border border-slate-200 rounded-tl-none font-medium'
+                            }`}
+                        >
+                          {/* Attachments rendering */}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="space-y-2 mb-1.5">
+                              {msg.attachments.map((att, attIdx) => {
+                                const mime = (att.mimeType || '').toLowerCase();
+                                const filename = (att.originalName || '').toLowerCase();
+                                const isImg = mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/.test(filename);
+                                const attUrl = generalDocsAPI.getRemarkAttachmentUrl(getApiSectionName(activeSection), att.filePath || att.originalName);
 
-                              if (isImg) {
-                                return (
-                                  <div key={att._id || attIdx} className="rounded-xl overflow-hidden border border-black/10 max-w-xs bg-black/10">
-                                    <img
-                                      src={attUrl}
-                                      alt={att.originalName}
-                                      className="max-h-52 w-full object-cover cursor-pointer hover:opacity-90 transition"
-                                      onClick={() => handleViewGeneralDoc({
-                                        title: att.originalName,
-                                        filename: att.originalName,
-                                        mimeType: att.mimeType,
-                                        viewUrl: attUrl,
-                                        downloadUrl: attUrl
-                                      })}
-                                    />
-                                    <div className={`p-1.5 px-2 text-[10px] flex justify-between items-center ${isMe ? 'bg-emerald-700/80 text-emerald-100' : 'bg-slate-100 text-slate-700'}`}>
-                                      <span className="truncate max-w-[140px] font-semibold">{att.originalName}</span>
-                                      <a
-                                        href={attUrl}
-                                        download={att.originalName}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className={`font-bold ml-2 hover:underline ${isMe ? 'text-white' : 'text-emerald-600'}`}
-                                      >
-                                        Download
-                                      </a>
+                                if (isImg) {
+                                  return (
+                                    <div key={att._id || attIdx} className="rounded-xl overflow-hidden border border-black/10 max-w-xs bg-black/10">
+                                      <img
+                                        src={attUrl}
+                                        alt={att.originalName}
+                                        className="max-h-52 w-full object-cover cursor-pointer hover:opacity-90 transition"
+                                        onClick={() => handleViewGeneralDoc({
+                                          title: att.originalName,
+                                          filename: att.originalName,
+                                          mimeType: att.mimeType,
+                                          viewUrl: attUrl,
+                                          downloadUrl: attUrl
+                                        })}
+                                      />
+                                      <div className={`p-1.5 px-2 text-[10px] flex justify-between items-center ${isMe ? 'bg-emerald-700/80 text-emerald-100' : 'bg-slate-100 text-slate-700'}`}>
+                                        <span className="truncate max-w-[140px] font-semibold">{att.originalName}</span>
+                                        <a
+                                          href={attUrl}
+                                          download={att.originalName}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className={`font-bold ml-2 hover:underline ${isMe ? 'text-white' : 'text-emerald-600'}`}
+                                        >
+                                          Download
+                                        </a>
+                                      </div>
                                     </div>
+                                  );
+                                }
+
+                                return (
+                                  <div key={att._id || attIdx} className={`p-2.5 rounded-xl border flex items-center space-x-3 max-w-xs ${isMe ? 'bg-emerald-700/60 border-emerald-500/40 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
+                                    <div className={`p-2 rounded-lg flex-shrink-0 ${isMe ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
+                                      <FileText className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-semibold truncate" title={att.originalName}>{att.originalName}</p>
+                                      <p className={`text-[10px] ${isMe ? 'text-emerald-100' : 'text-slate-400'}`}>
+                                        {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : 'Attachment'}
+                                      </p>
+                                    </div>
+                                    <a
+                                      href={attUrl}
+                                      download={att.originalName}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className={`p-1.5 rounded-lg transition ${isMe ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'}`}
+                                      title="Download File"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </a>
                                   </div>
                                 );
-                              }
-
-                              return (
-                                <div key={att._id || attIdx} className={`p-2.5 rounded-xl border flex items-center space-x-3 max-w-xs ${isMe ? 'bg-emerald-700/60 border-emerald-500/40 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
-                                  <div className={`p-2 rounded-lg flex-shrink-0 ${isMe ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                                    <FileText className="h-5 w-5" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold truncate" title={att.originalName}>{att.originalName}</p>
-                                    <p className={`text-[10px] ${isMe ? 'text-emerald-100' : 'text-slate-400'}`}>
-                                      {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : 'Attachment'}
-                                    </p>
-                                  </div>
-                                  <a
-                                    href={attUrl}
-                                    download={att.originalName}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className={`p-1.5 rounded-lg transition ${isMe ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'}`}
-                                    title="Download File"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </a>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {msg.text && <div>{msg.text}</div>}
+                              })}
+                            </div>
+                          )}
+                          {msg.text && <div>{msg.text}</div>}
+                        </div>
                       </div>
-                    </div>
-                  </React.Fragment>
+                    </React.Fragment>
                   );
                 });
               })()}
@@ -5160,6 +5546,189 @@ function App() {
           </div>
         </div>
       )}
+      {/* RFI Floating Form Modal */}
+        {showRfiModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in select-none">
+            <div className="relative w-full max-w-lg p-6 md:p-8 bg-white/95 backdrop-blur-xl rounded-3xl border border-white/80 shadow-2xl text-slate-900">
+
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-sky-100 text-sky-700 rounded-2xl">
+                    <FileQuestion className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 leading-snug">
+                      Add RFI Document
+                    </h3>
+                    <p className="text-xs text-slate-500 font-semibold">
+                      Upload RFI and attach to target section folder
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRfiModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleRfiSubmit} className="space-y-4">
+
+                {/* 1. Select Section */}
+                <div>
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                    Select Section <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={rfiSelectedSection}
+                    onChange={(e) => {
+                      setRfiSelectedSection(e.target.value);
+                      setRfiSelectedMainFolder('Root');
+                      setRfiSelectedSubFolder('');
+                      setRfiSelectedFolder('Root');
+                    }}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
+                    required
+                  >
+                    {rfiAvailableSections.map((sec) => (
+                      <option key={sec.value} value={sec.value}>
+                        {sec.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Select Main Folder */}
+                <div>
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5 flex items-center justify-between">
+                    <span>Select Folder <span className="text-rose-500">*</span></span>
+                    {rfiFoldersLoading && (
+                      <span className="text-[10px] text-sky-600 font-semibold flex items-center">
+                        <RefreshCw className="h-3 w-3 animate-spin mr-1" /> Loading folders...
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    value={rfiSelectedMainFolder}
+                    onChange={(e) => handleMainFolderChange(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
+                    required
+                  >
+                    <option value="Root">Root Folder</option>
+                    {rfiMainFolders.map((mainF) => {
+                      const mId = getFolderId(mainF);
+                      const subs = getAllNestedSubfolders(mId);
+                      return (
+                        <option key={mId} value={mId}>
+                          📁 {mainF.name} {subs.length > 0 ? `(${subs.length} subfolder${subs.length === 1 ? '' : 's'})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* 2b. Select Sub-Folder (Appears dynamically when selected main folder has nested subfolders) */}
+                {rfiSelectedMainFolder !== 'Root' && getAllNestedSubfolders(rfiSelectedMainFolder).length > 0 && (
+                  <div className="animate-fade-in pl-3 border-l-2 border-sky-400 space-y-1">
+                    <label className="text-xs font-bold text-sky-800 uppercase tracking-wider block flex items-center space-x-1">
+                      <Folder className="h-3.5 w-3.5 text-sky-600" />
+                      <span>Select Sub-Folder (Optional)</span>
+                    </label>
+                    <select
+                      value={rfiSelectedSubFolder}
+                      onChange={(e) => handleSubFolderChange(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-sky-50/80 border border-sky-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
+                    >
+                      <option value="">
+                        (Upload directly in Main Folder: "{rfiMainFolders.find(f => getFolderId(f) === rfiSelectedMainFolder)?.name || 'Main Folder'}")
+                      </option>
+                      {getAllNestedSubfolders(rfiSelectedMainFolder).map((subF) => {
+                        const sId = getFolderId(subF);
+                        const indentStr = '\u00A0\u00A0\u00A0\u00A0'.repeat(subF.depth - 1);
+                        return (
+                          <option key={sId} value={sId}>
+                            {indentStr}└─ 📁 {subF.name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
+
+                {/* 3. Attachment Files */}
+                <div>
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                    Attachment Files <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50 hover:bg-slate-100/80 transition text-center cursor-pointer">
+                    <input
+                      type="file"
+                      required
+                      onChange={handleRfiFileChange}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div className="flex flex-col items-center space-y-1.5">
+                      <UploadCloud className="h-8 w-8 text-sky-600" />
+                      {rfiFileInput ? (
+                        <p className="text-xs font-bold text-emerald-700 truncate max-w-xs">
+                          Selected: {rfiFileInput.name} ({(rfiFileInput.size / 1024).toFixed(1)} KB)
+                        </p>
+                      ) : (
+                        <>
+                          <p className="text-xs font-bold text-slate-700">Click to choose a file</p>
+                          <p className="text-[10px] text-slate-400 font-medium">Supports PDF, DWG, DOCX, XLSX, Images, etc.</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Add File Name */}
+                <div>
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                    Add File Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={rfiFileNameInput}
+                    onChange={(e) => setRfiFileNameInput(e.target.value)}
+                    placeholder="Enter file display name"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition"
+                  />
+                </div>
+
+                {/* 5. Cancel & Submit Buttons */}
+                <div className="flex space-x-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowRfiModal(false)}
+                    className="w-1/2 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={rfiSubmitting}
+                    className="w-1/2 py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-sm transition flex justify-center items-center shadow-md shadow-sky-600/20 disabled:opacity-50 cursor-pointer"
+                  >
+                    {rfiSubmitting ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      'Submit'
+                    )}
+                  </button>
+                </div>
+
+              </form>
+
+            </div>
+          </div>
+        )}
     </div>
   );
 }

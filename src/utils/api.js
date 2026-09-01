@@ -184,6 +184,10 @@ export const generalDocsAPI = {
     const response = await api.put(`/api/${section}/${id}`, { name });
     return response.data;
   },
+  moveDocument: async (section, id, folder) => {
+    const response = await api.put(`/api/${section}/${id}`, { folder });
+    return response.data;
+  },
   updateRemark: async (section, id, data) => {
     if (data instanceof FormData) {
       const response = await api.put(`/api/${section}/${id}/remark`, data, {
