@@ -467,9 +467,9 @@ function App() {
     // 1. Default approved state if no authority is assigned
     if (!authority) {
       return (
-        <div className="inline-flex items-center px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold text-xs shadow-sm">
-          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
-          <span>Approve</span>
+        <div className="inline-flex items-center text-emerald-600 font-semibold text-xs whitespace-nowrap">
+          <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+          <span>Approved</span>
         </div>
       );
     }
@@ -486,10 +486,10 @@ function App() {
             return (
               <div
                 key={auth}
-                className="inline-flex items-center px-3 py-1 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold text-xs shadow-sm whitespace-nowrap"
+                className="inline-flex items-center text-emerald-600 font-semibold text-xs whitespace-nowrap"
               >
-                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
-                <span>Approve By {displayApprovedBy}</span>
+                <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+                <span>Approved By {displayApprovedBy}</span>
               </div>
             );
           }
@@ -508,10 +508,10 @@ function App() {
                     await handleApproveDocument(item);
                   }
                 }}
-                className="inline-flex items-center px-3 py-1 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs transition shadow-sm cursor-pointer animate-pulse hover:animate-none whitespace-nowrap"
+                className="inline-flex items-center text-amber-700 hover:text-amber-800 font-semibold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
                 title={`Click to approve as ${auth}`}
               >
-                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
                 <span>Approve (As {auth})</span>
               </button>
             );
@@ -520,7 +520,7 @@ function App() {
           return (
             <div
               key={auth}
-              className="inline-flex items-center px-3 py-1 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 font-semibold text-xs shadow-sm whitespace-nowrap"
+              className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap"
               title={`Waiting for ${auth} to approve`}
             >
               <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
@@ -2790,16 +2790,10 @@ function App() {
             </div>
           ) : activeSection === 'Project Details' ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
-              {/* Header Title Banner with Partner Logos & Notification Bell */}
+              {/* Header Title Banner with Notification Bell */}
               <div className="sticky top-0 z-40 flex justify-between items-center bg-white/95 backdrop-blur-md border border-slate-200 p-6 rounded-2xl shadow-md space-x-6">
-                {/* Left Logo (MMRCL) */}
-                <div className="flex-shrink-0">
-                  <img
-                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10"
-                    alt="MMRCL Logo"
-                    className="h-20 w-auto object-contain"
-                  />
-                </div>
+                {/* Left Spacer for Symmetry */}
+                <div className="w-11 flex-shrink-0 invisible" aria-hidden="true" />
                 {/* Centered Project Name */}
                 <div className="flex-1 text-center">
                   <h3 className="text-lg md:text-xl font-extrabold text-slate-900 tracking-wide uppercase leading-snug">
@@ -2809,14 +2803,8 @@ function App() {
                     Project Management & Monitoring Portal
                   </p>
                 </div>
-                {/* Right Area: Nyati Logo + Notification Bell */}
+                {/* Right Area: Notification Bell */}
                 <div className="flex items-center space-x-4 flex-shrink-0">
-                  <img
-                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRAGavyGhFQr76WetCwQPPqyKRjiAKfgJFBiNxZlNlzO_J75_6Un9uDyaI&s=10"
-                    alt="Nyati Group Logo"
-                    className="h-20 w-auto object-contain rounded-lg"
-                  />
-
                   {/* Notification Bell Button */}
                   <div className="relative z-50">
                     <button
