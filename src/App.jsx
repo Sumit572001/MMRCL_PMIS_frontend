@@ -51,9 +51,279 @@ import {
   Plus,
   ChevronDown,
   FileQuestion,
-  GripVertical
+  GripVertical,
+  Calendar,
+  List,
+  Grid,
+  ArrowRight
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
+
+const approvedNocsData = [
+  {
+    id: '1',
+    category: 'Liasoning Architect',
+    title: '1. Layout Approval',
+    shortName: 'Layout Approval',
+    status: 'Application submitted on 31/07/2026',
+    statusType: 'Submitted',
+    responsibility: 'NECPL',
+    expectedDate: '15/09/2026',
+    dateHistory: ['14/08/2026', '25/08/2026', '30/08/2026', '05/09/2026', '15/09/2026'],
+    remark: [
+      'Layout approval is under process with BP Cell, Western Suburb-1.',
+      'Site visit is completed on 25/08/2026.',
+      'Status of proposal SE → AE → EE → Dy. CE → CE → MC for further approval.'
+    ]
+  },
+  {
+    id: '2a',
+    category: 'Liasoning Architect',
+    group: '2. NOCs',
+    title: '2. a) Fire Noc',
+    shortName: 'Fire NOC',
+    status: 'Application submitted to CFO on 27/07/2026\nScrutiny fees paid on 07/08/2026 for Executive Quarters, Metro Bhavan and for Dharavi plot.',
+    statusType: 'Submitted',
+    responsibility: 'NECPL',
+    expectedDate: '15/09/2026',
+    dateHistory: ['14/08/2026', '20/08/2026', '25/08/2026', '05/09/2026', '15/09/2026'],
+    remark: [
+      'Scrutiny has been completed by the Byculla, Marol and Borivali Divisional Fire Officers (DFOs).',
+      'Compliance after scrutiny is completed by SPA.',
+      'Current Status of Dharavi proposal ADFO → DFO → Dy. CFO → CFO for approval.',
+      'Current Status of MB&SQ proposal ADFO → DFO → Dy. CFO → CFO for approval.'
+    ]
+  },
+  {
+    id: '2b',
+    category: 'Liasoning Architect',
+    group: '2. NOCs',
+    title: '2. b) Water Noc',
+    shortName: 'Water NOC',
+    status: 'Pending',
+    statusType: 'Pending',
+    responsibility: 'NECPL',
+    expectedDate: '25/08/2026',
+    dateHistory: ['25/08/2026'],
+    remark: [
+      'Required after Layout Approval. However, it was required for EC approval before 1st Meeting.'
+    ]
+  },
+  {
+    id: '2c',
+    category: 'Liasoning Architect',
+    group: '2. NOCs',
+    title: '2. c) Drainage Noc',
+    shortName: 'Drainage NOC',
+    status: 'Pending',
+    statusType: 'Pending',
+    responsibility: 'NECPL',
+    expectedDate: '05/09/2026',
+    dateHistory: ['05/09/2026'],
+    remark: [
+      'Required after Layout Approval. However, it was required for EC approval before 1st Meeting.'
+    ]
+  },
+  {
+    id: '2d',
+    category: 'Liasoning Architect',
+    group: '2. NOCs',
+    title: '2. d) Garden/Tree Noc',
+    shortName: 'Garden/Tree NOC',
+    status: 'Pending',
+    statusType: 'Pending',
+    responsibility: 'NECPL',
+    expectedDate: '15/09/2026',
+    dateHistory: ['15/09/2026'],
+    remark: [
+      'Required after Layout Approval. However, it was required for EC approval before 1st Meeting.'
+    ]
+  },
+  {
+    id: '2e',
+    category: 'Liasoning Architect',
+    group: '2. NOCs',
+    title: '2. e) Solid Waste Noc',
+    shortName: 'Solid Waste NOC',
+    status: 'Pending',
+    statusType: 'Pending',
+    responsibility: 'NECPL',
+    expectedDate: '-',
+    dateHistory: [],
+    remark: ['-']
+  },
+  {
+    id: '2f',
+    category: 'Liasoning Architect',
+    group: '2. NOCs',
+    title: '2. f) Storm Water Noc',
+    shortName: 'Storm Water NOC',
+    status: 'Pending.',
+    statusType: 'Pending',
+    responsibility: 'NECPL',
+    expectedDate: '-',
+    dateHistory: [],
+    remark: ['-']
+  },
+  {
+    id: '3',
+    category: 'Liasoning Architect',
+    title: '3. RG Architect',
+    shortName: 'RG Architect',
+    status: '-',
+    statusType: 'Pending',
+    responsibility: 'SPA',
+    expectedDate: '-',
+    dateHistory: [],
+    remark: [
+      'SPA will provide after layout approval.'
+    ]
+  },
+  {
+    id: '4',
+    category: 'Liasoning Architect',
+    title: '4. Aviation NOC.',
+    shortName: 'Aviation NOC',
+    status: '1. Application submitted for Dharavi 04.08.2026\n2. Application submitted for Metro Bhavan & staff quarters on 07.08.2026',
+    statusType: 'Submitted',
+    responsibility: 'NECPL',
+    expectedDate: '30/09/2026',
+    dateHistory: ['07/09/2026', '30/09/2026'],
+    remark: [
+      'Both applications are rejected. Revise submission done by NECPL on 18/08/2026.',
+      'MB&SQ Online application accepted. Dharavi application under scrutiny. Visit scheduled pending. It is required for EC before EC\'s 1st Meeting.'
+    ]
+  },
+  {
+    id: '5',
+    category: 'Liasoning Architect',
+    title: '5. Revised Demarcation for 30 Ha plot',
+    shortName: 'Revised Demarcation for 30 Ha',
+    status: 'MMRCL has submitted request letter on 05/08/2026',
+    statusType: 'Submitted',
+    responsibility: 'NECPL',
+    expectedDate: '-',
+    dateHistory: [],
+    remark: [
+      'CTSO letter dt. 25/08/2026 informed for payment for Demarcation. Payment is under process.',
+      'NECPL requires to arrange demarcation.'
+    ]
+  },
+  {
+    id: '6',
+    category: 'Clearance Documentation',
+    title: '6. Dharavi IOD',
+    shortName: 'Dharavi IOD',
+    status: 'IOD proposal has submitted offline to BP Cell, City Office, Wadala.',
+    statusType: 'Submitted',
+    responsibility: 'SPA/NECPL',
+    expectedDate: '18/09/2026',
+    dateHistory: ['For Submission', '24/08/2026', '28/08/2026', '05/09/2026', '18/09/2026'],
+    remark: [
+      'Scrutiny is currently under process.',
+      'After receiving receipt of the Provisional Fire NOC, the proposal will be submitted online.',
+      'Thereafter, the proposal will proceed for approval through: BMC Sub-Engineer → AE → EE → Dy. CE → CE → MC'
+    ]
+  },
+  {
+    id: '7',
+    category: 'Clearance Documentation',
+    title: '7. Metro Bhavan & Staff quarter IOD',
+    shortName: 'Metro Bhavan & Staff Quarter IOD',
+    status: '-',
+    statusType: 'Pending',
+    responsibility: 'SPA/NECPL',
+    expectedDate: '18/09/2026',
+    dateHistory: ['For Submission', '05/09/2026', '18/09/2026'],
+    remark: [
+      'IOD proposal will be submitted BP Cell, Western Suburb-1, MCGM after getting layout approval.'
+    ]
+  },
+  {
+    id: '8',
+    category: 'Clearance Documentation',
+    title: '8. Project Proponent authorization',
+    shortName: 'Project Proponent Authorization',
+    status: '-',
+    statusType: 'Completed',
+    responsibility: 'NECPL',
+    expectedDate: '-',
+    dateHistory: [],
+    remark: [
+      'Completed on 10/08/2026'
+    ]
+  },
+  {
+    id: '9',
+    category: 'Clearance Documentation',
+    title: '9. Consolidate statement for EC approval',
+    shortName: 'Consolidate Statement for EC Approval',
+    status: 'NECPL environment consultants has provided on 24/08/2026.',
+    statusType: 'Submitted',
+    responsibility: 'NECPL',
+    expectedDate: '09/09/2026',
+    dateHistory: ['24/08/2026', '31/08/2026', '02/09/2026', '09/09/2026'],
+    remark: [
+      'Draft EC, checked from Member secretary, SEAC II on 25/08/2026. Suggested changes and meeting with Member secretary, SEAC II is arranged on 09/09/2026.'
+    ]
+  },
+  {
+    id: '10',
+    category: 'Clearance Documentation',
+    title: '10. EC registration',
+    shortName: 'EC Registration',
+    status: 'Registration completed on 10/08/2026.',
+    statusType: 'Completed',
+    responsibility: 'NECPL',
+    expectedDate: '-',
+    dateHistory: [],
+    remark: [
+      'Payment to be made by NECPL.'
+    ]
+  },
+  {
+    id: '11',
+    category: 'Clearance Documentation',
+    title: '11. Geotechnical Investigation agency letter',
+    shortName: 'Geotechnical Investigation Agency Letter',
+    status: '-',
+    statusType: 'Received',
+    responsibility: 'MMRCL',
+    expectedDate: '-',
+    dateHistory: [],
+    remark: [
+      'Received'
+    ]
+  },
+  {
+    id: '12',
+    category: 'Clearance Documentation',
+    title: '12. FSI and Non-FSI area for each building',
+    shortName: 'FSI & Non-FSI Area Statement',
+    status: '-',
+    statusType: 'Received',
+    responsibility: 'SPA',
+    expectedDate: '-',
+    dateHistory: [],
+    remark: [
+      'Received as per Car Depot drawings, required for submission towards Environmental Clearance.'
+    ]
+  },
+  {
+    id: '13',
+    category: 'Clearance Documentation',
+    title: '13. Environment Clearance',
+    shortName: 'Environment Clearance',
+    status: '-',
+    statusType: 'Pending',
+    responsibility: '-',
+    expectedDate: '30/09/2026',
+    dateHistory: ['30/09/2026'],
+    remark: [
+      '-'
+    ]
+  }
+];
 
 function App() {
   // Authentication & RBAC states
@@ -67,6 +337,12 @@ function App() {
   const [commercialProgress, setCommercialProgress] = useState(0);
   const [residentialProgress, setResidentialProgress] = useState(0);
   const [dharaviProgress, setDharaviProgress] = useState(0);
+
+  // Approved NOC's section states
+  const [selectedNocId, setSelectedNocId] = useState('1');
+  const [nocViewMode, setNocViewMode] = useState('split'); // 'split' | 'table'
+  const [nocSearchQuery, setNocSearchQuery] = useState('');
+  const [isNocDropdownOpen, setIsNocDropdownOpen] = useState(false);
 
   // Captcha states
   const [captchaCode, setCaptchaCode] = useState('');
@@ -383,13 +659,25 @@ function App() {
       // Optimistic instant local state update for 0ms smooth toggle
       setTenderDocs(prevDocs => prevDocs.map(d => {
         if (d._id === item._id) {
-          return { ...d, approvalAuthority: newVal };
+          return {
+            ...d,
+            approvalAuthority: newVal,
+            approvalStatus: newVal ? 'Unapproved' : 'Approved',
+            approvedBy: ''
+          };
         }
         if (parentDoc && d._id === parentDoc._id && d.subDocuments) {
           return {
             ...d,
             subDocuments: d.subDocuments.map(sub =>
-              sub._id === item._id ? { ...sub, approvalAuthority: newVal } : sub
+              sub._id === item._id
+                ? {
+                    ...sub,
+                    approvalAuthority: newVal,
+                    approvalStatus: newVal ? 'Unapproved' : 'Approved',
+                    approvedBy: ''
+                  }
+                : sub
             )
           };
         }
@@ -464,12 +752,12 @@ function App() {
     const status = item.approvalStatus;
     const approvedBy = item.approvedBy;
 
-    // 1. Default approved state if no authority is assigned
+    // 1. Default state if no authority is assigned
     if (!authority) {
       return (
-        <div className="inline-flex items-center text-emerald-600 font-semibold text-xs whitespace-nowrap">
-          <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
-          <span>Approved</span>
+        <div className="inline-flex items-center text-amber-700 font-semibold text-xs whitespace-nowrap">
+          <Clock className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+          <span>Yet To Be Approved</span>
         </div>
       );
     }
@@ -479,7 +767,7 @@ function App() {
     return (
       <div className="flex flex-col items-center justify-center space-y-1 py-1">
         {authList.map((auth) => {
-          const isThisApproved = status === 'Approved' || (approvedBy && approvedBy.includes(auth));
+          const isThisApproved = Boolean(approvedBy && approvedBy.toString().split(',').map(a => a.trim()).includes(auth));
 
           if (isThisApproved) {
             const displayApprovedBy = auth === 'PMC' ? 'PMC & Architect' : auth;
@@ -836,8 +1124,9 @@ function App() {
               : doc.section === 'ehs' ? 'Environment, Health, and Safety (EHS)'
                 : doc.section === 'mep' ? 'MEP'
                   : doc.section === 'registrations' ? 'Project Documents & Registration'
-                    : doc.section === 'rfi' ? 'RFI'
-                      : doc.section;
+                    : doc.section === 'approved_nocs' ? "Approve / NOC's"
+                      : doc.section === 'rfi' ? 'RFI'
+                        : doc.section;
 
     if (mappedSec && activeSection !== mappedSec) {
       setActiveSection(mappedSec);
@@ -1455,6 +1744,7 @@ function App() {
     if (lower.includes('ehs') || lower.includes('safety')) return 'ehs';
     if (lower === 'mep') return 'mep';
     if (lower.includes('registration') || lower === 'registrations') return 'registrations';
+    if (lower.includes('approved') || lower.includes('approve') || lower.includes('noc')) return 'approved_nocs';
     if (lower === 'rfi') return 'rfi';
     return lower;
   };
@@ -2408,6 +2698,7 @@ function App() {
     { id: 'ehs', name: 'Environment, Health, and Safety (EHS)', icon: ShieldAlert },
     { id: 'mep', name: 'MEP', icon: Wrench },
     { id: 'registrations', name: 'Project Documents & Registration', icon: ClipboardList },
+    { id: 'approved_nocs', name: "Approve / NOC's", icon: CheckCircle2 },
     { id: 'rfi', name: 'RFI', icon: FileQuestion },
   ];
 
@@ -2502,13 +2793,133 @@ function App() {
                 </span>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer flex-shrink-0 ml-1"
-              title="Sign Out"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
+
+            <div className="flex items-center space-x-1 flex-shrink-0 ml-1">
+              {/* Notification Bell Button in Sidebar Footer */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+                  className="p-2 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition cursor-pointer relative"
+                  title="View Document Upload Notifications"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unviewedUploadsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-600 text-white text-[9px] font-black items-center justify-center shadow-sm">
+                        {unviewedUploadsCount}
+                      </span>
+                    </span>
+                  )}
+                </button>
+
+                {/* Floating Notifications Dropdown Panel (Upward / Sidebar Footer Dropdown) */}
+                {showNotificationPanel && (
+                  <div className="absolute left-0 bottom-12 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
+                    {/* Header */}
+                    <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Bell className="h-4 w-4 text-sky-400" />
+                        <h4 className="font-bold text-xs">New Upload Notifications</h4>
+                        {unviewedUploadsCount > 0 && (
+                          <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold">
+                            {unviewedUploadsCount} Unread
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {unviewedUploadsCount > 0 && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await generalDocsAPI.markAllNotificationsRead();
+                                await fetchAllUploads();
+                                await fetchGeneralDocs();
+                              } catch (err) {
+                                console.error('Failed to mark all notifications read:', err);
+                              }
+                            }}
+                            className="text-[10px] font-bold text-sky-300 hover:text-white transition hover:underline"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowNotificationPanel(false)}
+                          className="p-1 text-slate-400 hover:text-white rounded-lg transition"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* List */}
+                    <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+                      {allRecentUploads.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 space-y-2">
+                          <Bell className="h-8 w-8 mx-auto text-slate-300 stroke-1" />
+                          <p className="text-xs font-semibold">No recent document uploads</p>
+                        </div>
+                      ) : (
+                        allRecentUploads.map((doc) => {
+                          const isUnviewed = isDocumentUnviewed(doc);
+                          const uploader = doc.uploadedBy?.name || 'User';
+                          const folderDisplayName = doc.folderName || doc.folder;
+                          return (
+                            <div
+                              key={doc._id}
+                              onClick={() => handleSelectNotification(doc)}
+                              className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-emerald-50/80 border-l-4 border-l-emerald-500' : 'bg-white'}`}
+                            >
+                              <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${isUnviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                <FileText className="h-4 w-4" />
+                              </div>
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={doc.name}>{doc.name}</h5>
+                                  {isUnviewed && (
+                                    <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                                      NEW
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Section & Folder info */}
+                                <div className="flex items-center flex-wrap gap-1 text-[10px]">
+                                  <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-semibold border border-sky-200">
+                                    📂 Section: {doc.section || 'General'}
+                                  </span>
+                                  {folderDisplayName && folderDisplayName !== 'Root' && (
+                                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-semibold border border-amber-200">
+                                      📁 Folder: {folderDisplayName}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
+                                  <span>By: <strong className="text-slate-700">{uploader}</strong></span>
+                                  <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer flex-shrink-0"
+                title="Sign Out"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -2803,125 +3214,6 @@ function App() {
                     Project Management & Monitoring Portal
                   </p>
                 </div>
-                {/* Right Area: Notification Bell */}
-                <div className="flex items-center space-x-4 flex-shrink-0">
-                  {/* Notification Bell Button */}
-                  <div className="relative z-50">
-                    <button
-                      onClick={() => setShowNotificationPanel(!showNotificationPanel)}
-                      className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition border border-slate-200 cursor-pointer relative shadow-sm"
-                      title="View Document Upload Notifications"
-                    >
-                      <Bell className="h-5 w-5 text-slate-700" />
-                      {unviewedUploadsCount > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-5 w-5 bg-rose-600 text-white text-[10px] font-black items-center justify-center shadow-sm">
-                            {unviewedUploadsCount}
-                          </span>
-                        </span>
-                      )}
-                    </button>
-
-                    {/* Floating Notifications Dropdown */}
-                    {showNotificationPanel && (
-                      <div className="absolute right-0 top-14 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
-                        {/* Header */}
-                        <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Bell className="h-4 w-4 text-sky-400" />
-                            <h4 className="font-bold text-xs">New Upload Notifications</h4>
-                            {unviewedUploadsCount > 0 && (
-                              <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold">
-                                {unviewedUploadsCount} Unread
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {unviewedUploadsCount > 0 && (
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    await generalDocsAPI.markAllNotificationsRead();
-                                    await fetchAllUploads();
-                                    await fetchGeneralDocs();
-                                  } catch (err) {
-                                    console.error(err);
-                                  }
-                                }}
-                                className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded text-[10px] font-bold transition cursor-pointer"
-                                title="Mark all notifications as read"
-                              >
-                                Clear All
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setShowNotificationPanel(false)}
-                              className="text-slate-400 hover:text-white p-1 rounded-lg text-xs font-bold"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* List */}
-                        <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
-                          {allRecentUploads.length === 0 ? (
-                            <div className="p-8 text-center text-slate-400 space-y-2">
-                              <Bell className="h-8 w-8 mx-auto text-slate-300 stroke-1" />
-                              <p className="text-xs font-semibold">No recent document uploads</p>
-                            </div>
-                          ) : (
-                            allRecentUploads.map((doc) => {
-                              const isUnviewed = isDocumentUnviewed(doc);
-                              const uploader = doc.uploadedBy?.name || 'User';
-                              const folderDisplayName = doc.folderName || doc.folder;
-                              return (
-                                <div
-                                  key={doc._id}
-                                  onClick={() => handleSelectNotification(doc)}
-                                  className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-emerald-50/80 border-l-4 border-l-emerald-500' : 'bg-white'}`}
-                                >
-                                  <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${isUnviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                    <FileText className="h-4 w-4" />
-                                  </div>
-                                  <div className="flex-1 min-w-0 space-y-1">
-                                    <div className="flex items-center justify-between">
-                                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={doc.name}>{doc.name}</h5>
-                                      {isUnviewed && (
-                                        <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
-                                          NEW
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* Section & Folder info */}
-                                    <div className="flex items-center flex-wrap gap-1 text-[10px]">
-                                      <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-semibold border border-sky-200">
-                                        📂 Section: {doc.section || 'General'}
-                                      </span>
-                                      {folderDisplayName && folderDisplayName !== 'Root' && (
-                                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-semibold border border-amber-200">
-                                          📁 Folder: {folderDisplayName}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
-                                      <span>By: <strong className="text-slate-700">{uploader}</strong></span>
-                                      <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
 
               {/* Building Rendering Hero Banner (Full height image display with centered max-width) */}
@@ -3088,6 +3380,388 @@ function App() {
                 </div>
               </div>
             </div>
+          ) : (activeSection === "Approve / NOC's" || activeSection === "Approved NOC's") ? (
+            <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
+              {/* Top Banner Header with View Switcher */}
+              <div className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/95 backdrop-blur-md p-5 rounded-2xl border border-slate-200 shadow-md gap-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-sky-50 text-sky-600 rounded-xl border border-sky-100 flex items-center justify-center">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 uppercase tracking-wider">
+                      Documents required for Environment Clearances (Approve / NOC's)
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                      Track status, responsibility, expected dates, and scrutiny remarks for NOCs
+                    </p>
+                  </div>
+                </div>
+
+                {/* View Switcher */}
+                <div className="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-end">
+                  <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setNocViewMode('split')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${
+                        nocViewMode === 'split'
+                          ? 'bg-white text-sky-700 shadow-sm font-bold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <List className="h-3.5 w-3.5" />
+                      <span>Interactive List & Details</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNocViewMode('table')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${
+                        nocViewMode === 'table'
+                          ? 'bg-white text-sky-700 shadow-sm font-bold'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <Grid className="h-3.5 w-3.5" />
+                      <span>Full Matrix Table</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {nocViewMode === 'split' ? (
+                /* Interactive Split View: Left List of Documents, Right 4 Sections Details */
+                <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
+                  {/* Left Column: List of Documents */}
+                  <div className="w-full lg:w-96 flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex-shrink-0">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50/70 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center space-x-2">
+                          <span>List of Documents</span>
+                          <span className="bg-sky-100 text-sky-700 text-[11px] px-2 py-0.5 rounded-full font-bold">
+                            {approvedNocsData.length}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <Search className="h-3.5 w-3.5 text-slate-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          placeholder="Search document..."
+                          value={nocSearchQuery}
+                          onChange={(e) => setNocSearchQuery(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Vertical Document List with Dropdown for Item 2 */}
+                    <div className="flex-1 overflow-y-auto divide-y divide-slate-100 max-h-[680px]">
+                      {(() => {
+                        const query = nocSearchQuery.trim().toLowerCase();
+                        const isSearching = Boolean(query);
+
+                        const matchesQuery = (doc) => {
+                          if (!query) return true;
+                          return (
+                            doc.title.toLowerCase().includes(query) ||
+                            doc.shortName.toLowerCase().includes(query) ||
+                            doc.responsibility.toLowerCase().includes(query)
+                          );
+                        };
+
+                        // Group NOC items (group === '2. NOCs') vs non-NOC items
+                        const nocGroupItems = approvedNocsData.filter(d => d.group === '2. NOCs');
+                        const nocSubMatches = nocGroupItems.filter(matchesQuery);
+                        const isAnyNocSelected = nocGroupItems.some(d => d.id === selectedNocId);
+
+                        const doc1 = approvedNocsData.find(d => d.id === '1');
+                        const otherDocs = approvedNocsData.filter(d => d.id !== '1' && d.group !== '2. NOCs');
+
+                        const renderSingleDocButton = (doc, isSubItem = false) => {
+                          const isSelected = selectedNocId === doc.id;
+                          let statusBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+                          if (doc.statusType === 'Completed' || doc.statusType === 'Received') {
+                            statusBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                          } else if (doc.statusType === 'Submitted') {
+                            statusBadgeClass = 'bg-sky-50 text-sky-700 border-sky-200';
+                          } else if (doc.statusType === 'Pending') {
+                            statusBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+                          }
+
+                          let titleText = doc.title;
+                          if (isSubItem) {
+                            titleText = doc.title.replace(/^2\.\s*/, '');
+                          }
+
+                          return (
+                            <button
+                              key={doc.id}
+                              type="button"
+                              onClick={() => setSelectedNocId(doc.id)}
+                              className={`w-full text-left transition flex items-start justify-between group cursor-pointer ${
+                                isSubItem ? 'pl-8 pr-3.5 py-2.5 bg-slate-50/70 hover:bg-sky-50/60' : 'p-3.5 hover:bg-slate-50'
+                              } ${
+                                isSelected
+                                  ? 'bg-sky-50/90 border-l-4 border-sky-600 font-bold'
+                                  : 'border-l-4 border-transparent'
+                              }`}
+                            >
+                              <div className="space-y-0.5 min-w-0 pr-2">
+                                <div className="flex items-center space-x-1.5">
+                                  <span className={`text-xs font-bold truncate ${isSelected ? 'text-sky-950' : 'text-slate-800'}`}>
+                                    {titleText}
+                                  </span>
+                                </div>
+                                <div className="flex items-center space-x-2 text-[11px]">
+                                  <span className="font-semibold text-slate-500">Resp: <strong className="text-slate-700">{doc.responsibility}</strong></span>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end flex-shrink-0 space-y-1">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadgeClass}`}>
+                                  {doc.statusType}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        };
+
+                        return (
+                          <>
+                            {/* Render Item 1 */}
+                            {doc1 && matchesQuery(doc1) && renderSingleDocButton(doc1)}
+
+                            {/* Render 2. NOCs Dropdown Section */}
+                            {(nocSubMatches.length > 0 || !isSearching) && (
+                              <div className="border-y border-slate-100">
+                                {/* Dropdown Parent Header */}
+                                <button
+                                  type="button"
+                                  onClick={() => setIsNocDropdownOpen(!isNocDropdownOpen)}
+                                  className={`w-full text-left p-3.5 transition flex items-center justify-between group cursor-pointer ${
+                                    isAnyNocSelected
+                                      ? 'bg-sky-50/50 border-l-4 border-sky-500 font-bold'
+                                      : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                  }`}
+                                >
+                                  <div className="flex items-center space-x-2.5 min-w-0">
+                                    <div className={`p-1 rounded-lg transition-transform duration-200 ${
+                                      isNocDropdownOpen || isSearching ? 'rotate-180 bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'
+                                    }`}>
+                                      <ChevronDown className="h-4 w-4 stroke-[2.5]" />
+                                    </div>
+                                    <span className="text-xs font-extrabold text-slate-900 tracking-wide">
+                                      2. NOCs
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center space-x-1.5">
+                                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">
+                                      6 NOCs
+                                    </span>
+                                  </div>
+                                </button>
+
+                                {/* Dropdown Children Items (a to f) */}
+                                {(isNocDropdownOpen || isSearching) && (
+                                  <div className="divide-y divide-slate-100 bg-slate-50/40 border-t border-slate-100">
+                                    {nocSubMatches.map(subDoc => renderSingleDocButton(subDoc, true))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Render Items 3 to 13 */}
+                            {otherDocs.filter(matchesQuery).map(doc => renderSingleDocButton(doc))}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Right Column: 4 Sections Display (Status, Responsibility, Expected Date, Remark) */}
+                  <div className="flex-1 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col space-y-6">
+                    {(() => {
+                      const activeDoc = approvedNocsData.find(d => d.id === selectedNocId) || approvedNocsData[0];
+                      if (!activeDoc) return null;
+
+                      let statusBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+                      if (activeDoc.statusType === 'Completed' || activeDoc.statusType === 'Received') {
+                        statusBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                      } else if (activeDoc.statusType === 'Submitted') {
+                        statusBadgeClass = 'bg-sky-100 text-sky-800 border-sky-300';
+                      } else if (activeDoc.statusType === 'Pending') {
+                        statusBadgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+                      }
+
+                      return (
+                        <div className="space-y-6 animate-fade-in">
+                          {/* Selected Document Header */}
+                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-3">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 text-[11px] font-extrabold rounded-md uppercase tracking-wider">
+                                  {activeDoc.category}
+                                </span>
+                                {activeDoc.group && (
+                                  <span className="px-2.5 py-0.5 bg-sky-50 text-sky-700 text-[11px] font-extrabold rounded-md uppercase tracking-wider">
+                                    {activeDoc.group}
+                                  </span>
+                                )}
+                              </div>
+                              <h2 className="text-lg font-extrabold text-slate-900 mt-2 tracking-tight">
+                                {activeDoc.title}
+                              </h2>
+                            </div>
+                            <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-sm ${statusBadgeClass}`}>
+                              {activeDoc.statusType}
+                            </span>
+                          </div>
+
+                          {/* 4 Required Sections Grid */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                            {/* 1. Status Section */}
+                            <div className="bg-slate-50/70 border border-slate-200 p-5 rounded-2xl space-y-2">
+                              <div className="flex items-center space-x-2 text-sky-700 border-b border-slate-200/80 pb-2">
+                                <RefreshCw className="h-4 w-4 text-sky-600" />
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">Status</h4>
+                              </div>
+                              <p className="text-xs font-semibold text-slate-800 leading-relaxed whitespace-pre-line pt-1">
+                                {activeDoc.status && activeDoc.status !== '-' ? activeDoc.status : '-'}
+                              </p>
+                            </div>
+
+                            {/* 2. Responsibility Section */}
+                            <div className="bg-slate-50/70 border border-slate-200 p-5 rounded-2xl space-y-2">
+                              <div className="flex items-center space-x-2 text-indigo-700 border-b border-slate-200/80 pb-2">
+                                <Building className="h-4 w-4 text-indigo-600" />
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">Responsibility</h4>
+                              </div>
+                              <div className="pt-2 flex items-center space-x-2">
+                                {activeDoc.responsibility && activeDoc.responsibility !== '-' ? (
+                                  <span className="px-3 py-1 bg-indigo-100 text-indigo-900 font-extrabold text-sm rounded-xl border border-indigo-200 shadow-sm">
+                                    {activeDoc.responsibility}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-bold text-slate-700">-</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 3. Expected Date Section */}
+                            <div className="bg-slate-50/70 border border-slate-200 p-5 rounded-2xl space-y-2">
+                              <div className="flex items-center space-x-2 text-emerald-700 border-b border-slate-200/80 pb-2">
+                                <Calendar className="h-4 w-4 text-emerald-600" />
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">Expected Date</h4>
+                              </div>
+                              <div className="pt-1 space-y-2">
+                                <div className="text-xs font-bold text-slate-900">
+                                  {activeDoc.expectedDate || '-'}
+                                </div>
+                                {activeDoc.dateHistory && activeDoc.dateHistory.length > 0 && (
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date Revision Timeline:</span>
+                                    <div className="flex flex-wrap gap-1.5 items-center text-xs">
+                                      {activeDoc.dateHistory.map((d, idx) => {
+                                        const isLast = idx === activeDoc.dateHistory.length - 1;
+                                        return (
+                                          <React.Fragment key={idx}>
+                                            <span className={isLast ? 'font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200' : 'line-through text-slate-400'}>
+                                              {d}
+                                            </span>
+                                            {!isLast && <ArrowRight className="h-3 w-3 text-slate-300" />}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 4. Remark Section */}
+                            <div className="bg-slate-50/70 border border-slate-200 p-5 rounded-2xl space-y-2 md:col-span-2">
+                              <div className="flex items-center space-x-2 text-amber-700 border-b border-slate-200/80 pb-2">
+                                <MessageSquare className="h-4 w-4 text-amber-600" />
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">Remark</h4>
+                              </div>
+                              <div className="pt-2 space-y-2">
+                                {activeDoc.remark && activeDoc.remark.length > 0 && !(activeDoc.remark.length === 1 && activeDoc.remark[0] === '-') ? (
+                                  activeDoc.remark.map((rmk, idx) => (
+                                    <div key={idx} className="flex items-start space-x-2 text-xs text-slate-800 font-medium leading-relaxed bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                                      <span className="text-amber-500 font-bold mt-0.5">•</span>
+                                      <span className="flex-1 whitespace-pre-line">{rmk}</span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-xs font-bold text-slate-700 pt-1">-</p>
+                                )}
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                /* Full Matrix Table View */
+                <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm animate-fade-in">
+                  <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider">
+                      <tr>
+                        <th scope="col" className="px-4 py-3.5 border-r border-slate-200 w-1/4">List of Documents</th>
+                        <th scope="col" className="px-4 py-3.5 border-r border-slate-200 w-1/4">Status</th>
+                        <th scope="col" className="px-4 py-3.5 border-r border-slate-200 w-28">Responsibility</th>
+                        <th scope="col" className="px-4 py-3.5 border-r border-slate-200 w-36">Expected Date</th>
+                        <th scope="col" className="px-4 py-3.5">Remark</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 bg-white">
+                      {approvedNocsData.map((doc) => (
+                        <tr key={doc.id} className="hover:bg-slate-50/80 transition">
+                          <td className="px-4 py-3.5 font-bold text-slate-900 border-r border-slate-200 align-top">
+                            {doc.title}
+                          </td>
+                          <td className="px-4 py-3.5 text-slate-800 border-r border-slate-200 align-top whitespace-pre-line">
+                            {doc.status}
+                          </td>
+                          <td className="px-4 py-3.5 border-r border-slate-200 align-top">
+                            <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 font-extrabold text-[11px] rounded-lg border border-indigo-100 inline-block">
+                              {doc.responsibility}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 border-r border-slate-200 align-top">
+                            <div className="space-y-1">
+                              {doc.dateHistory && doc.dateHistory.length > 0 ? (
+                                doc.dateHistory.map((d, idx) => {
+                                  const isLast = idx === doc.dateHistory.length - 1;
+                                  return (
+                                    <div key={idx} className={isLast ? 'font-extrabold text-slate-900' : 'line-through text-slate-400'}>
+                                      {d}
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <span className="font-semibold text-slate-700">{doc.expectedDate}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5 text-slate-800 align-top space-y-1.5">
+                            {doc.remark.map((rmk, idx) => (
+                              <div key={idx} className="text-xs leading-relaxed">
+                                {rmk}
+                              </div>
+                            ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           ) : generalDocSections.includes(activeSection) ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700 relative">
               {(activeFolderMenuId || activeFileMenuId) && (
@@ -3136,123 +3810,6 @@ function App() {
                       >
                         ✕
                       </button>
-                    )}
-                  </div>
-
-                  {/* Notification Bell Button */}
-                  <div className="relative z-50">
-                    <button
-                      onClick={() => setShowNotificationPanel(!showNotificationPanel)}
-                      className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition border border-slate-200 cursor-pointer relative"
-                      title="View Document Upload Notifications"
-                    >
-                      <Bell className="h-4 w-4 text-slate-600" />
-                      {unviewedUploadsCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-600 text-white text-[9px] font-black items-center justify-center shadow-sm">
-                            {unviewedUploadsCount}
-                          </span>
-                        </span>
-                      )}
-                    </button>
-
-                    {/* Floating Notifications Dropdown (z-[9999] floats over all cards) */}
-                    {showNotificationPanel && (
-                      <div className="absolute right-0 top-11 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        {/* Header */}
-                        <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Bell className="h-4 w-4 text-sky-400" />
-                            <h4 className="font-bold text-xs">New Upload Notifications</h4>
-                            {unviewedUploadsCount > 0 && (
-                              <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold">
-                                {unviewedUploadsCount} Unread
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            {unviewedUploadsCount > 0 && (
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    await generalDocsAPI.markAllNotificationsRead();
-                                    await fetchAllUploads();
-                                    await fetchGeneralDocs();
-                                  } catch (err) {
-                                    console.error(err);
-                                  }
-                                }}
-                                className="px-2 py-0.5 bg-sky-600 hover:bg-sky-500 text-white rounded text-[10px] font-bold transition cursor-pointer"
-                                title="Mark all notifications as read"
-                              >
-                                Clear All
-                              </button>
-                            )}
-                            <button
-                              onClick={() => setShowNotificationPanel(false)}
-                              className="text-slate-400 hover:text-white p-1 rounded-lg text-xs font-bold"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* List */}
-                        <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
-                          {allRecentUploads.length === 0 ? (
-                            <div className="p-8 text-center text-slate-400 space-y-2">
-                              <Bell className="h-8 w-8 mx-auto text-slate-300 stroke-1" />
-                              <p className="text-xs font-semibold">No recent document uploads</p>
-                            </div>
-                          ) : (
-                            allRecentUploads.map((doc) => {
-                              const isUnviewed = isDocumentUnviewed(doc);
-                              const uploader = doc.uploadedBy?.name || 'User';
-                              const folderDisplayName = doc.folderName || doc.folder;
-                              return (
-                                <div
-                                  key={doc._id}
-                                  onClick={() => handleSelectNotification(doc)}
-                                  className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-emerald-50/80 border-l-4 border-l-emerald-500' : 'bg-white'}`}
-                                >
-                                  <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${isUnviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                    <FileText className="h-4 w-4" />
-                                  </div>
-                                  <div className="flex-1 min-w-0 space-y-1">
-                                    <div className="flex items-center justify-between">
-                                      <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={doc.name}>{doc.name}</h5>
-                                      {isUnviewed && (
-                                        <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
-                                          NEW
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* Section & Folder info */}
-                                    <div className="flex items-center flex-wrap gap-1 text-[10px]">
-                                      <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-semibold border border-sky-200">
-                                        📂 Section: {doc.section || 'General'}
-                                      </span>
-                                      {folderDisplayName && folderDisplayName !== 'Root' && (
-                                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-semibold border border-amber-200">
-                                          📁 Folder: {folderDisplayName}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
-                                      <span>By: <strong className="text-slate-700">{uploader}</strong></span>
-                                      <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
                     )}
                   </div>
 
