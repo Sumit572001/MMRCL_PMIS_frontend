@@ -39,16 +39,20 @@ export const authAPI = {
     }
     return response.data;
   },
-  register: async (name, email, password, role, organization) => {
-    const response = await api.post('/api/auth/register', { name, email, password, role, organization });
-    if (response.data.success) {
-      localStorage.setItem('pmis_token', response.data.token);
-      localStorage.setItem('pmis_user', JSON.stringify(response.data.user));
-    }
+  register: async (email, password, name = '', role = '', organization = '') => {
+    const response = await api.post('/api/auth/register', { email, password, name, role, organization });
     return response.data;
   },
   getMe: async () => {
     const response = await api.get('/api/auth/me');
+    return response.data;
+  },
+  sendOtp: async (email) => {
+    const response = await api.post('/api/auth/send-otp', { email });
+    return response.data;
+  },
+  verifyOtp: async (email, otp) => {
+    const response = await api.post('/api/auth/verify-otp', { email, otp });
     return response.data;
   },
   resetPassword: async (userId, newPassword) => {
