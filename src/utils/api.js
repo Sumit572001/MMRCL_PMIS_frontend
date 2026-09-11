@@ -165,6 +165,10 @@ export const generalDocsAPI = {
     const response = await api.delete(`/api/${section}/folders/${id}`);
     return response.data;
   },
+  renameFolder: async (section, id, name) => {
+    const response = await api.put(`/api/${section}/folders/${id}`, { name });
+    return response.data;
+  },
   upload: async (section, formData) => {
     const response = await api.post(`/api/${section}`, formData, {
       headers: {

@@ -35,6 +35,7 @@ import {
   Folder,
   File,
   ChevronLeft,
+  ArrowLeft,
   MoreVertical,
   MessageSquare,
   MessageCircle,
@@ -55,7 +56,8 @@ import {
   Calendar,
   List,
   Grid,
-  ArrowRight
+  ArrowRight,
+  PhoneCall
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -619,6 +621,62 @@ function App() {
     }
   };
 
+  // Contact Directory Modal State
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactSearch, setContactSearch] = useState('');
+
+  const contactDirectoryData = [
+    {
+      srNo: 1,
+      department: 'Civil',
+      contacts: [
+        { name: 'Md Aasim Sulaiman', designation: 'Executive Director (Tracks)', phone: '7208348350', email: 'md.aasim@mmrcl.com' },
+        { name: 'Mr Rajesh Patil', designation: 'Deputy General Manager', phone: '9821927398', email: 'rajesh.patil@mmrcl.com' },
+        { name: 'Mr Sachin Aher', designation: 'Deputy Engineer', phone: '8446127988', email: 'sachin.aher@mmrcl.com' }
+      ]
+    },
+    {
+      srNo: 2,
+      department: 'Architect',
+      contacts: [
+        { name: 'Mr Vikrant Tewathia', designation: 'Deputy General Manager', phone: '9650275552', email: 'vikrant.tewathia@mmrcl.com' }
+      ]
+    },
+    {
+      srNo: 3,
+      department: 'MEP',
+      contacts: [
+        { name: 'Dr Vishwas Ajnalkar', designation: 'General Manager (Electrical)', phone: '8411877003', email: 'vishwas.ajnalkar@mmrcl.com' },
+        { name: 'Cdr Ashish Saxena', designation: 'Additional General Manager', phone: '7021704583', email: 'ashish.saxena@mmrcl.com' },
+        { name: 'Ms Neha Bhoi', designation: 'Deputy Engineer', phone: '8551803173', email: 'neha.bhoi@mmrcl.com' }
+      ]
+    },
+    {
+      srNo: 4,
+      department: 'Telecom & IT',
+      contacts: [
+        { name: 'Mr Rajeev Kumar', designation: 'Principal Executive Director', phone: '9987645170', email: 'rajeev.kumar@mmrcl.com' },
+        { name: 'Mr Sudhir Sahare', designation: 'Senior Deputy General Manager (Telecom)', phone: '7977813069', email: 'sudhir.sahare@mmrcl.com' },
+        { name: 'Mr Rutesh Jadhav', designation: 'Assistant General Manager (Telecom)', phone: '9969512751', email: 'Rutesh.Jadhav@mmrcl.com' },
+        { name: 'Mr Sumit Patil', designation: 'Deputy General Manager (IT)', phone: '9920209800', email: 'sumit.patil@mmrcl.com' }
+      ]
+    },
+    {
+      srNo: 5,
+      department: '-',
+      contacts: [
+        { name: 'Mr. Madhavesh Kulkarni', designation: 'PMC team leader', phone: '9970592658', email: 'pmc.mmrcl@gmail.com' }
+      ]
+    },
+    {
+      srNo: 6,
+      department: '-',
+      contacts: [
+        { name: 'Ar. Priyadarshini Agrawal', designation: 'Architecture', phone: '88290 12085', email: 'arch.mmrcl@gmail.com' }
+      ]
+    }
+  ];
+
   // Data lists
   const [matrixItems, setMatrixItems] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -632,7 +690,7 @@ function App() {
   });
 
   // UI state filters & tabs
-  const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'documents' | 'logs'
+  const [activeTab, setActiveTab] = useState('documents'); // 'documents' | 'matrix' | 'logs'
   const [matrixSearch, setMatrixSearch] = useState('');
   const [docSearch, setDocSearch] = useState('');
   const [generalDocSearch, setGeneralDocSearch] = useState('');
@@ -659,6 +717,12 @@ function App() {
   const [renameFileId, setRenameFileId] = useState(null);
   const [renameFileNameInput, setRenameFileNameInput] = useState('');
   const [renameFileSaving, setRenameFileSaving] = useState(false);
+
+  // Folder Rename Modal State
+  const [showRenameFolderModal, setShowRenameFolderModal] = useState(false);
+  const [renameFolderId, setRenameFolderId] = useState(null);
+  const [renameFolderNameInput, setRenameFolderNameInput] = useState('');
+  const [renameFolderSaving, setRenameFolderSaving] = useState(false);
 
   // Remark Modal State
   const [showRemarkModal, setShowRemarkModal] = useState(false);
@@ -741,12 +805,37 @@ function App() {
     const userOrg = (user.organization || '').toUpperCase();
     const userRole = (user.role || '').toUpperCase();
 
-    return authList.some(authUpper =>
-      userName.includes(authUpper) ||
-      userId.includes(authUpper) ||
-      userOrg.includes(authUpper) ||
-      userRole.includes(authUpper)
-    );
+    if (userRole.includes('ADMIN') || userId === 'ADMIN' || userId === 'NECPL' || userOrg.includes('NECPL')) return true;
+
+    return authList.some(authUpper => {
+      if (authUpper.includes('KULKARNI') || authUpper.includes('MADHAVESH')) {
+        return userName.includes('PMC') || userName.includes('MADHAVESH') || userName.includes('KULKARNI') || userOrg.includes('PMC') || userId.includes('PMC');
+      }
+      if (authUpper.includes('VISHWAS') || authUpper.includes('AJNALKAR')) {
+        return userName.includes('VISHWAS') || userName.includes('AJNALKAR') || userOrg.includes('MMRCL') || userId.includes('MMRCL');
+      }
+      if (authUpper.includes('AASIM') || authUpper.includes('SULAIMAN')) {
+        return userName.includes('AASIM') || userName.includes('SULAIMAN') || userOrg.includes('MMRCL') || userId.includes('MMRCL');
+      }
+      if (authUpper.includes('PATIL') || authUpper.includes('RAJESH')) {
+        return userName.includes('RAJESH') || userName.includes('PATIL') || userOrg.includes('MMRCL') || userId.includes('MMRCL');
+      }
+      if (authUpper.includes('SACHIN') || authUpper.includes('AHER')) {
+        return userName.includes('SACHIN') || userName.includes('AHER') || userOrg.includes('MMRCL') || userId.includes('MMRCL');
+      }
+      if (authUpper.includes('PRIYADARSHINI') || authUpper.includes('AGRAWAL') || authUpper.includes('ARCHITECT')) {
+        return userName.includes('PRIYADARSHINI') || userName.includes('AGRAWAL') || userOrg.includes('ARCHITECT') || userId.includes('ARCH');
+      }
+      if (authUpper.includes('VIKRANT') || authUpper.includes('TEWATHIA')) {
+        return userName.includes('VIKRANT') || userName.includes('TEWATHIA') || userOrg.includes('MMRCL') || userId.includes('MMRCL');
+      }
+      return (
+        userName.includes(authUpper) ||
+        userId.includes(authUpper) ||
+        userOrg.includes(authUpper) ||
+        userRole.includes(authUpper)
+      );
+    });
   };
 
   const handleUpdateApprovalAuthority = async (doc, authority) => {
@@ -811,12 +900,50 @@ function App() {
     const dropdownId = isSubDoc ? `${parentDoc._id}-${item._id}` : item._id;
     const isOpen = activeAuthorityDropdownId === dropdownId;
 
-    const options = [
+    let options = [
       { label: 'None (Default Approved)', value: '' },
       { label: 'NECPL', value: 'NECPL' },
       { label: 'MMRCL', value: 'MMRCL' },
       { label: 'PMC', value: 'PMC' }
     ];
+
+    if (['Project Monitoring & Control', 'Quality Management', 'Environment, Health, and Safety (EHS)'].includes(activeSection)) {
+      options = [
+        { label: 'None (Default Approved)', value: '' },
+        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' },
+        { label: 'MMRCL - Md Aasim Sulaiman', value: 'MMRCL - Md Aasim Sulaiman' },
+        { label: 'MMRCL - Mr Rajesh Patil', value: 'MMRCL - Mr Rajesh Patil' },
+        { label: 'MMRCL - Mr Sachin Aher', value: 'MMRCL - Mr Sachin Aher' }
+      ];
+    } else if (activeSection === 'RFI') {
+      options = [
+        { label: 'None (Default Approved)', value: '' },
+        { label: 'Architect - Ar. Priyadarshini Agrawal', value: 'Architect - Ar. Priyadarshini Agrawal' },
+        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' },
+        { label: 'MMRCL - Md Aasim Sulaiman', value: 'MMRCL - Md Aasim Sulaiman' },
+        { label: 'MMRCL - Mr Rajesh Patil', value: 'MMRCL - Mr Rajesh Patil' },
+        { label: 'MMRCL - Mr Sachin Aher', value: 'MMRCL - Mr Sachin Aher' }
+      ];
+    } else if (activeSection === 'MEP' || activeSection === 'MEP & IT') {
+      options = [
+        { label: 'None (Default Approved)', value: '' },
+        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' },
+        { label: 'MMRCL - Dr. Vishwas Ajnalkar', value: 'MMRCL - Dr. Vishwas Ajnalkar' },
+        { label: 'MMRCL - Md Aasim Sulaiman', value: 'MMRCL - Md Aasim Sulaiman' },
+        { label: 'MMRCL - Mr Rajesh Patil', value: 'MMRCL - Mr Rajesh Patil' },
+        { label: 'MMRCL - Mr Sachin Aher', value: 'MMRCL - Mr Sachin Aher' }
+      ];
+    } else if (activeSection === 'Project Drawings') {
+      options = [
+        { label: 'None (Default Approved)', value: '' },
+        { label: 'Architect - Ar. Priyadarshini Agrawal', value: 'Architect - Ar. Priyadarshini Agrawal' },
+        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' },
+        { label: 'MMRCL - Mr Vikrant Tewathia', value: 'MMRCL - Mr Vikrant Tewathia' },
+        { label: 'MMRCL - Md Aasim Sulaiman', value: 'MMRCL - Md Aasim Sulaiman' },
+        { label: 'MMRCL - Mr Rajesh Patil', value: 'MMRCL - Mr Rajesh Patil' },
+        { label: 'MMRCL - Mr Sachin Aher', value: 'MMRCL - Mr Sachin Aher' }
+      ];
+    }
 
     const handleSelectOption = async (optValue) => {
       let nextArray = [];
@@ -830,7 +957,18 @@ function App() {
         }
       }
 
-      const order = ['NECPL', 'MMRCL', 'PMC'];
+      const order = [
+        'Architect - Ar. Priyadarshini Agrawal',
+        'PMC - Mr. Madhavesh Kulkarni',
+        'MMRCL - Dr. Vishwas Ajnalkar',
+        'MMRCL - Mr Vikrant Tewathia',
+        'MMRCL - Md Aasim Sulaiman',
+        'MMRCL - Mr Rajesh Patil',
+        'MMRCL - Mr Sachin Aher',
+        'NECPL',
+        'MMRCL',
+        'PMC'
+      ];
       nextArray.sort((a, b) => order.indexOf(a) - order.indexOf(b));
 
       const newVal = nextArray.join(', ');
@@ -879,7 +1017,7 @@ function App() {
             e.stopPropagation();
             setActiveAuthorityDropdownId(isOpen ? null : dropdownId);
           }}
-          className="inline-flex justify-between items-center w-full px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm cursor-pointer min-w-[125px] max-w-[170px]"
+          className="inline-flex justify-between items-center w-full px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm cursor-pointer min-w-[140px] max-w-[220px]"
         >
           <span className={`truncate ${currentVal ? 'text-sky-700 font-bold' : 'text-slate-400'}`} title={currentVal || 'Assign Auth'}>
             {currentVal || 'Assign Auth'}
@@ -889,7 +1027,7 @@ function App() {
 
         {isOpen && (
           <div
-            className="absolute right-0 top-full mt-1 w-56 rounded-xl bg-white border border-slate-200 shadow-2xl z-[9999] p-1.5 space-y-0.5 text-left animate-fade-in"
+            className="absolute right-0 top-full mt-1 w-72 rounded-xl bg-white border border-slate-200 shadow-2xl z-[9999] p-1.5 space-y-0.5 text-left animate-fade-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
@@ -929,7 +1067,7 @@ function App() {
   const renderApprovalColumn = (item, isSubDoc = false, parentDoc = null) => {
     const authority = item.approvalAuthority || '';
     const status = item.approvalStatus;
-    const approvedBy = item.approvedBy;
+    const approvedBy = item.approvedBy || '';
 
     // 1. Default state if no authority is assigned
     if (!authority) {
@@ -937,6 +1075,684 @@ function App() {
         <div className="inline-flex items-center text-amber-700 font-semibold text-xs whitespace-nowrap">
           <Clock className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
           <span>Yet To Be Approved</span>
+        </div>
+      );
+    }
+
+    // Special 3-Stage Sequential Flow for RFI (Architect -> PMC -> Final MMRCL Officers)
+    if (activeSection === 'RFI') {
+      const authList = authority.split(',').map(a => a.trim()).filter(Boolean);
+      const approvedList = approvedBy ? approvedBy.split(',').map(a => a.trim()).filter(Boolean) : [];
+
+      const hasArchitectAssigned = authList.some(a => a.includes('Architect') || a.includes('Agrawal') || a.includes('Priyadarshini'));
+      const hasArchitectApproved = approvedList.some(a => a.includes('Architect') || a.includes('Agrawal') || a.includes('Priyadarshini'));
+
+      const hasPmcAssigned = authList.some(a => a.includes('PMC'));
+      const hasPmcApproved = approvedList.some(a => a.includes('PMC'));
+
+      const approvedFinalMmrclOfficer = approvedList.find(a => a.includes('MMRCL'));
+
+      return (
+        <div className="flex flex-col items-center justify-center space-y-1 py-1">
+          {authList.map((auth) => {
+            const isArchitect = auth.includes('Architect') || auth.includes('Agrawal') || auth.includes('Priyadarshini');
+            const isPmc = auth.includes('PMC');
+            const isFinalMmrcl = auth.includes('MMRCL');
+
+            const isThisApproved = approvedList.includes(auth);
+
+            // 1. If this exact authority item is approved
+            if (isThisApproved) {
+              return (
+                <div
+                  key={auth}
+                  className="inline-flex items-center text-emerald-600 font-bold text-xs whitespace-nowrap"
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  <span>Approved By {auth}</span>
+                </div>
+              );
+            }
+
+            // 2. If it's a final MMRCL officer and ANOTHER final MMRCL officer has already approved
+            if (isFinalMmrcl && approvedFinalMmrclOfficer) {
+              return (
+                <div
+                  key={auth}
+                  className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap"
+                  title={`Approved by ${approvedFinalMmrclOfficer}`}
+                >
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-slate-300 flex-shrink-0" />
+                  <span>Completed ({approvedFinalMmrclOfficer})</span>
+                </div>
+              );
+            }
+
+            // 3. Stage 1: Architect
+            if (isArchitect) {
+              const canApproveArch = canUserApprove(currentUser, auth);
+              if (canApproveArch) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            // 4. Stage 2: PMC
+            if (isPmc) {
+              if (hasArchitectAssigned && !hasArchitectApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="Architect must approve first before PMC can approve">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting Architect)</span>
+                  </div>
+                );
+              }
+              const canApprovePmc = canUserApprove(currentUser, auth);
+              if (canApprovePmc) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            // 5. Stage 3: Final MMRCL Officers (Md Aasim, Rajesh Patil, Sachin Aher)
+            if (isFinalMmrcl) {
+              if (hasArchitectAssigned && !hasArchitectApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="Architect must approve first">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting Architect)</span>
+                  </div>
+                );
+              }
+              if (hasPmcAssigned && !hasPmcApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="PMC must approve first">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting PMC)</span>
+                  </div>
+                );
+              }
+
+              const canApproveFinalMmrcl = canUserApprove(currentUser, auth);
+              if (canApproveFinalMmrcl) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            return null;
+          })}
+        </div>
+      );
+    }
+
+    // Special Sequential Flow for MEP (PMC -> Dr. Vishwas Ajnalkar -> Final MMRCL Officers)
+    if (activeSection === 'MEP' || activeSection === 'MEP & IT') {
+      const authList = authority.split(',').map(a => a.trim()).filter(Boolean);
+      const approvedList = approvedBy ? approvedBy.split(',').map(a => a.trim()).filter(Boolean) : [];
+
+      const hasPmcAssigned = authList.some(a => a.includes('PMC'));
+      const hasPmcApproved = approvedList.some(a => a.includes('PMC'));
+
+      const hasVishwasAssigned = authList.some(a => a.includes('Vishwas') || a.includes('Ajnalkar'));
+      const hasVishwasApproved = approvedList.some(a => a.includes('Vishwas') || a.includes('Ajnalkar'));
+
+      const approvedFinalMmrclOfficer = approvedList.find(a => a.includes('MMRCL') && !a.includes('Vishwas') && !a.includes('Ajnalkar'));
+
+      return (
+        <div className="flex flex-col items-center justify-center space-y-1 py-1">
+          {authList.map((auth) => {
+            const isPmc = auth.includes('PMC');
+            const isVishwas = auth.includes('Vishwas') || auth.includes('Ajnalkar');
+            const isFinalMmrcl = auth.includes('MMRCL') && !isVishwas;
+
+            const isThisApproved = approvedList.includes(auth);
+
+            // 1. If this exact authority item is approved
+            if (isThisApproved) {
+              return (
+                <div
+                  key={auth}
+                  className="inline-flex items-center text-emerald-600 font-bold text-xs whitespace-nowrap"
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  <span>Approved By {auth}</span>
+                </div>
+              );
+            }
+
+            // 2. If it's a final MMRCL officer and ANOTHER final MMRCL officer has already approved
+            if (isFinalMmrcl && approvedFinalMmrclOfficer) {
+              return (
+                <div
+                  key={auth}
+                  className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap"
+                  title={`Approved by ${approvedFinalMmrclOfficer}`}
+                >
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-slate-300 flex-shrink-0" />
+                  <span>Completed ({approvedFinalMmrclOfficer})</span>
+                </div>
+              );
+            }
+
+            // 3. Stage 1: PMC
+            if (isPmc) {
+              const canApprovePmc = canUserApprove(currentUser, auth);
+              if (canApprovePmc) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            // 4. Stage 2: MMRCL Dr. Vishwas Ajnalkar
+            if (isVishwas) {
+              if (hasPmcAssigned && !hasPmcApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="PMC must approve first before MMRCL - Dr. Vishwas Ajnalkar can approve">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting PMC)</span>
+                  </div>
+                );
+              }
+              const canApproveVishwas = canUserApprove(currentUser, auth);
+              if (canApproveVishwas) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            // 5. Stage 3: Final MMRCL Officers (Md Aasim, Rajesh Patil, Sachin Aher)
+            if (isFinalMmrcl) {
+              if (hasPmcAssigned && !hasPmcApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="PMC must approve first">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting PMC)</span>
+                  </div>
+                );
+              }
+              if (hasVishwasAssigned && !hasVishwasApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="MMRCL - Dr. Vishwas Ajnalkar must approve first">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting Dr. Vishwas Ajnalkar)</span>
+                  </div>
+                );
+              }
+
+              const canApproveFinalMmrcl = canUserApprove(currentUser, auth);
+              if (canApproveFinalMmrcl) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            return null;
+          })}
+        </div>
+      );
+    }
+
+    // Special 2-Stage Sequential Flow for Project Monitoring & Control, Quality Management, Environment, Health, and Safety (EHS)
+    if (['Project Monitoring & Control', 'Quality Management', 'Environment, Health, and Safety (EHS)'].includes(activeSection)) {
+      const authList = authority.split(',').map(a => a.trim()).filter(Boolean);
+      const approvedList = approvedBy ? approvedBy.split(',').map(a => a.trim()).filter(Boolean) : [];
+
+      const hasPmcAssigned = authList.some(a => a.includes('PMC'));
+      const hasPmcApproved = approvedList.some(a => a.includes('PMC'));
+
+      const approvedMmrclOfficer = approvedList.find(a => a.includes('MMRCL'));
+
+      return (
+        <div className="flex flex-col items-center justify-center space-y-1 py-1">
+          {authList.map((auth) => {
+            const isPmc = auth.includes('PMC');
+            const isMmrcl = auth.includes('MMRCL');
+            const isThisApproved = approvedList.includes(auth);
+
+            // 1. If this exact authority item is approved
+            if (isThisApproved) {
+              return (
+                <div
+                  key={auth}
+                  className="inline-flex items-center text-emerald-600 font-bold text-xs whitespace-nowrap"
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  <span>Approved By {auth}</span>
+                </div>
+              );
+            }
+
+            // 2. If it's an MMRCL officer and ANOTHER MMRCL officer has already approved
+            if (isMmrcl && approvedMmrclOfficer) {
+              return (
+                <div
+                  key={auth}
+                  className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap"
+                  title={`Approved by ${approvedMmrclOfficer}`}
+                >
+                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-slate-300 flex-shrink-0" />
+                  <span>Completed ({approvedMmrclOfficer})</span>
+                </div>
+              );
+            }
+
+            // 3. PMC Stage
+            if (isPmc) {
+              const canApprovePmc = canUserApprove(currentUser, auth);
+              if (canApprovePmc) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            // 4. MMRCL Stage (Requires PMC approval first if PMC is assigned)
+            if (isMmrcl) {
+              if (hasPmcAssigned && !hasPmcApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="PMC must approve first before MMRCL can approve">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting PMC)</span>
+                  </div>
+                );
+              }
+
+              const canApproveMmrcl = canUserApprove(currentUser, auth);
+              if (canApproveMmrcl) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            return null;
+          })}
+        </div>
+      );
+    }
+
+    // Special Sequential Flow for Project Drawings
+    if (activeSection === 'Project Drawings') {
+      const authList = authority.split(',').map(a => a.trim()).filter(Boolean);
+      const approvedList = approvedBy ? approvedBy.split(',').map(a => a.trim()).filter(Boolean) : [];
+
+      const hasArchitectAssigned = authList.some(a => a.includes('Architect') || a.includes('Agrawal') || a.includes('Priyadarshini'));
+      const hasArchitectApproved = approvedList.some(a => a.includes('Architect') || a.includes('Agrawal') || a.includes('Priyadarshini'));
+
+      const hasPmcAssigned = authList.some(a => a.includes('PMC'));
+      const hasPmcApproved = approvedList.some(a => a.includes('PMC'));
+
+      const hasVikrantAssigned = authList.some(a => a.includes('Vikrant') || a.includes('Tewathia'));
+      const hasVikrantApproved = approvedList.some(a => a.includes('Vikrant') || a.includes('Tewathia'));
+
+      const approvedFinalMmrclOfficer = approvedList.find(a => a.includes('MMRCL') && !a.includes('Vikrant') && !a.includes('Tewathia'));
+
+      return (
+        <div className="flex flex-col items-center justify-center space-y-1 py-1">
+          {authList.map((auth) => {
+            const isArchitect = auth.includes('Architect') || auth.includes('Agrawal') || auth.includes('Priyadarshini');
+            const isPmc = auth.includes('PMC');
+            const isVikrant = auth.includes('Vikrant') || auth.includes('Tewathia');
+            const isFinalMmrcl = auth.includes('MMRCL') && !isVikrant;
+
+            const isThisApproved = approvedList.includes(auth);
+
+            // 1. If this exact authority item is approved
+            if (isThisApproved) {
+              return (
+                <div
+                  key={auth}
+                  className="inline-flex items-center text-emerald-600 font-bold text-xs whitespace-nowrap"
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  <span>Approved By {auth}</span>
+                </div>
+              );
+            }
+
+            // 2. If it's a final MMRCL officer and ANOTHER final MMRCL officer has already approved
+            if (isFinalMmrcl && approvedFinalMmrclOfficer) {
+              return (
+                <div
+                  key={auth}
+                  className="inline-flex items-center text-emerald-600/80 font-semibold text-xs whitespace-nowrap"
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  <span>Approved (Via {approvedFinalMmrclOfficer})</span>
+                </div>
+              );
+            }
+
+            // 3. Stage 1: Architect
+            if (isArchitect) {
+              const canApproveArch = canUserApprove(currentUser, auth);
+              if (canApproveArch) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            // 4. Stage 2: PMC
+            if (isPmc) {
+              if (hasArchitectAssigned && !hasArchitectApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="Architect must approve first before PMC can approve">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting Architect)</span>
+                  </div>
+                );
+              }
+              const canApprovePmc = canUserApprove(currentUser, auth);
+              if (canApprovePmc) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            // 5. Stage 3: MMRCL Mr Vikrant Tewathia
+            if (isVikrant) {
+              if (hasArchitectAssigned && !hasArchitectApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="Architect must approve first">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting Architect)</span>
+                  </div>
+                );
+              }
+              if (hasPmcAssigned && !hasPmcApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="PMC must approve first before MMRCL - Mr Vikrant Tewathia can approve">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting PMC)</span>
+                  </div>
+                );
+              }
+              const canApproveVikrant = canUserApprove(currentUser, auth);
+              if (canApproveVikrant) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            // 6. Stage 4: Final MMRCL Officers (Md Aasim, Rajesh Patil, Sachin Aher)
+            if (isFinalMmrcl) {
+              if (hasArchitectAssigned && !hasArchitectApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="Architect must approve first">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting Architect)</span>
+                  </div>
+                );
+              }
+              if (hasPmcAssigned && !hasPmcApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="PMC must approve first">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting PMC)</span>
+                  </div>
+                );
+              }
+              if (hasVikrantAssigned && !hasVikrantApproved) {
+                return (
+                  <div key={auth} className="inline-flex items-center text-slate-400 font-medium text-xs whitespace-nowrap opacity-75 cursor-not-allowed" title="MMRCL - Mr Vikrant Tewathia must approve first">
+                    <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Pending {auth} (Awaiting Mr Vikrant Tewathia)</span>
+                  </div>
+                );
+              }
+
+              const canApproveFinalMmrcl = canUserApprove(currentUser, auth);
+              if (canApproveFinalMmrcl) {
+                return (
+                  <button
+                    key={auth}
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (isSubDoc) await handleApproveSubDocument(parentDoc, item);
+                      else await handleApproveDocument(item);
+                    }}
+                    className="inline-flex items-center text-amber-700 hover:text-amber-800 font-bold text-xs transition cursor-pointer hover:underline whitespace-nowrap"
+                    title={`Click to approve as ${auth}`}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4 text-amber-600 flex-shrink-0" />
+                    <span>Approve (As {auth})</span>
+                  </button>
+                );
+              }
+
+              return (
+                <div key={auth} className="inline-flex items-center text-slate-500 font-semibold text-xs whitespace-nowrap">
+                  <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                  <span>Pending {auth}</span>
+                </div>
+              );
+            }
+
+            return null;
+          })}
         </div>
       );
     }
@@ -1291,26 +2107,16 @@ function App() {
     }
   };
 
-  const handleSelectNotification = async (doc) => {
+  const handleSelectNotification = async (item) => {
     setShowNotificationPanel(false);
-    handleMarkDocumentViewed(doc);
+    const targetDoc = item.docRef || item;
+    handleMarkDocumentViewed(targetDoc);
 
-    const mappedSec = doc.section === 'tender' ? 'Tender Documents'
-      : doc.section === 'contractual' ? 'Contractual Documents'
-        : doc.section === 'drawing' ? 'Project Drawings'
-          : doc.section === 'monitor' ? 'Project Monitoring & Control'
-            : doc.section === 'quality' ? 'Quality Management'
-              : doc.section === 'ehs' ? 'Environment, Health, and Safety (EHS)'
-                : doc.section === 'mep' ? 'MEP'
-                  : doc.section === 'registrations' ? 'Project Documents & Registration'
-                    : doc.section === 'approved_nocs' ? "Approve / NOC's"
-                      : doc.section === 'rfi' ? 'RFI'
-                        : doc.section;
-
-    if (mappedSec && activeSection !== mappedSec) {
-      setActiveSection(mappedSec);
+    if (item.type === 'remark') {
+      handleOpenRemarkModal(targetDoc);
+    } else {
+      handleViewGeneralDoc(targetDoc);
     }
-    handleViewGeneralDoc(doc);
   };
 
   // File Preview Modal States
@@ -1470,7 +2276,7 @@ function App() {
     { label: 'Project Drawings', value: 'Project Drawings' },
     { label: 'Quality Management', value: 'Quality Management' },
     { label: 'Environment, Health, and Safety (EHS)', value: 'Environment, Health, and Safety (EHS)' },
-    { label: 'MEP', value: 'MEP' },
+    { label: 'MEP & IT', value: 'MEP & IT' },
     { label: 'Project Documents & Registration', value: 'Project Documents & Registration' },
   ];
 
@@ -1907,7 +2713,7 @@ function App() {
     'Project Drawings',
     'Quality Management',
     'Environment, Health, and Safety (EHS)',
-    'MEP',
+    'MEP & IT',
     'Project Documents & Registration',
     'RFI'
   ];
@@ -1933,6 +2739,7 @@ function App() {
     if (generalDocSections.includes(activeSection) && currentUser) {
       setFolderPath([]); // Reset folder path when switching sections
       setGeneralDocSearch(''); // Reset search filter when switching sections
+      setActiveTab('documents'); // Default to Documents Register view
       fetchGeneralDocs();
     }
   }, [activeSection, currentUser]);
@@ -1997,6 +2804,31 @@ function App() {
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Folder deletion failed');
+    }
+  };
+
+  const handleRenameFolder = async (e) => {
+    e.preventDefault();
+    if (!renameFolderNameInput || !renameFolderNameInput.trim()) {
+      alert('Please enter a new folder name');
+      return;
+    }
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec) return;
+
+    setRenameFolderSaving(true);
+    try {
+      const res = await generalDocsAPI.renameFolder(apiSec, renameFolderId, renameFolderNameInput.trim());
+      if (res.success) {
+        setShowRenameFolderModal(false);
+        setRenameFolderNameInput('');
+        setRenameFolderId(null);
+        await fetchGeneralDocs();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Folder rename failed');
+    } finally {
+      setRenameFolderSaving(false);
     }
   };
 
@@ -2202,7 +3034,7 @@ function App() {
     if (num === 8 || num === 9) return 'Project Monitoring & Control';
     if (num === 6 || num === 7 || num === 10) return 'Project Drawings';
     if (num === 11 || num === 19 || num === 20 || num === 21) return 'Project Documents & Registration';
-    if (num === 12 || num === 13) return 'MEP';
+    if (num === 12 || num === 13) return 'MEP & IT';
     if (num >= 14 && num <= 16) return 'Quality Management';
     if (num === 17 || num === 18) return 'Environment, Health, and Safety (EHS)';
     if (num === 22) return 'Project Details';
@@ -3089,9 +3921,8 @@ function App() {
     { id: 'drawing', name: 'Project Drawings', icon: Compass },
     { id: 'quality', name: 'Quality Management', icon: Award },
     { id: 'ehs', name: 'Environment, Health, and Safety (EHS)', icon: ShieldAlert },
-    { id: 'mep', name: 'MEP', icon: Wrench },
+    { id: 'mep', name: 'MEP & IT', icon: Wrench },
     { id: 'registrations', name: 'Project Documents & Registration', icon: ClipboardList },
-    { id: 'approved_nocs', name: "Approve / NOC's", icon: CheckCircle2 },
     { id: 'rfi', name: 'RFI', icon: FileQuestion },
   ];
 
@@ -3214,7 +4045,7 @@ function App() {
                     <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <Bell className="h-4 w-4 text-sky-400" />
-                        <h4 className="font-bold text-xs">New Upload Notifications</h4>
+                        <h4 className="font-bold text-xs">Notifications</h4>
                         {unviewedUploadsCount > 0 && (
                           <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold">
                             {unviewedUploadsCount} Unread
@@ -3253,47 +4084,77 @@ function App() {
                       {allRecentUploads.length === 0 ? (
                         <div className="p-8 text-center text-slate-400 space-y-2">
                           <Bell className="h-8 w-8 mx-auto text-slate-300 stroke-1" />
-                          <p className="text-xs font-semibold">No recent document uploads</p>
+                          <p className="text-xs font-semibold">No recent activity notifications</p>
                         </div>
                       ) : (
-                        allRecentUploads.map((doc) => {
-                          const isUnviewed = isDocumentUnviewed(doc);
-                          const uploader = doc.uploadedBy?.name || 'User';
-                          const folderDisplayName = doc.folderName || doc.folder;
+                        allRecentUploads.map((item) => {
+                          const isUnviewed = isDocumentUnviewed(item);
+                          const uploader = item.uploader || item.uploadedBy?.name || 'User';
+                          const folderDisplayName = item.folderName || item.folder || 'Root Folder';
+                          const eventType = item.type || 'upload';
+
+                          let typeBadge = (
+                            <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                              NEW FILE
+                            </span>
+                          );
+                          let IconComponent = FileText;
+                          let iconBg = isUnviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500';
+
+                          if (eventType === 'remark') {
+                            typeBadge = (
+                              <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                                REMARK
+                              </span>
+                            );
+                            IconComponent = MessageSquare;
+                            iconBg = isUnviewed ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500';
+                          } else if (eventType === 'approval') {
+                            typeBadge = (
+                              <span className="px-1.5 py-0.2 bg-sky-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                                APPROVED
+                              </span>
+                            );
+                            IconComponent = CheckCircle2;
+                            iconBg = isUnviewed ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500';
+                          }
+
                           return (
                             <div
-                              key={doc._id}
-                              onClick={() => handleSelectNotification(doc)}
-                              className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-emerald-50/80 border-l-4 border-l-emerald-500' : 'bg-white'}`}
+                              key={item._id}
+                              onClick={() => handleSelectNotification(item)}
+                              className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-sky-50/60 border-l-4 border-l-sky-500' : 'bg-white'}`}
                             >
-                              <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${isUnviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                                <FileText className="h-4 w-4" />
+                              <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${iconBg}`}>
+                                <IconComponent className="h-4 w-4" />
                               </div>
                               <div className="flex-1 min-w-0 space-y-1">
                                 <div className="flex items-center justify-between">
-                                  <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={doc.name}>{doc.name}</h5>
-                                  {isUnviewed && (
-                                    <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
-                                      NEW
-                                    </span>
-                                  )}
+                                  <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={item.title || item.name}>
+                                    {item.title || item.name}
+                                  </h5>
+                                  {typeBadge}
                                 </div>
 
+                                {eventType === 'remark' && item.remarkText && (
+                                  <p className="text-[11px] text-amber-900 font-medium bg-amber-50 p-1.5 rounded border border-amber-200/60 line-clamp-2">
+                                    💬 "{item.remarkText}"
+                                  </p>
+                                )}
+
                                 {/* Section & Folder info */}
-                                <div className="flex items-center flex-wrap gap-1 text-[10px]">
-                                  <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-semibold border border-sky-200">
-                                    📂 Section: {doc.section || 'General'}
+                                <div className="flex items-center flex-wrap gap-1 text-[10px] pt-0.5">
+                                  <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-bold border border-sky-200">
+                                    📂 Section: {item.section || 'General'}
                                   </span>
-                                  {folderDisplayName && folderDisplayName !== 'Root' && (
-                                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-semibold border border-amber-200">
-                                      📁 Folder: {folderDisplayName}
-                                    </span>
-                                  )}
+                                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded font-semibold border border-slate-200">
+                                    📁 Folder: {folderDisplayName}
+                                  </span>
                                 </div>
 
                                 <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
                                   <span>By: <strong className="text-slate-700">{uploader}</strong></span>
-                                  <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                  <span>{new Date(item.createdAt || item.uploadedAt).toLocaleDateString()}</span>
                                 </div>
                               </div>
                             </div>
@@ -3337,7 +4198,14 @@ function App() {
                   </div>
 
                   <div className="flex flex-col items-end text-right text-xs text-slate-400 font-semibold space-y-1">
-                    <span>Last Updated: {new Date().toLocaleDateString()}</span>
+                    <button
+                      onClick={() => setShowContactModal(true)}
+                      className="px-4 py-2 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 hover:text-white border border-sky-400/30 hover:border-sky-400/60 rounded-xl text-xs md:text-sm font-bold flex items-center space-x-2 transition duration-200 shadow-sm hover:shadow-md cursor-pointer group"
+                      title="View Key Project Contacts"
+                    >
+                      <PhoneCall className="h-4 w-4 text-sky-400 group-hover:scale-110 transition-transform duration-200" />
+                      <span>Contact Details</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -3591,6 +4459,27 @@ function App() {
                 </p>
               </div>
 
+              {/* Approval & NOCs Clickable Box (Colored Theme) */}
+              <div
+                onClick={() => setActiveSection('Approval & NOCs')}
+                className="bg-gradient-to-r from-sky-50 via-indigo-50/70 to-blue-50 border border-sky-200 hover:border-sky-400 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between space-x-3 text-sky-950 cursor-pointer group select-none"
+                title="Click anywhere to open Approval & NOCs"
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-gradient-to-br from-sky-500 to-indigo-600 text-white rounded-xl shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform duration-200">
+                    <CheckCircle2 className="h-5 w-5 text-white" />
+                  </div>
+                  <span className="font-black text-sky-950 text-sm md:text-base tracking-wide group-hover:text-sky-700 transition duration-200">
+                    Approval & NOCs
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-1.5 text-sky-700 font-black group-hover:translate-x-1 transition-transform duration-200 flex-shrink-0 pl-2">
+                  <span className="text-xs uppercase tracking-wider">View Details</span>
+                  <ChevronRight className="h-4 w-4 stroke-[3]" />
+                </div>
+              </div>
+
             </div>
           ) : activeSection === 'Project Details' ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
@@ -3773,17 +4662,28 @@ function App() {
                 </div>
               </div>
             </div>
-          ) : (activeSection === "Approve / NOC's" || activeSection === "Approved NOC's") ? (
+          ) : (activeSection === "Approve / NOC's" || activeSection === "Approved NOC's" || activeSection === "Approval & NOCs") ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
               {/* Top Banner Header with View Switcher */}
               <div className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/95 backdrop-blur-md p-5 rounded-2xl border border-slate-200 shadow-md gap-4">
                 <div className="flex items-center space-x-3">
+                  {/* Back Button */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('Dashboard')}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-sky-50 text-slate-700 hover:text-sky-600 rounded-xl border border-slate-200 hover:border-sky-300 transition duration-200 flex items-center space-x-1.5 font-bold text-xs md:text-sm cursor-pointer group shadow-2xs"
+                    title="Back to Dashboard"
+                  >
+                    <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform duration-200 stroke-[2.5]" />
+                    <span>Back</span>
+                  </button>
+
                   <div className="p-2.5 bg-sky-50 text-sky-600 rounded-xl border border-sky-100 flex items-center justify-center">
                     <CheckCircle2 className="h-6 w-6" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-slate-900 uppercase tracking-wider">
-                      Documents required for Environment Clearances (Approve / NOC's)
+                      Documents required for Environment Clearances (Approval & NOCs)
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5 font-medium">
                       Track status, responsibility, expected dates, and scrutiny remarks for NOCs
@@ -4232,6 +5132,153 @@ function App() {
                 </div>
               </div>
 
+              {/* Project Approval Workflow Flowchart Box (Specific to Project Monitoring & Control, Project Drawings, Quality Management, EHS, MEP & IT, RFI) */}
+              {['Project Monitoring & Control', 'Project Drawings', 'Quality Management', 'Environment, Health, and Safety (EHS)', 'MEP', 'MEP & IT', 'RFI'].includes(activeSection) && (
+                <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl px-4 py-2.5 shadow-2xs mb-3 animate-fade-in select-none">
+                  <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5 mb-2">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1 bg-sky-50 text-sky-600 rounded-md border border-sky-100 flex items-center justify-center shadow-2xs">
+                        <FolderKanban className="h-4 w-4" />
+                      </div>
+                      <h4 className="text-xs md:text-sm font-black text-slate-900 uppercase tracking-wider">
+                        APPROVAL & ESCALATION WORKFLOW & APPROVAL MATRIX
+                      </h4>
+                    </div>
+                    <span className="px-2.5 py-0.5 bg-sky-50 text-sky-700 text-xs font-bold rounded-full border border-sky-200 shadow-2xs">
+                      PMIS Approval Chain
+                    </span>
+                  </div>
+
+                  {/* Flowchart Diagram Layout */}
+                  <div className="overflow-x-auto py-1 px-1">
+                    <div className={`${activeSection === 'RFI' ? 'min-w-[950px]' : ['MEP', 'MEP & IT', 'Project Drawings'].includes(activeSection) ? 'min-w-[850px]' : 'min-w-[700px]'} flex items-center justify-center space-x-3 md:space-x-5`}>
+                      
+                      {/* Node 1: NECPL / Architect / PMC or NECPL / Architect or NECPL */}
+                      <div className="flex flex-col items-center">
+                        <div className={`${activeSection === 'RFI' ? 'w-56' : activeSection === 'Project Drawings' ? 'w-44' : 'w-32'} py-2 px-3 bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-300 rounded-xl shadow-2xs hover:border-sky-500 transition duration-200 text-center whitespace-nowrap`}>
+                          <div className="text-sm md:text-base font-black text-slate-900 tracking-wide">
+                            {activeSection === 'RFI' ? 'NECPL / Architect / PMC' : activeSection === 'Project Drawings' ? 'NECPL / Architect' : 'NECPL'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Arrow 1 */}
+                      <div className="flex items-center space-x-1 text-sky-500">
+                        <div className="w-6 md:w-9 h-0.5 bg-sky-400"></div>
+                        <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
+                      </div>
+
+                      {/* Node 1.5 (Specific to RFI): Architect */}
+                      {activeSection === 'RFI' && (
+                        <>
+                          <div className="flex flex-col items-center">
+                            <div className="w-36 md:w-40 py-2 px-3 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl shadow-2xs hover:border-amber-500 transition duration-200 text-center">
+                              <div className="text-sm md:text-base font-black text-amber-950 tracking-wide">
+                                Architect
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Arrow between Architect & PMC */}
+                          <div className="flex items-center space-x-1 text-sky-500">
+                            <div className="w-6 md:w-9 h-0.5 bg-sky-400"></div>
+                            <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Node 2: PMC */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-32 py-2 px-3 bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-300 rounded-xl shadow-2xs hover:border-sky-500 transition duration-200 text-center">
+                          <div className="text-sm md:text-base font-black text-sky-950 tracking-wide">PMC</div>
+                        </div>
+                      </div>
+
+                      {/* Arrow 2 */}
+                      <div className="flex items-center space-x-1 text-sky-500">
+                        <div className="w-6 md:w-9 h-0.5 bg-sky-400"></div>
+                        <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
+                      </div>
+
+                      {/* Node 2.5 (Specific to MEP & IT or Project Drawings): MMRCL Dr. Vishwas Ajnalkar / Mr Vikrant Tewathia */}
+                      {['MEP', 'MEP & IT', 'Project Drawings'].includes(activeSection) && (
+                        <>
+                          <div className="flex flex-col items-center">
+                            <div className="w-48 py-1.5 px-3 bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl shadow-2xs hover:border-purple-500 transition duration-200 text-center">
+                              <div className="text-xs font-black text-purple-950 tracking-wider uppercase">MMRCL</div>
+                              <div className="text-[11px] font-black text-purple-900 leading-tight">
+                                {activeSection === 'MEP' || activeSection === 'MEP & IT' ? 'Dr. Vishwas Ajnalkar' : 'Mr Vikrant Tewathia'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Arrow between intermediate MMRCL officer & MMRCL */}
+                          <div className="flex items-center space-x-1 text-sky-500">
+                            <div className="w-6 md:w-9 h-0.5 bg-sky-400"></div>
+                            <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Branching Lines & 3 Approvers with MMRCL Header */}
+                      <div className="flex items-center">
+                        {/* Vector Branch Lines SVG */}
+                        <div className="relative w-10 h-[204px] flex items-center justify-center">
+                          <svg className="w-full h-full text-sky-500" viewBox="0 0 64 204" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            {/* Horizontal stem from PMC / intermediate officer */}
+                            <path d="M0 102 H18" stroke="currentColor" strokeWidth="2" />
+                            {/* Vertical trunk line */}
+                            <path d="M18 67 V179" stroke="currentColor" strokeWidth="2" />
+                            {/* Top branch line with arrow */}
+                            <path d="M18 67 H50" stroke="currentColor" strokeWidth="2" />
+                            <polygon points="50,63 60,67 50,71" fill="currentColor" />
+                            {/* Middle branch line with arrow */}
+                            <path d="M18 123 H50" stroke="currentColor" strokeWidth="2" />
+                            <polygon points="50,119 60,123 50,127" fill="currentColor" />
+                            {/* Bottom branch line with arrow */}
+                            <path d="M18 179 H50" stroke="currentColor" strokeWidth="2" />
+                            <polygon points="50,175 60,179 50,183" fill="currentColor" />
+                          </svg>
+                        </div>
+
+                        {/* 3 Parallel Approver Cards with MMRCL Header on Top */}
+                        <div className="flex flex-col space-y-1.5 pl-0.5">
+                          {/* MMRCL Header Box shifted above the 3 names */}
+                          <div className="w-60 py-1.5 px-3 bg-gradient-to-br from-indigo-50 to-slate-50 border-2 border-indigo-300 rounded-xl shadow-2xs text-center">
+                            <div className="text-xs md:text-sm font-black text-indigo-950 tracking-wider uppercase">MMRCL</div>
+                          </div>
+
+                          <div className="w-60 py-1.5 px-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl shadow-2xs hover:shadow-xs transition duration-200 flex items-center justify-between">
+                            <div className="min-w-0 pr-1">
+                              <div className="text-xs md:text-sm font-black text-emerald-950 truncate leading-snug">Md Aasim Sulaiman</div>
+                              <div className="text-[11px] font-extrabold text-emerald-800 leading-tight">Executive Director (Tracks)</div>
+                            </div>
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0 ml-1.5" />
+                          </div>
+
+                          <div className="w-60 py-1.5 px-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl shadow-2xs hover:shadow-xs transition duration-200 flex items-center justify-between">
+                            <div className="min-w-0 pr-1">
+                              <div className="text-xs md:text-sm font-black text-emerald-950 truncate leading-snug">Mr Rajesh Patil</div>
+                              <div className="text-[11px] font-extrabold text-emerald-800 leading-tight">Deputy General Manager</div>
+                            </div>
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0 ml-1.5" />
+                          </div>
+
+                          <div className="w-60 py-1.5 px-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl shadow-2xs hover:shadow-xs transition duration-200 flex items-center justify-between">
+                            <div className="min-w-0 pr-1">
+                              <div className="text-xs md:text-sm font-black text-emerald-950 truncate leading-snug">Mr Sachin Aher</div>
+                              <div className="text-[11px] font-extrabold text-emerald-800 leading-tight">Deputy Engineer</div>
+                            </div>
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0 ml-1.5" />
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {tenderLoading ? (
                 <div className="flex justify-center items-center py-20 text-sky-600">
                   <RefreshCw className="h-8 w-8 animate-spin" />
@@ -4250,6 +5297,14 @@ function App() {
                     let currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
                     const isDragAndDropAllowed = !['Dashboard', 'Project Details', 'Tender Documents', 'Contractual Documents'].includes(activeSection);
                     const isFullRights = currentUser && (
+                      currentUser.role === 'Site Engineer' ||
+                      (currentUser.userId && currentUser.userId.toUpperCase() === 'NECPL') ||
+                      (currentUser.email && currentUser.email.toLowerCase().includes('necpl')) ||
+                      (currentUser.name && currentUser.name.toUpperCase().includes('NECPL')) ||
+                      (currentUser.email && currentUser.email.toLowerCase() === 'coordination.mmrcl@nyatigroup.com')
+                    );
+                    const isDeleteAllowed = currentUser && (
+                      (currentUser.email && currentUser.email.toLowerCase() === 'coordination.mmrcl@nyatigroup.com') ||
                       currentUser.role === 'Site Engineer' ||
                       (currentUser.userId && currentUser.userId.toUpperCase() === 'NECPL') ||
                       (currentUser.email && currentUser.email.toLowerCase().includes('necpl')) ||
@@ -4353,22 +5408,35 @@ function App() {
                                     </div>
                                   </div>
 
-                                  {/* Three dots option menu (NECPL / Admin Only for folder delete) */}
-                                  {isFullRights && (
-                                    <div className="relative">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setActiveFolderMenuId(activeFolderMenuId === folder._id ? null : folder._id);
-                                        }}
-                                        className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition"
-                                      >
-                                        <MoreVertical className="h-5 w-5" />
-                                      </button>
+                                  {/* Three dots option menu for Folder */}
+                                  <div className="relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveFolderMenuId(activeFolderMenuId === folder._id ? null : folder._id);
+                                      }}
+                                      className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                      title="Folder Options"
+                                    >
+                                      <MoreVertical className="h-5 w-5" />
+                                    </button>
 
-                                      {/* Dropdown Menu */}
-                                      {activeFolderMenuId === folder._id && (
-                                        <div className="absolute right-0 top-8 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-32 z-20 animate-fade-in text-xs">
+                                    {/* Dropdown Menu */}
+                                    {activeFolderMenuId === folder._id && (
+                                      <div className="absolute right-0 top-8 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-32 z-20 animate-fade-in text-xs">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setRenameFolderId(folder._id);
+                                            setRenameFolderNameInput(folderName);
+                                            setShowRenameFolderModal(true);
+                                            setActiveFolderMenuId(null);
+                                          }}
+                                          className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
+                                        >
+                                          Rename
+                                        </button>
+                                        {isDeleteAllowed && (
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -4377,14 +5445,14 @@ function App() {
                                               }
                                               setActiveFolderMenuId(null);
                                             }}
-                                            className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition"
+                                            className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
                                           >
-                                            Delete Folder
+                                            Delete
                                           </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -4393,7 +5461,8 @@ function App() {
 
                         {/* Files Table */}
                         {currentFiles.length > 0 && (() => {
-                          const showRemarkAndApproval = activeSection !== 'Tender Documents' && activeSection !== 'Contractual Documents';
+                          const showRemark = !['Tender Documents', 'Contractual Documents'].includes(activeSection);
+                          const showAuthorityAndApproval = !['Tender Documents', 'Contractual Documents', 'Project Documents & Registration'].includes(activeSection);
                           return (
                             <div className="space-y-4 pt-6 border-t border-slate-100">
                               <div className="flex items-center justify-between">
@@ -4416,13 +5485,15 @@ function App() {
                                 <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
                                   <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
                                     <tr>
-                                      <th scope="col" className={`px-4 py-3 whitespace-nowrap ${showRemarkAndApproval ? 'w-[26%] md:w-[28%]' : 'w-2/5'}`}>Document Title</th>
-                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showRemarkAndApproval ? 'w-[10%]' : 'w-1/5'}`}>File Info</th>
-                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showRemarkAndApproval ? 'w-[10%]' : 'w-1/5'}`}>Uploaded By</th>
-                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showRemarkAndApproval ? 'w-[11%]' : 'w-1/5'}`}>Date & Time</th>
-                                      {showRemarkAndApproval && (
+                                      <th scope="col" className={`px-4 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[26%] md:w-[28%]' : showRemark ? 'w-[36%] md:w-[38%]' : 'w-2/5'}`}>Document Title</th>
+                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[10%]' : showRemark ? 'w-[12%]' : 'w-1/5'}`}>File Info</th>
+                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[10%]' : showRemark ? 'w-[12%]' : 'w-1/5'}`}>Uploaded By</th>
+                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[11%]' : showRemark ? 'w-[13%]' : 'w-1/5'}`}>Date & Time</th>
+                                      {showRemark && (
+                                        <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[10%]">Remark</th>
+                                      )}
+                                      {showAuthorityAndApproval && (
                                         <>
-                                          <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[10%]">Remark</th>
                                           <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[12%]">Authority</th>
                                           <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[10%]">Approval</th>
                                         </>
@@ -4491,33 +5562,35 @@ function App() {
                                               <span className="block font-semibold text-slate-800">{new Date(doc.uploadedAt).toLocaleDateString()}</span>
                                               <span className="block text-[10px] text-slate-400 font-medium">{new Date(doc.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                             </td>
-                                            {showRemarkAndApproval && (
-                                              <>
-                                                <td className="px-2 py-3 text-center whitespace-nowrap">
-                                                  {(() => {
-                                                    const remarkList = doc.remarks && doc.remarks.length > 0
-                                                      ? doc.remarks
-                                                      : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
-                                                    const totalMsgCount = remarkList.length;
-                                                    const unreadCount = getUnreadRemarksCount(doc);
+                                            {showRemark && (
+                                              <td className="px-2 py-3 text-center whitespace-nowrap">
+                                                {(() => {
+                                                  const remarkList = doc.remarks && doc.remarks.length > 0
+                                                    ? doc.remarks
+                                                    : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
+                                                  const totalMsgCount = remarkList.length;
+                                                  const unreadCount = getUnreadRemarksCount(doc);
 
-                                                    return (
-                                                      <button
-                                                        onClick={() => handleOpenRemarkModal(doc)}
-                                                        className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
-                                                        title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
-                                                      >
-                                                        <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
-                                                        <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
-                                                        {unreadCount > 0 && (
-                                                          <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
-                                                            {unreadCount}
-                                                          </span>
-                                                        )}
-                                                      </button>
-                                                    );
-                                                  })()}
-                                                </td>
+                                                  return (
+                                                    <button
+                                                      onClick={() => handleOpenRemarkModal(doc)}
+                                                      className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
+                                                      title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
+                                                    >
+                                                      <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
+                                                      <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                                      {unreadCount > 0 && (
+                                                        <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
+                                                          {unreadCount}
+                                                        </span>
+                                                      )}
+                                                    </button>
+                                                  );
+                                                })()}
+                                              </td>
+                                            )}
+                                            {showAuthorityAndApproval && (
+                                              <>
                                                 <td className="px-2 py-3 text-center whitespace-nowrap">
                                                   {renderAuthorityDropdown(doc, false)}
                                                 </td>
@@ -4563,7 +5636,7 @@ function App() {
                                                       >
                                                         Rename
                                                       </button>
-                                                      {isFullRights && (
+                                                      {isDeleteAllowed && (
                                                         <button
                                                           onClick={(e) => {
                                                             e.stopPropagation();
@@ -4572,7 +5645,7 @@ function App() {
                                                             }
                                                             setActiveFileMenuId(null);
                                                           }}
-                                                          className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center"
+                                                          className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
                                                         >
                                                           Delete
                                                         </button>
@@ -4623,7 +5696,7 @@ function App() {
                                           {/* Expanded Sub-Documents Accordion Row */}
                                           {expandedSubDocMap[doc._id] && doc.subDocuments && doc.subDocuments.length > 0 && (
                                             <tr key={`subdocs-${doc._id}`} className="bg-slate-50/90 border-b-2 border-sky-100">
-                                              <td colSpan={showRemarkAndApproval ? 8 : 5} className="py-3 px-8">
+                                              <td colSpan={5 + (showRemark ? 1 : 0) + (showAuthorityAndApproval ? 2 : 0)} className="py-3 px-8">
                                                 <div className="pl-6 border-l-3 border-sky-500 space-y-2">
                                                   <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center space-x-1.5">
                                                     <FileText className="h-3.5 w-3.5 text-sky-600" />
@@ -4637,9 +5710,11 @@ function App() {
                                                           <th className="px-4 py-2.5 text-left">File Info</th>
                                                           <th className="px-4 py-2.5 text-left">Uploaded By</th>
                                                           <th className="px-4 py-2.5 text-left">Upload Date</th>
-                                                          {showRemarkAndApproval && (
+                                                          {showRemark && (
+                                                            <th className="px-4 py-2.5 text-center">Remark</th>
+                                                          )}
+                                                          {showAuthorityAndApproval && (
                                                             <>
-                                                              <th className="px-4 py-2.5 text-center">Remark</th>
                                                               <th className="px-4 py-2.5 text-center">Authority</th>
                                                               <th className="px-4 py-2.5 text-center">Approval</th>
                                                             </>
@@ -4669,33 +5744,35 @@ function App() {
                                                             <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
                                                               {new Date(subDoc.uploadedAt).toLocaleDateString()}
                                                             </td>
-                                                            {showRemarkAndApproval && (
-                                                              <>
-                                                                <td className="px-4 py-2.5 text-center whitespace-nowrap">
-                                                                  {(() => {
-                                                                    const remarkList = subDoc.remarks && subDoc.remarks.length > 0
-                                                                      ? subDoc.remarks
-                                                                      : [];
-                                                                    const totalMsgCount = remarkList.length;
-                                                                    const unreadCount = getUnreadRemarksCount(subDoc);
+                                                            {showRemark && (
+                                                              <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                                {(() => {
+                                                                  const remarkList = subDoc.remarks && subDoc.remarks.length > 0
+                                                                    ? subDoc.remarks
+                                                                    : (subDoc.remark ? [{ text: subDoc.remark, userName: subDoc.uploadedByName || 'User', createdAt: subDoc.uploadedAt }] : []);
+                                                                  const totalMsgCount = remarkList.length;
+                                                                  const unreadCount = getUnreadSubDocRemarksCount(doc, subDoc);
 
-                                                                    return (
-                                                                      <button
-                                                                        onClick={(e) => handleOpenSubDocRemarkModal(doc, subDoc, e)}
-                                                                        className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
-                                                                        title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
-                                                                      >
-                                                                        <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
-                                                                        <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
-                                                                        {unreadCount > 0 && (
-                                                                          <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
-                                                                            {unreadCount}
-                                                                          </span>
-                                                                        )}
-                                                                      </button>
-                                                                    );
-                                                                  })()}
-                                                                </td>
+                                                                  return (
+                                                                    <button
+                                                                      onClick={() => handleOpenSubDocRemarkModal(doc, subDoc)}
+                                                                      className="inline-flex items-center px-2.5 py-1 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-[11px] cursor-pointer relative group"
+                                                                      title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
+                                                                    >
+                                                                      <MessageSquare className="mr-1 h-3 w-3 text-amber-600" />
+                                                                      <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                                                      {unreadCount > 0 && (
+                                                                        <span className="ml-1.5 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[9px] font-bold min-w-[16px] text-center shadow-sm animate-pulse">
+                                                                          {unreadCount}
+                                                                        </span>
+                                                                      )}
+                                                                    </button>
+                                                                  );
+                                                                })()}
+                                                              </td>
+                                                            )}
+                                                            {showAuthorityAndApproval && (
+                                                              <>
                                                                 <td className="px-4 py-2.5 text-center whitespace-nowrap">
                                                                   {renderAuthorityDropdown(subDoc, true, doc)}
                                                                 </td>
@@ -4742,7 +5819,7 @@ function App() {
                                                                       >
                                                                         Rename
                                                                       </button>
-                                                                      {isFullRights && (
+                                                                      {isDeleteAllowed && (
                                                                         <button
                                                                           onClick={(e) => {
                                                                             e.stopPropagation();
@@ -5455,6 +6532,66 @@ function App() {
                   className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold rounded-lg transition flex items-center disabled:opacity-50"
                 >
                   {renameFileSaving ? 'Saving...' : 'Rename File'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* RENAME FOLDER MODAL */}
+      {showRenameFolderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-bold text-white">Rename Folder</h3>
+                <p className="text-xs text-slate-400">Update folder name in this section</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRenameFolderModal(false);
+                  setRenameFolderNameInput('');
+                  setRenameFolderId(null);
+                }}
+                className="text-slate-500 hover:text-white font-semibold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleRenameFolder} className="space-y-4 text-xs text-slate-300">
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">New Folder Name</label>
+                <input
+                  type="text"
+                  required
+                  value={renameFolderNameInput}
+                  onChange={(e) => setRenameFolderNameInput(e.target.value)}
+                  placeholder="e.g. Civil Drawings"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white focus:outline-none focus:ring-1 focus:ring-sky-500 text-xs font-semibold"
+                  autoFocus
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRenameFolderModal(false);
+                    setRenameFolderNameInput('');
+                    setRenameFolderId(null);
+                  }}
+                  className="px-4 py-2 bg-slate-950 border border-slate-850 hover:bg-slate-850 text-slate-400 hover:text-white rounded-lg transition font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={renameFolderSaving || !renameFolderNameInput.trim()}
+                  className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-slate-950 font-bold rounded-lg transition flex items-center disabled:opacity-50 cursor-pointer"
+                >
+                  {renameFolderSaving ? 'Saving...' : 'Rename Folder'}
                 </button>
               </div>
             </form>
@@ -6663,6 +7800,139 @@ function App() {
                 </div>
 
               </form>
+
+            </div>
+          </div>
+        )}
+
+        {/* Floating Contact Directory Modal */}
+        {showContactModal && (
+          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
+              
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-sky-950 p-5 px-6 flex items-center justify-between border-b border-slate-800 text-white">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-sky-500/20 text-sky-300 rounded-xl border border-sky-400/30">
+                    <PhoneCall className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg md:text-xl font-black text-white tracking-wide">
+                      Key Project Contacts & Directory
+                    </h3>
+                    <p className="text-xs text-sky-200 font-medium">
+                      MMRCL Officers Contact Information Matrix
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowContactModal(false)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition duration-150 cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Modal Body / Toolbar */}
+              <div className="p-6 overflow-y-auto space-y-4 flex-1">
+                {/* Search Bar */}
+                <div className="relative max-w-md">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by Name, Department, Designation, Email..."
+                    value={contactSearch}
+                    onChange={(e) => setContactSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs md:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition"
+                  />
+                  {contactSearch && (
+                    <button
+                      onClick={() => setContactSearch('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Contacts Table matching Screenshot 2 precisely */}
+                <div className="overflow-x-auto rounded-xl border border-slate-300 shadow-2xs bg-white">
+                  <table className="w-full text-left border-collapse text-xs md:text-sm">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-900 font-extrabold uppercase tracking-wider text-[11px] md:text-xs border-b border-slate-300">
+                        <th className="py-3 px-4 text-center border-r border-slate-300 w-16">Sr No</th>
+                        <th className="py-3 px-4 border-r border-slate-300 w-36">Department</th>
+                        <th className="py-3 px-4 border-r border-slate-300">Name</th>
+                        <th className="py-3 px-4 border-r border-slate-300">Designation</th>
+                        <th className="py-3 px-4 border-r border-slate-300">Contact No</th>
+                        <th className="py-3 px-4">E-mail id</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-300 text-slate-800 font-medium">
+                      {contactDirectoryData.map((deptGroup) => {
+                        const filteredContacts = deptGroup.contacts.filter(c => 
+                          !contactSearch ||
+                          c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                          c.designation.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                          c.email.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                          c.phone.includes(contactSearch) ||
+                          deptGroup.department.toLowerCase().includes(contactSearch.toLowerCase())
+                        );
+
+                        if (filteredContacts.length === 0) return null;
+
+                        return filteredContacts.map((contact, idx) => (
+                          <tr key={`${deptGroup.srNo}-${contact.email}`} className="hover:bg-sky-50/50 transition duration-150 border-b border-slate-200">
+                            {idx === 0 && (
+                              <td 
+                                rowSpan={filteredContacts.length} 
+                                className="py-3 px-4 text-center font-black text-slate-900 border-r border-slate-300 bg-slate-50/50 align-top border-b border-slate-300"
+                              >
+                                {deptGroup.srNo}
+                              </td>
+                            )}
+                            {idx === 0 && (
+                              <td 
+                                rowSpan={filteredContacts.length} 
+                                className="py-3 px-4 font-extrabold text-slate-900 border-r border-slate-300 bg-slate-50/50 align-top border-b border-slate-300"
+                              >
+                                {deptGroup.department}
+                              </td>
+                            )}
+                            <td className="py-3 px-4 font-bold text-slate-900 border-r border-slate-200">
+                              {contact.name}
+                            </td>
+                            <td className="py-3 px-4 text-slate-700 border-r border-slate-200">
+                              {contact.designation}
+                            </td>
+                            <td className="py-3 px-4 border-r border-slate-200 font-semibold text-slate-900 whitespace-nowrap">
+                              <a href={`tel:${contact.phone}`} className="text-sky-700 hover:text-sky-900 hover:underline">
+                                {contact.phone}
+                              </a>
+                            </td>
+                            <td className="py-3 px-4 text-slate-700 font-medium">
+                              <a href={`mailto:${contact.email}`} className="text-indigo-700 hover:text-indigo-900 hover:underline">
+                                {contact.email}
+                              </a>
+                            </td>
+                          </tr>
+                        ));
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-slate-50 p-4 px-6 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 font-semibold">
+                <span>Total Departments: {contactDirectoryData.length} | Total Contacts: {contactDirectoryData.reduce((acc, curr) => acc + curr.contacts.length, 0)}</span>
+                <button
+                  onClick={() => setShowContactModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition duration-150 shadow-xs cursor-pointer"
+                >
+                  Close Directory
+                </button>
+              </div>
 
             </div>
           </div>
