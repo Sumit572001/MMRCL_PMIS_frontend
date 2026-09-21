@@ -73,9 +73,9 @@ const approvedNocsData = [
     expectedDate: '15/09/2026',
     dateHistory: ['14/08/2026', '25/08/2026', '30/08/2026', '05/09/2026', '15/09/2026'],
     remark: [
-      'Layout approval is under process with BP Cell, Western Suburb-1.',
-      'Site visit is completed on 25/08/2026.',
-      'Status of proposal SE → AE → EE → Dy. CE → CE → MC for further approval.'
+      '* Layout approval is under process with BP Cell, Western Suburb-1.',
+      '* Site visit is completed on 25/08/2026.',
+      '* Status of proposal SE → AE → EE → Dy. CE → CE → Dy CE to MC Office → Hon\'ble MC for further approval.'
     ]
   },
   {
@@ -87,13 +87,14 @@ const approvedNocsData = [
     status: 'Application submitted to CFO on 27/07/2026\nScrutiny fees paid on 07/08/2026 for Executive Quarters, Metro Bhavan and for Dharavi plot.',
     statusType: 'Submitted',
     responsibility: 'NECPL',
-    expectedDate: '15/09/2026',
-    dateHistory: ['14/08/2026', '20/08/2026', '25/08/2026', '05/09/2026', '15/09/2026'],
+    expectedDate: '18/09/2026',
+    dateHistory: ['14/08/2026', '20/08/2026', '25/08/2026', '05/09/2026', '15/09/2026', '18/09/2026'],
     remark: [
-      'Scrutiny has been completed by the Byculla, Marol and Borivali Divisional Fire Officers (DFOs).',
-      'Compliance after scrutiny is completed by SPA.',
-      'Current Status of Dharavi proposal ADFO → DFO → Dy. CFO → CFO for approval.',
-      'Current Status of MB&SQ proposal ADFO → DFO → Dy. CFO → CFO for approval.'
+      '* Scrutiny has been completed by the Byculla, Marol and Borivali Divisional Fire Officers (DFOs).',
+      '* Compliance after scrutiny is completed by SPA.',
+      '* Current Status of Dharavi proposal:- NOC Received 09/09/2026.',
+      '* Current Status of Ex. Staff Quarter proposal: - NOC Received on 09/09/2026.',
+      'Current Status of Metro Bhavan proposal ADFO → DFO → Dy. CFO for approval.'
     ]
   },
   {
@@ -105,8 +106,8 @@ const approvedNocsData = [
     status: 'Pending',
     statusType: 'Pending',
     responsibility: 'NECPL',
-    expectedDate: '25/08/2026',
-    dateHistory: ['25/08/2026'],
+    expectedDate: '15/09/2026',
+    dateHistory: ['25/08/2026', '05/09/2026', '15/09/2026'],
     remark: [
       'Required after Layout Approval. However, it was required for EC approval before 1st Meeting.'
     ]
@@ -120,8 +121,8 @@ const approvedNocsData = [
     status: 'Pending',
     statusType: 'Pending',
     responsibility: 'NECPL',
-    expectedDate: '05/09/2026',
-    dateHistory: ['05/09/2026'],
+    expectedDate: '15/09/2026',
+    dateHistory: ['05/09/2026', '15/09/2026'],
     remark: [
       'Required after Layout Approval. However, it was required for EC approval before 1st Meeting.'
     ]
@@ -193,7 +194,8 @@ const approvedNocsData = [
     dateHistory: ['07/09/2026', '30/09/2026'],
     remark: [
       'Both applications are rejected. Revise submission done by NECPL on 18/08/2026.',
-      'MB&SQ Online application accepted. Dharavi application under scrutiny. Visit scheduled pending. It is required for EC before EC\'s 1st Meeting.'
+      'MB&SQ Online application accepted. Dharavi application under scrutiny. Visit scheduled pending.',
+      'It is required for EC before EC\'s 1st Meeting.'
     ]
   },
   {
@@ -207,8 +209,8 @@ const approvedNocsData = [
     expectedDate: '-',
     dateHistory: [],
     remark: [
-      'CTSO letter dt. 25/08/2026 informed for payment for Demarcation. Payment is under process.',
-      'NECPL requires to arrange demarcation.'
+      '*NECPL requires to arrange demarcation.',
+      '*CTSO letter dt. 25/08/2026 informed for payment for Demarcation. Payment is under process with finance dept for payment.'
     ]
   },
   {
@@ -216,35 +218,79 @@ const approvedNocsData = [
     category: 'Clearance Documentation',
     title: '6. Dharavi IOD',
     shortName: 'Dharavi IOD',
-    status: 'IOD proposal has submitted offline to BP Cell, City Office, Wadala.',
+    status: 'IOD proposal has been submitted offline to BP Cell, City Office, Wadala.',
     statusType: 'Submitted',
     responsibility: 'SPA/NECPL',
     expectedDate: '18/09/2026',
     dateHistory: ['For Submission', '24/08/2026', '28/08/2026', '05/09/2026', '18/09/2026'],
     remark: [
-      'Scrutiny is currently under process.',
-      'After receiving receipt of the Provisional Fire NOC, the proposal will be submitted online.',
-      'Thereafter, the proposal will proceed for approval through: BMC Sub-Engineer → AE → EE → Dy. CE → CE → MC'
+      '* Scrutiny for offline application is under process.',
+      '* IOD online Application in process.',
+      '* Thereafter, the proposal will proceed for approval through: BMC Sub-Engineer → AE → EE → Dy. CE → CE → Hon\'ble MC'
     ]
   },
   {
     id: '7',
     category: 'Clearance Documentation',
-    title: '7. Metro Bhavan & Staff quarter IOD',
-    shortName: 'Metro Bhavan & Staff Quarter IOD',
+    title: '7. DP Remarks for Dharavi',
+    shortName: 'DP Remarks for Dharavi',
+    status: '-',
+    statusType: 'Pending',
+    responsibility: '-',
+    expectedDate: '18/09/2026',
+    dateHistory: ['18/09/2026'],
+    remark: [
+      'MMRCL request letter issued on 10/09/2026 for DP remarks.'
+    ]
+  },
+  {
+    id: '8',
+    category: 'Clearance Documentation',
+    title: '8. Metro Bhavan IOD',
+    shortName: 'Metro Bhavan IOD',
     status: '-',
     statusType: 'Pending',
     responsibility: 'SPA/NECPL',
     expectedDate: '18/09/2026',
     dateHistory: ['For Submission', '05/09/2026', '18/09/2026'],
     remark: [
-      'IOD proposal will be submitted BP Cell, Western Suburb-1, MCGM after getting layout approval.'
+      'IOD proposal will be submitted BP Cell, Western Suburb-1, MCGM after getting layout approval.',
+      'Online Application will be submitted after receiving Fire NOC & layout approval.'
     ]
   },
   {
-    id: '8',
+    id: '9',
     category: 'Clearance Documentation',
-    title: '8. Project Proponent authorization',
+    title: '9. Staff quarter IOD',
+    shortName: 'Staff Quarter IOD',
+    status: '-',
+    statusType: 'Pending',
+    responsibility: 'SPA/NECPL',
+    expectedDate: '18/09/2026',
+    dateHistory: ['For Submission', '05/09/2026', '18/09/2026'],
+    remark: [
+      'IOD proposal will be submitted BP Cell, Western Suburb-1, MCGM after getting layout approval.',
+      'Online Application will be submitted after receiving layout approval.'
+    ]
+  },
+  {
+    id: '10',
+    category: 'Clearance Documentation',
+    title: '10. DP Remarks for MB&SQ',
+    shortName: 'DP Remarks for MB&SQ',
+    status: '-',
+    statusType: 'Received',
+    responsibility: '-',
+    expectedDate: 'Received',
+    dateHistory: [],
+    remark: [
+      '-'
+    ]
+  },
+  {
+    id: '11',
+    category: 'Clearance Documentation',
+    title: '11. Project Proponent authorization',
     shortName: 'Project Proponent Authorization',
     status: '-',
     statusType: 'Completed',
@@ -256,37 +302,37 @@ const approvedNocsData = [
     ]
   },
   {
-    id: '9',
+    id: '12',
     category: 'Clearance Documentation',
-    title: '9. Consolidate statement for EC approval',
+    title: '12. Consolidate statement for EC approval',
     shortName: 'Consolidate Statement for EC Approval',
-    status: 'NECPL environment consultants has provided on 24/08/2026.',
+    status: 'NECPL environment consultants has provided.',
     statusType: 'Submitted',
     responsibility: 'NECPL',
     expectedDate: '09/09/2026',
     dateHistory: ['24/08/2026', '31/08/2026', '02/09/2026', '09/09/2026'],
     remark: [
-      'Draft EC, checked from Member secretary, SEAC II on 25/08/2026. Suggested changes and meeting with Member secretary, SEAC II is arranged on 09/09/2026.'
+      'Draft EC, checked from Member secretary, SEAC II on 25/08/2026. Finalize Draft EC statement on 11/09/2026 except EMP Cost.'
     ]
   },
   {
-    id: '10',
+    id: '13',
     category: 'Clearance Documentation',
-    title: '10. EC registration',
+    title: '13. EC registration',
     shortName: 'EC Registration',
-    status: 'Registration completed on 10/08/2026.',
+    status: 'Registration completed on 10/08/2026.\nApplication not yet submitted.',
     statusType: 'Completed',
     responsibility: 'NECPL',
-    expectedDate: '-',
-    dateHistory: [],
+    expectedDate: '15/09/2026',
+    dateHistory: ['15/09/2026', '15/09/2026'],
     remark: [
       'Payment to be made by NECPL.'
     ]
   },
   {
-    id: '11',
+    id: '14',
     category: 'Clearance Documentation',
-    title: '11. Geotechnical Investigation agency letter',
+    title: '14. Geotechnical Investigation agency letter',
     shortName: 'Geotechnical Investigation Agency Letter',
     status: '-',
     statusType: 'Received',
@@ -294,13 +340,13 @@ const approvedNocsData = [
     expectedDate: '-',
     dateHistory: [],
     remark: [
-      'Received'
+      'Received.'
     ]
   },
   {
-    id: '12',
+    id: '15',
     category: 'Clearance Documentation',
-    title: '12. FSI and Non-FSI area for each building',
+    title: '15. FSI and Non-FSI area for each building, as per the Car Depot drawings, required for submission towards Environmental Clearance.',
     shortName: 'FSI & Non-FSI Area Statement',
     status: '-',
     statusType: 'Received',
@@ -308,13 +354,13 @@ const approvedNocsData = [
     expectedDate: '-',
     dateHistory: [],
     remark: [
-      'Received as per Car Depot drawings, required for submission towards Environmental Clearance.'
+      'Received.'
     ]
   },
   {
-    id: '13',
+    id: '16',
     category: 'Clearance Documentation',
-    title: '13. Environment Clearance',
+    title: '16. Environment Clearance',
     shortName: 'Environment Clearance',
     status: '-',
     statusType: 'Pending',
@@ -322,7 +368,7 @@ const approvedNocsData = [
     expectedDate: '30/09/2026',
     dateHistory: ['30/09/2026'],
     remark: [
-      '-'
+      'Target Date for EC is 30/09/2026.'
     ]
   }
 ];
