@@ -153,6 +153,10 @@ export const generalDocsAPI = {
     const response = await api.get(`/api/${section}`);
     return response.data;
   },
+  getDocById: async (id) => {
+    const response = await api.get(`/api/tender/doc-by-id/${id}`);
+    return response.data;
+  },
   getFolders: async (section) => {
     const response = await api.get(`/api/${section}/folders`);
     return response.data;

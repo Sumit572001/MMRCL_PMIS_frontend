@@ -2726,6 +2726,46 @@ function App() {
     }
   }, []);
 
+  // Handle auto-opening document from email notification button link (?openDocId=...&docType=...&section=...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const openDocId = params.get('openDocId');
+    const docType = params.get('docType');
+
+    if (openDocId && currentUser) {
+      const autoOpenDoc = async () => {
+        try {
+          if (docType === 'submittal') {
+            const res = await documentsAPI.getDetails(openDocId);
+            if (res && res.success && res.data) {
+              handleViewRegisterDoc(res.data);
+            }
+          } else {
+            const res = await generalDocsAPI.getDocById(openDocId);
+            if (res && res.success && res.data) {
+              const doc = res.data;
+              if (doc.section) {
+                const matchingSec = generalDocSections.find(s => getApiSectionName(s) === doc.section.toLowerCase());
+                if (matchingSec) {
+                  setActiveSection(matchingSec);
+                }
+              }
+              handleViewGeneralDoc(doc);
+            }
+          }
+        } catch (err) {
+          console.error('Error auto-opening document from email link:', err);
+        }
+      };
+
+      autoOpenDoc();
+
+      // Clear query params from browser URL after opening document
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [currentUser]);
+
   // Show detailed revision history logs
   const openHistoryModal = async (doc) => {
     try {
