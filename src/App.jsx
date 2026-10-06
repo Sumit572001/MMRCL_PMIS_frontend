@@ -16,6 +16,10 @@ import {
   Lock,
   User,
   Building,
+  Building2,
+  Globe,
+  Home,
+  Hotel,
   RefreshCw,
   Search,
   Filter,
@@ -385,6 +389,28 @@ function App() {
   const [commercialProgress, setCommercialProgress] = useState(0);
   const [residentialProgress, setResidentialProgress] = useState(0);
   const [dharaviProgress, setDharaviProgress] = useState(0);
+
+  // Sidebar hover & collapse states
+  const [isSidebarHovered, setIsSidebarHovered] = useState(false);
+  const [isSidebarPinned, setIsSidebarPinned] = useState(false);
+  const isSidebarExpanded = isSidebarHovered || isSidebarPinned;
+
+  // Project Structure dropdown navigation states (click to expand/collapse)
+  const [activeProjectStructure, setActiveProjectStructure] = useState('Metro Bhavan Andheri');
+  const [isProjectStructureExpanded, setIsProjectStructureExpanded] = useState(false);
+  const [openSubStructures, setOpenSubStructures] = useState({
+    'Over All Project': false,
+    'Metro Bhavan Andheri': false,
+    'Residential Andheri': false,
+    'Residential Dharavi': false
+  });
+
+  const toggleSubStructure = (structureName) => {
+    setOpenSubStructures(prev => ({
+      ...prev,
+      [structureName]: !prev[structureName]
+    }));
+  };
 
   // Approved NOC's section states
   const [selectedNocId, setSelectedNocId] = useState('1');
@@ -2820,15 +2846,15 @@ function App() {
     return lower;
   };
 
-  // Fetch general documents and folders when active section changes
+  // Fetch general documents and folders when active section or active project structure changes
   useEffect(() => {
     if (generalDocSections.includes(activeSection) && currentUser) {
-      setFolderPath([]); // Reset folder path when switching sections
-      setGeneralDocSearch(''); // Reset search filter when switching sections
+      setFolderPath([]); // Reset folder path when switching sections or structure
+      setGeneralDocSearch(''); // Reset search filter when switching sections or structure
       setActiveTab('documents'); // Default to Documents Register view
       fetchGeneralDocs();
     }
-  }, [activeSection, currentUser]);
+  }, [activeSection, activeProjectStructure, currentUser]);
 
   const fetchGeneralDocs = async () => {
     if (!currentUser) return;
@@ -3998,11 +4024,61 @@ function App() {
     );
   }
 
-  const sidebarSections = [
+  const topNavSections = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'details', name: 'Project Details', icon: Building },
     { id: 'tender', name: 'Tender Documents', icon: FileText },
     { id: 'contractual', name: 'Contractual Documents', icon: FileCheck },
+  ];
+
+  const projectStructuresList = [
+    {
+      id: 'over_all_project',
+      name: 'Over All Project',
+      defaultClass: 'bg-indigo-100/90 hover:bg-indigo-200 text-indigo-950 border-indigo-300 shadow-2xs font-bold',
+      activeClass: 'bg-indigo-200 text-indigo-950 border-indigo-400 shadow-xs font-extrabold ring-2 ring-indigo-400/60',
+      chevronColor: 'text-indigo-700',
+      activeModuleStyle: 'bg-indigo-100 text-indigo-900 border-indigo-300 font-bold',
+      activeModuleIconStyle: 'text-indigo-700',
+      hoverBg: 'hover:bg-indigo-100/60',
+      pillColor: 'bg-indigo-600'
+    },
+    {
+      id: 'metro_bhavan',
+      name: 'Metro Bhavan Andheri',
+      defaultClass: 'bg-sky-100/90 hover:bg-sky-200 text-sky-950 border-sky-300 shadow-2xs font-bold',
+      activeClass: 'bg-sky-200 text-sky-950 border-sky-400 shadow-xs font-extrabold ring-2 ring-sky-400/60',
+      chevronColor: 'text-sky-700',
+      activeModuleStyle: 'bg-sky-100 text-sky-900 border-sky-300 font-bold',
+      activeModuleIconStyle: 'text-sky-700',
+      hoverBg: 'hover:bg-sky-100/60',
+      pillColor: 'bg-sky-600'
+    },
+    {
+      id: 'residential_andheri',
+      name: 'Residential Andheri',
+      defaultClass: 'bg-emerald-100/90 hover:bg-emerald-200 text-emerald-950 border-emerald-300 shadow-2xs font-bold',
+      activeClass: 'bg-emerald-200 text-emerald-950 border-emerald-400 shadow-xs font-extrabold ring-2 ring-emerald-400/60',
+      chevronColor: 'text-emerald-700',
+      activeModuleStyle: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
+      activeModuleIconStyle: 'text-emerald-700',
+      hoverBg: 'hover:bg-emerald-100/60',
+      pillColor: 'bg-emerald-600'
+    },
+    {
+      id: 'residential_dharavi',
+      name: 'Residential Dharavi',
+      defaultClass: 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 border-amber-300 shadow-2xs font-bold',
+      activeClass: 'bg-amber-200 text-amber-950 border-amber-400 shadow-xs font-extrabold ring-2 ring-amber-400/60',
+      chevronColor: 'text-amber-700',
+      activeModuleStyle: 'bg-amber-100 text-amber-900 border-amber-300 font-bold',
+      activeModuleIconStyle: 'text-amber-700',
+      hoverBg: 'hover:bg-amber-100/60',
+      pillColor: 'bg-amber-600'
+    },
+  ];
+
+  const structureModulesList = [
     { id: 'monitor', name: 'Project Monitoring & Control', icon: BarChart3 },
     { id: 'drawing', name: 'Project Drawings', icon: Compass },
     { id: 'quality', name: 'Quality Management', icon: Award },
@@ -4014,106 +4090,400 @@ function App() {
 
   return (
     <div className="min-h-screen flex bg-[#f8f9fa] text-slate-800 font-sans">
-      <aside className="w-64 border-r border-slate-200 bg-white flex flex-col justify-between p-4 sticky top-0 h-screen z-30 select-none flex-shrink-0">
+      <aside
+        onMouseEnter={() => setIsSidebarHovered(true)}
+        onMouseLeave={() => setIsSidebarHovered(false)}
+        className={`border-r border-slate-200 bg-white flex flex-col justify-between p-3 sticky top-0 h-screen z-30 select-none flex-shrink-0 transition-all duration-300 ease-in-out overflow-x-hidden ${
+          isSidebarExpanded ? 'w-[340px]' : 'w-20'
+        }`}
+      >
         <div className="space-y-6">
-          <div className="flex items-center space-x-3 px-2 py-1.5 border-b border-slate-100 pb-4">
-            <div className="flex-shrink-0 bg-gradient-to-br from-sky-500 to-indigo-600 p-2.5 rounded-xl shadow-md text-white flex items-center justify-center">
+          <div className="flex items-center px-2 py-1.5 border-b border-slate-100 pb-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 shadow-md text-white flex items-center justify-center flex-shrink-0">
               <FolderKanban className="h-6 w-6" />
             </div>
-            <div>
-              <h1 className="text-sm font-bold tracking-tight text-slate-900 leading-snug">
+            <div className={`transition-all duration-300 ease-in-out overflow-hidden ml-3 ${isSidebarExpanded ? 'opacity-100 max-w-md' : 'opacity-0 max-w-0 pointer-events-none'}`}>
+              <h1 className="text-sm font-bold tracking-tight text-slate-900 leading-snug whitespace-nowrap">
                 Project Management Information System (PMIS)
               </h1>
             </div>
           </div>
 
-          <nav className="space-y-1.5">
-            {sidebarSections.map((sec) => {
+          <nav className="space-y-1.5 overflow-y-auto max-h-[calc(100vh-160px)] pr-1 custom-scrollbar">
+            {/* Main Top Navigation Items */}
+            {topNavSections.map((sec) => {
               const IconComp = sec.icon;
               const isActive = activeSection === sec.name;
-              const isRfi = sec.id === 'rfi';
-              const sectionHasUnread = (activeSection === sec.name && tenderDocs.some(hasUnreadRemarks));
 
               let buttonStyle = 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 border border-transparent';
               let iconStyle = 'text-slate-400 group-hover:text-slate-600';
 
               if (isActive) {
-                if (isRfi) {
-                  buttonStyle = 'bg-purple-600 text-white border border-purple-700 shadow-md font-bold';
-                  iconStyle = 'text-white';
-                } else {
-                  buttonStyle = 'bg-sky-50 text-sky-700 border border-sky-100 font-bold';
-                  iconStyle = 'text-sky-600';
-                }
-              } else if (isRfi) {
-                buttonStyle = 'bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200/90 shadow-sm font-extrabold';
-                iconStyle = 'text-purple-600';
+                buttonStyle = 'bg-sky-50 text-sky-700 border border-sky-100 font-bold';
+                iconStyle = 'text-sky-600';
               }
 
               return (
                 <button
                   key={sec.id}
-                  onClick={() => setActiveSection(sec.name)}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 relative group ${buttonStyle}`}
+                  onClick={() => {
+                    setActiveSection(sec.name);
+                    setFolderPath([]);
+                    setGeneralDocSearch('');
+                    setIsSidebarPinned(false);
+                    setIsSidebarHovered(false);
+                  }}
+                  title={!isSidebarExpanded ? sec.name : undefined}
+                  className={`w-full flex items-center px-4 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 relative group ${buttonStyle}`}
                 >
-                  <div className="flex items-center space-x-3 min-w-0">
-                    {isActive && (
-                      <span className={`absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r ${isRfi ? 'bg-purple-300' : 'bg-sky-500'}`}></span>
-                    )}
-                    {sectionHasUnread && (
-                      <span className="absolute right-2 top-3 flex h-2.5 w-2.5" title="New Unread Remark in this Section">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
-                      </span>
-                    )}
-                    <IconComp className={`h-4 w-4 flex-shrink-0 transition-colors duration-200 ${iconStyle}`} />
-                    <span className="whitespace-normal break-words">{sec.name}</span>
+                  {isActive && (
+                    <span className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r bg-sky-500"></span>
+                  )}
+                  <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                    <IconComp className={`h-5 w-5 transition-colors duration-200 ${iconStyle}`} />
                   </div>
+                  <span className={`whitespace-nowrap truncate transition-all duration-300 ease-in-out ${isSidebarExpanded ? 'opacity-100 max-w-md ml-3' : 'opacity-0 max-w-0 ml-0 pointer-events-none hidden'}`}>
+                    {sec.name}
+                  </span>
                 </button>
               );
             })}
+            <div className="pt-1.5 space-y-1">
+              {/* Parent Project Structure Header Button (Matches Top Item Styling) */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProjectStructureExpanded(!isProjectStructureExpanded);
+                }}
+                title={!isSidebarExpanded ? "Project Structure" : undefined}
+                className="w-full flex items-center px-4 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 border border-transparent group relative"
+              >
+                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                  <Layers className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-colors duration-200" />
+                </div>
+                <span className={`whitespace-nowrap truncate transition-all duration-300 ease-in-out ${isSidebarExpanded ? 'opacity-100 max-w-md ml-3' : 'opacity-0 max-w-0 ml-0 pointer-events-none hidden'}`}>
+                  Project Structure
+                </span>
+                <div className={`transition-all duration-300 ease-in-out ${isSidebarExpanded ? 'opacity-100 max-w-md ml-auto' : 'opacity-0 max-w-0 ml-0 pointer-events-none hidden'}`}>
+                  {isProjectStructureExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0 transition-transform duration-200" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0 transition-transform duration-200" />
+                  )}
+                </div>
+              </button>
+
+              {/* Nested Sub-Groups Level 1: ONLY render when sidebar IS EXPANDED and Project Structure is open */}
+              {isSidebarExpanded && isProjectStructureExpanded && (
+                <div className="pl-2 mt-1 space-y-1 border-l-2 border-slate-200 ml-3.5">
+                  {projectStructuresList.map((struct) => {
+                    const isSubOpen = !!openSubStructures[struct.name];
+                    const isStructActive = activeProjectStructure === struct.name && structureModulesList.some(m => m.name === activeSection);
+
+                    return (
+                      <div key={struct.id} className="space-y-1">
+                        {/* Sub-Group Header Button (Colored Box without Icon, matching RFI style) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            toggleSubStructure(struct.name);
+                          }}
+                          title={!isSidebarExpanded ? struct.name : undefined}
+                          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left text-sm tracking-wide transition-all duration-150 group border ${
+                            isStructActive
+                              ? struct.activeClass
+                              : struct.defaultClass
+                          }`}
+                        >
+                          <span className="whitespace-nowrap truncate transition-all duration-300 ease-in-out">{struct.name}</span>
+                          {isSubOpen ? (
+                            <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${struct.chevronColor}`} />
+                          ) : (
+                            <ChevronRight className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${struct.chevronColor}`} />
+                          )}
+                        </button>
+
+                        {/* Nested Modules Level 2: Project Monitoring & Control, Drawings, Quality, EHS, MEP, Registrations, RFI */}
+                        {isSubOpen && (
+                          <div className="pl-3 space-y-1 py-1 border-l border-slate-200 ml-3">
+                            {structureModulesList.map((mod) => {
+                              const ModIcon = mod.icon;
+                              const isModuleActive = activeSection === mod.name && activeProjectStructure === struct.name;
+                              const isRfi = mod.id === 'rfi';
+                              const sectionHasUnread = isModuleActive && tenderDocs.some(hasUnreadRemarks);
+
+                              let buttonStyle = `text-slate-600 hover:text-slate-900 ${struct.hoverBg} border border-transparent`;
+                              let iconStyle = 'text-slate-400 group-hover:text-slate-600';
+
+                              if (isModuleActive) {
+                                if (isRfi) {
+                                  buttonStyle = 'bg-purple-600 text-white border border-purple-700 shadow-md font-bold';
+                                  iconStyle = 'text-white';
+                                } else {
+                                  buttonStyle = struct.activeModuleStyle;
+                                  iconStyle = struct.activeModuleIconStyle;
+                                }
+                              } else if (isRfi) {
+                                buttonStyle = 'bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200/90 shadow-xs font-extrabold';
+                                iconStyle = 'text-purple-600';
+                              }
+
+                              return (
+                                <button
+                                  key={mod.id}
+                                  onClick={() => {
+                                    setActiveProjectStructure(struct.name);
+                                    setActiveSection(mod.name);
+                                    setFolderPath([]);
+                                    setGeneralDocSearch('');
+                                    setIsSidebarPinned(false);
+                                    setIsSidebarHovered(false);
+                                  }}
+                                  title={!isSidebarExpanded ? `${struct.name} - ${mod.name}` : undefined}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-150 relative group ${buttonStyle}`}
+                                >
+                                  <div className="flex items-center space-x-3 min-w-0 flex-1 overflow-hidden">
+                                    {isModuleActive && (
+                                      <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-r ${isRfi ? 'bg-purple-300' : struct.pillColor}`}></span>
+                                    )}
+                                    {sectionHasUnread && (
+                                      <span className="absolute right-2 top-2.5 flex h-2 w-2" title="New Unread Remark">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                                      </span>
+                                    )}
+                                    <ModIcon className={`h-4 w-4 flex-shrink-0 transition-colors duration-150 ${iconStyle}`} />
+                                    <span className="whitespace-nowrap truncate transition-all duration-300 ease-in-out">{mod.name}</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </nav>
         </div>
 
-        <div className="border-t border-slate-100 pt-3">
-          <div className="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-slate-50 transition">
-            <div className="flex items-center space-x-3 min-w-0 flex-1">
-              {(() => {
-                const logoUrl = getUserLogo(currentUser);
-                if (logoUrl) {
+        <div className="border-t border-slate-100 pt-3 relative">
+          {isSidebarExpanded ? (
+            /* EXPANDED FOOTER */
+            <div className="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-slate-50 transition">
+              <div className="flex items-center space-x-3 min-w-0 flex-1">
+                {(() => {
+                  const logoUrl = getUserLogo(currentUser);
+                  if (logoUrl) {
+                    return (
+                      <div className="h-9 w-9 rounded-full border border-slate-200 bg-white p-0.5 overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <img
+                          src={logoUrl}
+                          alt={currentUser?.name || 'User Logo'}
+                          className="h-full w-full object-contain rounded-full"
+                        />
+                      </div>
+                    );
+                  }
                   return (
-                    <div className="h-9 w-9 rounded-full border border-slate-200 bg-white p-0.5 overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm">
-                      <img
-                        src={logoUrl}
-                        alt={currentUser?.name || 'User Logo'}
-                        className="h-full w-full object-contain rounded-full"
-                      />
+                    <div className="bg-gradient-to-tr from-sky-500 to-teal-400 h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-base shadow flex-shrink-0">
+                      {(currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User').charAt(0)}
                     </div>
                   );
-                }
-                return (
-                  <div className="bg-gradient-to-tr from-sky-500 to-teal-400 h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-base shadow flex-shrink-0">
-                    {(currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User').charAt(0)}
-                  </div>
-                );
-              })()}
-              <div className="text-left min-w-0 flex-1">
-                <span className="block text-sm font-bold text-slate-900 leading-tight truncate" title={currentUser.name ? currentUser.name.split(' (')[0] : currentUser.userId || 'User'}>
-                  {currentUser.name ? currentUser.name.split(' (')[0] : currentUser.userId || 'User'}
-                </span>
+                })()}
+                <div className="text-left min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-900 leading-tight truncate" title={currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User'}>
+                    {currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-1 flex-shrink-0 ml-1">
+                {/* Notification Bell Button in Expanded Footer */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+                    className="p-2 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition cursor-pointer relative"
+                    title="View Document Upload Notifications"
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unviewedUploadsCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-rose-600 text-white text-[9px] font-black items-center justify-center shadow-sm">
+                          {unviewedUploadsCount}
+                        </span>
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Floating Notifications Dropdown Panel */}
+                  {showNotificationPanel && (
+                    <div className="absolute left-0 bottom-12 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
+                      <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Bell className="h-4 w-4 text-sky-400" />
+                          <h4 className="font-bold text-xs">Notifications</h4>
+                          {unviewedUploadsCount > 0 && (
+                            <span className="px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-bold">
+                              {unviewedUploadsCount} Unread
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {unviewedUploadsCount > 0 && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await generalDocsAPI.markAllNotificationsRead();
+                                  await fetchAllUploads();
+                                  await fetchGeneralDocs();
+                                } catch (err) {
+                                  console.error('Failed to mark all notifications read:', err);
+                                }
+                              }}
+                              className="text-[10px] font-bold text-sky-300 hover:text-white transition hover:underline"
+                            >
+                              Mark all read
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setShowNotificationPanel(false)}
+                            className="p-1 text-slate-400 hover:text-white rounded-lg transition"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
+                        {allRecentUploads.length === 0 ? (
+                          <div className="p-8 text-center text-slate-400 space-y-2">
+                            <Bell className="h-8 w-8 mx-auto text-slate-300 stroke-1" />
+                            <p className="text-xs font-semibold">No recent activity notifications</p>
+                          </div>
+                        ) : (
+                          allRecentUploads.map((item) => {
+                            const isUnviewed = isDocumentUnviewed(item);
+                            const uploader = item.uploader || item.uploadedBy?.name || 'User';
+                            const folderDisplayName = item.folderName || item.folder || 'Root Folder';
+                            const eventType = item.type || 'upload';
+
+                            let typeBadge = (
+                              <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                                NEW FILE
+                              </span>
+                            );
+                            let IconComponent = FileText;
+                            let iconBg = isUnviewed ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500';
+
+                            if (eventType === 'remark') {
+                              typeBadge = (
+                                <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                                  REMARK
+                                </span>
+                              );
+                              IconComponent = MessageSquare;
+                              iconBg = isUnviewed ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500';
+                            } else if (eventType === 'approval') {
+                              typeBadge = (
+                                <span className="px-1.5 py-0.2 bg-sky-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
+                                  APPROVED
+                                </span>
+                              );
+                              IconComponent = CheckCircle2;
+                              iconBg = isUnviewed ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500';
+                            }
+
+                            return (
+                              <div
+                                key={item._id}
+                                onClick={() => handleSelectNotification(item)}
+                                className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-sky-50/60 border-l-4 border-l-sky-500' : 'bg-white'}`}
+                              >
+                                <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${iconBg}`}>
+                                  <IconComponent className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 min-w-0 space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={item.title || item.name}>
+                                      {item.title || item.name}
+                                    </h5>
+                                    {typeBadge}
+                                  </div>
+
+                                  {eventType === 'remark' && item.remarkText && (
+                                    <p className="text-[11px] text-amber-900 font-medium bg-amber-50 p-1.5 rounded border border-amber-200/60 line-clamp-2">
+                                      💬 "{item.remarkText}"
+                                    </p>
+                                  )}
+
+                                  <div className="flex items-center flex-wrap gap-1 text-[10px] pt-0.5">
+                                    <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-bold border border-sky-200">
+                                      📂 Section: {item.section || 'General'}
+                                    </span>
+                                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded font-semibold border border-slate-200">
+                                      📁 Folder: {folderDisplayName}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
+                                    <span>By: <strong className="text-slate-700">{uploader}</strong></span>
+                                    <span>{new Date(item.createdAt || item.uploadedAt).toLocaleDateString()}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer flex-shrink-0"
+                  title="Sign Out"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center space-x-1 flex-shrink-0 ml-1">
-              {/* Notification Bell Button in Sidebar Footer */}
+          ) : (
+            /* COLLAPSED FOOTER: Avatar only + notification badge trigger */
+            <div className="flex justify-center items-center py-1.5 relative">
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowNotificationPanel(!showNotificationPanel)}
-                  className="p-2 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-xl transition cursor-pointer relative"
-                  title="View Document Upload Notifications"
+                  className="relative block rounded-full focus:outline-none focus:ring-2 focus:ring-sky-400 group cursor-pointer"
+                  title={unviewedUploadsCount > 0 ? `${unviewedUploadsCount} Unread Notifications` : "Notifications & User Profile"}
                 >
-                  <Bell className="h-5 w-5" />
+                  {(() => {
+                    const logoUrl = getUserLogo(currentUser);
+                    if (logoUrl) {
+                      return (
+                        <div className="h-10 w-10 rounded-full border border-slate-200 bg-white p-0.5 overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition">
+                          <img
+                            src={logoUrl}
+                            alt={currentUser?.name || 'User Logo'}
+                            className="h-full w-full object-contain rounded-full"
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="bg-gradient-to-tr from-sky-500 to-teal-400 h-10 w-10 rounded-full flex items-center justify-center text-white font-bold text-base shadow flex-shrink-0 group-hover:scale-105 transition">
+                        {(currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User').charAt(0)}
+                      </div>
+                    );
+                  })()}
+
                   {unviewedUploadsCount > 0 && (
                     <span className="absolute -top-1 -right-1 flex h-4 w-4">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
@@ -4124,10 +4494,8 @@ function App() {
                   )}
                 </button>
 
-                {/* Floating Notifications Dropdown Panel (Upward / Sidebar Footer Dropdown) */}
                 {showNotificationPanel && (
                   <div className="absolute left-0 bottom-12 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
-                    {/* Header */}
                     <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <Bell className="h-4 w-4 text-sky-400" />
@@ -4165,7 +4533,6 @@ function App() {
                       </div>
                     </div>
 
-                    {/* List */}
                     <div className="max-h-96 overflow-y-auto divide-y divide-slate-100 bg-slate-50/50">
                       {allRecentUploads.length === 0 ? (
                         <div className="p-8 text-center text-slate-400 space-y-2">
@@ -4228,7 +4595,6 @@ function App() {
                                   </p>
                                 )}
 
-                                {/* Section & Folder info */}
                                 <div className="flex items-center flex-wrap gap-1 text-[10px] pt-0.5">
                                   <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-bold border border-sky-200">
                                     📂 Section: {item.section || 'General'}
@@ -4251,16 +4617,8 @@ function App() {
                   </div>
                 )}
               </div>
-
-              <button
-                onClick={handleLogout}
-                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition cursor-pointer flex-shrink-0"
-                title="Sign Out"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
             </div>
-          </div>
+          )}
         </div>
       </aside>
 
@@ -5164,8 +5522,22 @@ function App() {
                     </button>
                   )}
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 uppercase tracking-wider">{activeSection} Ledger</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">Browse and manage packages, files, and documents for {activeSection}</p>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-base font-bold text-slate-900 uppercase tracking-wider">{activeSection} Ledger</h3>
+                      {activeProjectStructure && (() => {
+                        const currentStructObj = projectStructuresList.find(s => s.name === activeProjectStructure);
+                        const BadgeIcon = currentStructObj?.icon || Building;
+                        const badgeClass = currentStructObj?.activeClass || 'bg-sky-100 text-sky-800 border-sky-200';
+                        const iconColor = currentStructObj?.iconActiveColor || 'text-sky-600';
+                        return (
+                          <span className={`px-2.5 py-0.5 text-[11px] font-bold rounded-full border flex items-center space-x-1.5 shadow-2xs ${badgeClass}`}>
+                            <BadgeIcon className={`h-3.5 w-3.5 inline ${iconColor}`} />
+                            <span>{activeProjectStructure}</span>
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">Browse and manage packages, files, and documents for {activeSection} ({activeProjectStructure})</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2 w-full md:w-auto">
