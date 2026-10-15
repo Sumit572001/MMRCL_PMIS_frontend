@@ -161,8 +161,8 @@ export const generalDocsAPI = {
     const response = await api.get(`/api/${section}/folders`);
     return response.data;
   },
-  createFolder: async (section, name, parentFolder = null) => {
-    const response = await api.post(`/api/${section}/folders`, { name, parentFolder });
+  createFolder: async (section, name, parentFolder = null, category = null) => {
+    const response = await api.post(`/api/${section}/folders`, { name, parentFolder, category });
     return response.data;
   },
   deleteFolder: async (section, id) => {

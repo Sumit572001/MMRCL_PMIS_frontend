@@ -920,6 +920,44 @@ function App() {
     if (d >= startOfLastMonth && d < startOfLastWeek) return 'Last month';
     return 'Earlier this year';
   };
+
+  const matchesStructure = (itemCategory, targetStructure) => {
+    if (!targetStructure) return true;
+    if (!itemCategory || itemCategory === '-' || itemCategory === 'Root') {
+      return targetStructure === 'Overall Project';
+    }
+    if (itemCategory === targetStructure) return true;
+    const dLow = itemCategory.trim().toLowerCase();
+    const tLow = targetStructure.trim().toLowerCase();
+    if (dLow === tLow) return true;
+
+    const isT1 = (tLow.includes('project 1') || tLow.includes('metro bhawan') || tLow.includes('commercial andheri'));
+    const isD1 = (dLow.includes('project 1') || dLow.includes('metro bhawan') || dLow.includes('commercial andheri'));
+    if (isT1 && isD1) return true;
+
+    const isT2 = (tLow.includes('project 2') || tLow.includes('executive staff') || (tLow.includes('residential') && tLow.includes('andheri')));
+    const isD2 = (dLow.includes('project 2') || dLow.includes('executive staff') || (dLow.includes('residential') && dLow.includes('andheri')));
+    if (isT2 && isD2) return true;
+
+    const isT3 = (tLow.includes('project 3') || tLow.includes('non-executive') || tLow.includes('dharavi'));
+    const isD3 = (dLow.includes('project 3') || dLow.includes('non-executive') || dLow.includes('dharavi'));
+    if (isT3 && isD3) return true;
+
+    const isTOverall = tLow.includes('overall');
+    const isDOverall = dLow.includes('overall');
+    if (isTOverall && isDOverall) return true;
+
+    return false;
+  };
+
+  const matchesFolderStructure = (folder, targetStructure) => {
+    if (!targetStructure) return true;
+    if (!folder.category || folder.category === 'ALL' || folder.category === '-') return true;
+    return matchesStructure(folder.category, targetStructure);
+  };
+
+  const isStructureScoped = Boolean(activeProjectStructure && !['Tender Documents', 'Contractual Documents', 'RA Bill Tax Invoice'].includes(activeSection));
+
   const sectionCategoriesMap = {
     'Site Monitoring & Control': [
       '1. Initial Program and Works Program plus supporting information and narrative',
@@ -974,6 +1012,11 @@ function App() {
       '1. Minutes of Meeting',
       '2. Letter Correspondence',
       '3. All other submittals'
+    ],
+    'Non-Conformance Report (NCR)': [
+      '1. NCR Reports',
+      '2. Corrective Actions',
+      '3. Closure & Verification'
     ]
   };
 
@@ -2626,12 +2669,13 @@ function App() {
     return f.parentFolder;
   };
 
-  const rfiMainFolders = rfiFoldersList.filter(f => !getParentFolderId(f));
+  const rfiMainFolders = rfiFoldersList.filter(f => !getParentFolderId(f) && (!isStructureScoped || matchesFolderStructure(f, activeProjectStructure)));
 
   const getAllNestedSubfolders = (parentId, depth = 1) => {
     if (!parentId || parentId === 'Root') return [];
     let list = [];
     const directChildren = rfiFoldersList.filter(f => {
+      if (isStructureScoped && !matchesFolderStructure(f, activeProjectStructure)) return false;
       const pid = getParentFolderId(f);
       return pid && pid.toString() === parentId.toString();
     });
@@ -3222,7 +3266,9 @@ function App() {
 
     setTenderFolderCreating(true);
     try {
-      const res = await generalDocsAPI.createFolder(apiSec, tenderFolderNameInput.trim(), parentId);
+      const isStructureScoped = Boolean(activeProjectStructure && !['Tender Documents', 'Contractual Documents', 'RA Bill Tax Invoice'].includes(activeSection));
+      const folderCategory = isStructureScoped ? activeProjectStructure : null;
+      const res = await generalDocsAPI.createFolder(apiSec, tenderFolderNameInput.trim(), parentId, folderCategory);
       if (res.success) {
         setShowTenderFolderModal(false);
         setTenderFolderNameInput('');
@@ -3327,6 +3373,7 @@ function App() {
 
         const matchedFolder = tenderFolders.find(f => {
           if (!f.name) return false;
+          if (isStructureScoped && !matchesFolderStructure(f, activeProjectStructure)) return false;
           const fName = f.name.trim().toLowerCase();
           const fUnnumbered = fName.replace(/^\d+\.\s*/, '');
           return fName === cleanCat || fUnnumbered === unnumberedCat || fName.includes(unnumberedCat) || unnumberedCat.includes(fUnnumbered);
@@ -4650,9 +4697,7 @@ function App() {
                     }`}
                 >
                   {projectStructuresList.map((struct) => {
-                    const currentModulesList = struct.id === 'over_all_project'
-                      ? structureModulesList
-                      : structureModulesList.filter((m) => m.id !== 'ncr');
+                    const currentModulesList = structureModulesList;
 
                     const isStructActive = activeProjectStructure === struct.name && currentModulesList.some(m => m.name === activeSection);
 
@@ -4695,7 +4740,7 @@ function App() {
                               const isModuleActive = activeSection === mod.name && activeProjectStructure === struct.name;
                               const isRfi = mod.id === 'rfi';
                               const isNcr = mod.id === 'ncr';
-                              const sectionHasUnread = isModuleActive && tenderDocs.some(hasUnreadRemarks);
+                              const sectionHasUnread = isModuleActive && tenderDocs.filter(d => matchesStructure(d.category, struct.name)).some(hasUnreadRemarks);
 
                               let buttonStyle = `text-slate-600 hover:text-slate-900 ${struct.hoverBg} border border-transparent`;
                               let iconStyle = 'text-slate-400 group-hover:text-slate-600';
@@ -6320,6 +6365,7 @@ function App() {
                     const isSearching = Boolean(q || qDate);
 
                     let currentFolders = activeSection === 'Contractual Documents' ? [] : tenderFolders.filter(f => {
+                      if (isStructureScoped && !matchesFolderStructure(f, activeProjectStructure)) return false;
                       const pid = f.parentFolder ? (typeof f.parentFolder === 'object' ? (f.parentFolder._id || f.parentFolder.id) : f.parentFolder) : null;
                       if (!selectedTenderFolderId) return !pid;
                       return pid && pid.toString() === selectedTenderFolderId.toString();
@@ -6341,7 +6387,8 @@ function App() {
                       drawing: ['works drawings', 'as built drawings', 'construction reference drawings'],
                       quality: ['quality plan', 'quality control register', 'reports of quarterly quality audits', 'materials submissions', 'materials and workmanship test'],
                       ehs: ['safety plan', 'environment plan'],
-                      registrations: ['minutes of meeting', 'letter correspondence', 'all other submittals']
+                      registrations: ['minutes of meeting', 'letter correspondence', 'all other submittals'],
+                      ncr: ['ncr reports', 'corrective actions', 'closure & verification']
                     };
                     const cleanDefaults = defaultCategoryMap[secKey] || [];
 
@@ -6373,18 +6420,7 @@ function App() {
                       currentFiles = tenderDocs;
                     } else if (activeSection === 'RFI') {
                       if (activeProjectStructure) {
-                        currentFiles = tenderDocs.filter(d => {
-                          if (!d.category) return false;
-                          if (d.category === activeProjectStructure) return true;
-                          const dLow = d.category.trim().toLowerCase();
-                          const tLow = activeProjectStructure.trim().toLowerCase();
-                          if (dLow === tLow) return true;
-                          if ((tLow.includes('project 1') || tLow.includes('phase 1')) && (dLow.includes('project 1') || dLow.includes('phase 1') || dLow.includes('metro bhawan'))) return true;
-                          if ((tLow.includes('project 2') || tLow.includes('phase 2')) && (dLow.includes('project 2') || dLow.includes('phase 2') || dLow.includes('executive staff'))) return true;
-                          if ((tLow.includes('project 3') || tLow.includes('phase 3')) && (dLow.includes('project 3') || dLow.includes('phase 3') || dLow.includes('non-executive') || dLow.includes('dharavi'))) return true;
-                          if (tLow.includes('overall') && dLow.includes('overall')) return true;
-                          return false;
-                        });
+                        currentFiles = tenderDocs.filter(d => matchesStructure(d.category, activeProjectStructure));
                       } else {
                         currentFiles = tenderDocs;
                       }
@@ -6393,23 +6429,19 @@ function App() {
                       }
                     } else if (activeSection === 'RFI Register') {
                       if (rfiStructureFilter !== 'All') {
-                        currentFiles = tenderDocs.filter(d => {
-                          if (!d.category) return false;
-                          if (d.category === rfiStructureFilter) return true;
-                          const dLow = d.category.trim().toLowerCase();
-                          const tLow = rfiStructureFilter.trim().toLowerCase();
-                          if (dLow === tLow) return true;
-                          if ((tLow.includes('project 1') || tLow.includes('phase 1')) && (dLow.includes('project 1') || dLow.includes('phase 1') || dLow.includes('metro bhawan'))) return true;
-                          if ((tLow.includes('project 2') || tLow.includes('phase 2')) && (dLow.includes('project 2') || dLow.includes('phase 2') || dLow.includes('executive staff'))) return true;
-                          if ((tLow.includes('project 3') || tLow.includes('phase 3')) && (dLow.includes('project 3') || dLow.includes('phase 3') || dLow.includes('non-executive') || dLow.includes('dharavi'))) return true;
-                          if (tLow.includes('overall') && dLow.includes('overall')) return true;
-                          return false;
-                        });
+                        currentFiles = tenderDocs.filter(d => matchesStructure(d.category, rfiStructureFilter));
                       } else {
                         currentFiles = tenderDocs;
                       }
                       if (selectedTenderFolderId || selectedTenderFolder) {
                         currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                      }
+                    } else if (isStructureScoped) {
+                      currentFiles = tenderDocs.filter(d => matchesStructure(d.category, activeProjectStructure));
+                      if (selectedTenderFolderId || selectedTenderFolder) {
+                        currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                      } else {
+                        currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || d.folder === 'Root' || !d.folder || (selectedTenderFolder && d.folder === selectedTenderFolder));
                       }
                     } else {
                       currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
@@ -7092,10 +7124,12 @@ function App() {
                     const renderFolderTreeItem = (folder, depth = 0) => {
                       const folderName = folder.name;
                       const childFolders = tenderFolders.filter(f => {
+                        if (isStructureScoped && !matchesFolderStructure(f, activeProjectStructure)) return false;
                         const pid = f.parentFolder ? (typeof f.parentFolder === 'object' ? (f.parentFolder._id || f.parentFolder.id) : f.parentFolder) : null;
                         return pid && folder._id && pid.toString() === folder._id.toString();
                       });
                       const allDocsInFolder = tenderDocs.filter(d => {
+                        if (isStructureScoped && !matchesStructure(d.category, activeProjectStructure)) return false;
                         if (!d.folder) return false;
                         const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
                         return docFolder === folder._id || docFolder === folderName || (folder._id && docFolder.toString() === folder._id.toString());
@@ -7116,6 +7150,7 @@ function App() {
 
                       const doesFolderOrDescendantsHaveMatches = (fId, fName) => {
                         const docs = tenderDocs.filter(d => {
+                          if (isStructureScoped && !matchesStructure(d.category, activeProjectStructure)) return false;
                           if (!d.folder) return false;
                           const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
                           return docFolder === fId || docFolder === fName || (fId && docFolder.toString() === fId.toString());
@@ -7124,6 +7159,7 @@ function App() {
                           return true;
                         }
                         const kids = tenderFolders.filter(c => {
+                          if (isStructureScoped && !matchesFolderStructure(c, activeProjectStructure)) return false;
                           const pid = c.parentFolder ? (typeof c.parentFolder === 'object' ? (c.parentFolder._id || c.parentFolder.id) : c.parentFolder) : null;
                           return pid && fId && pid.toString() === fId.toString();
                         });
@@ -7141,6 +7177,7 @@ function App() {
                         if (!activeFolderMenuId) return false;
                         if ((f._id || f.id)?.toString() === activeFolderMenuId.toString()) return true;
                         const children = tenderFolders.filter(child => {
+                          if (isStructureScoped && !matchesFolderStructure(child, activeProjectStructure)) return false;
                           const pid = child.parentFolder ? (typeof child.parentFolder === 'object' ? (child.parentFolder._id || child.parentFolder.id) : child.parentFolder) : null;
                           return pid && f._id && pid.toString() === f._id.toString();
                         });
@@ -7168,7 +7205,8 @@ function App() {
                           drawing: ['works drawings', 'as built drawings', 'construction reference drawings'],
                           quality: ['quality plan', 'quality control register', 'reports of quarterly quality audits', 'materials submissions', 'materials and workmanship test'],
                           ehs: ['safety plan', 'environment plan'],
-                          registrations: ['minutes of meeting', 'letter correspondence', 'all other submittals']
+                          registrations: ['minutes of meeting', 'letter correspondence', 'all other submittals'],
+                          ncr: ['ncr reports', 'corrective actions', 'closure & verification']
                         };
 
                         const defaults = defaultCategoryMap[secKey] || [];
@@ -7884,7 +7922,10 @@ function App() {
             <form onSubmit={handleTenderUpload} className="space-y-4 text-xs text-slate-300">
               {(() => {
                 const rawList = [
-                  ...tenderFolders.map(f => f.name).filter(Boolean),
+                  ...tenderFolders
+                    .filter(f => !isStructureScoped || matchesFolderStructure(f, activeProjectStructure))
+                    .map(f => f.name)
+                    .filter(Boolean),
                   ...(sectionCategoriesMap[activeSection] || [])
                 ];
                 const seen = new Set();
@@ -7894,7 +7935,7 @@ function App() {
                   const normalized = item.trim().replace(/^\d+\.\s*/, '').toLowerCase();
                   if (!seen.has(normalized)) {
                     seen.add(normalized);
-                    const matchedFolder = tenderFolders.find(f => (f.name || '').trim().replace(/^\d+\.\s*/, '').toLowerCase() === normalized);
+                    const matchedFolder = tenderFolders.find(f => (!isStructureScoped || matchesFolderStructure(f, activeProjectStructure)) && (f.name || '').trim().replace(/^\d+\.\s*/, '').toLowerCase() === normalized);
                     uniqueCategories.push(matchedFolder ? matchedFolder.name : item.replace(/^\d+\.\s*/, ''));
                   }
                 }
@@ -8021,7 +8062,7 @@ function App() {
                 >
                   <option value="ROOT">-- Outside of all categories (Root Level) --</option>
                   {tenderFolders
-                    .filter(f => !f.parentFolder)
+                    .filter(f => !f.parentFolder && (!isStructureScoped || matchesFolderStructure(f, activeProjectStructure)))
                     .map((catFolder) => (
                       <option key={catFolder._id || catFolder.id} value={(catFolder._id || catFolder.id).toString()}>
                         {catFolder.name}
