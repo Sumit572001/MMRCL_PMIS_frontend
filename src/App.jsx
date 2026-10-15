@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Info,
   Shield,
@@ -61,7 +62,9 @@ import {
   List,
   Grid,
   ArrowRight,
-  PhoneCall
+  PhoneCall,
+  Receipt,
+  FileWarning
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
 
@@ -377,6 +380,104 @@ const approvedNocsData = [
   }
 ];
 
+const PROJECT_GALLERY_IMAGES = [
+  {
+    id: 1,
+    title: 'Metro Bhawan Main Elevation',
+    subtitle: 'Architectural Rendering - Commercial Hub',
+    src: '/uploads/metro_bhawan.jpg',
+    fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/metro_bhawan.jpg'
+  },
+  {
+    id: 2,
+    title: 'Commercial & Residential Complex View 1',
+    subtitle: 'Metro Bhawan & Staff Quarters Rendering',
+    src: '/uploads/project_img_1.jpg',
+    fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/project_img_1.jpg'
+  },
+  {
+    id: 3,
+    title: 'Executive Staff Quarters High-Rise Tower',
+    subtitle: 'Project 2 Residential Andheri Tower Rendering',
+    src: '/uploads/project_img_2.jpg',
+    fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/project_img_2.jpg'
+  },
+  {
+    id: 4,
+    title: 'Twin Residential Towers View',
+    subtitle: 'Executive Staff Quarters Architectural Design',
+    src: '/uploads/project_img_3.jpg',
+    fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/project_img_3.jpg'
+  },
+  {
+    id: 5,
+    title: 'Metro Bhawan Front Elevation & Podium',
+    subtitle: 'Modern Glass & Gold Architectural Facade (Day view)',
+    src: '/uploads/project_img_4.jpg',
+    fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/project_img_4.jpg'
+  },
+  {
+    id: 6,
+    title: 'Metro Bhawan Facade & Landscaping View',
+    subtitle: 'Modern Glass & Gold Architectural Facade (Perspective view)',
+    src: '/uploads/project_img_5.png',
+    fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/project_img_5.png'
+  }
+];
+
+function ProjectGalleryCarousel() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [prevIndex, setPrevIndex] = useState(PROJECT_GALLERY_IMAGES.length - 1);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((curr) => {
+        setPrevIndex(curr);
+        return (curr + 1) % PROJECT_GALLERY_IMAGES.length;
+      });
+    }, 3500);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="w-full flex justify-center">
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-w-4xl md:max-w-5xl w-full p-2 flex justify-center items-center">
+        <div className="relative w-full h-[320px] sm:h-[400px] md:h-[460px] lg:h-[500px] bg-white flex items-center justify-center overflow-hidden rounded-xl">
+          {PROJECT_GALLERY_IMAGES.map((img, idx) => {
+            const isCurrent = idx === currentIndex;
+            const isPrev = idx === prevIndex;
+
+            let positionClass = 'translate-x-full opacity-0 z-0'; // Waiting on the right
+            if (isCurrent) {
+              positionClass = 'translate-x-0 opacity-100 z-10'; // Center active slide
+            } else if (isPrev) {
+              positionClass = '-translate-x-full opacity-0 z-0'; // Exited to the left
+            }
+
+            return (
+              <div
+                key={img.id}
+                className={`absolute inset-0 w-full h-full flex items-center justify-center transition-transform duration-700 ease-in-out ${positionClass}`}
+              >
+                <img
+                  src={img.src}
+                  alt={img.title || "Project Architectural Rendering"}
+                  className="w-full h-full object-contain rounded-xl hover:scale-[1.005] transition-transform duration-300"
+                  onError={(e) => {
+                    if (img.fallbackSrc && e.target.src !== img.fallbackSrc) {
+                      e.target.src = img.fallbackSrc;
+                    }
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // Authentication & RBAC states
   const [currentUser, setCurrentUser] = useState(null);
@@ -395,14 +496,15 @@ function App() {
   const [isSidebarPinned, setIsSidebarPinned] = useState(false);
   const isSidebarExpanded = isSidebarHovered || isSidebarPinned;
 
-  // Project Structure dropdown navigation states (click to expand/collapse)
-  const [activeProjectStructure, setActiveProjectStructure] = useState('Metro Bhavan Andheri');
+  // Project dropdown navigation states (click or hover to expand)
+  const [activeProjectStructure, setActiveProjectStructure] = useState('Project 1 Metro Bhawan Commercial Andheri');
   const [isProjectStructureExpanded, setIsProjectStructureExpanded] = useState(false);
+  const [isProjectStructureHovered, setIsProjectStructureHovered] = useState(false);
   const [openSubStructures, setOpenSubStructures] = useState({
-    'Over All Project': false,
-    'Metro Bhavan Andheri': false,
-    'Residential Andheri': false,
-    'Residential Dharavi': false
+    'Overall Project': false,
+    'Project 1 Metro Bhawan Commercial Andheri': false,
+    'Project 2 Executive Staff Quarters Residential Andheri': false,
+    'Project 3 Non-Executive Staff Quarters Residential Dharavi': false
   });
 
   const toggleSubStructure = (structureName) => {
@@ -417,6 +519,8 @@ function App() {
   const [nocViewMode, setNocViewMode] = useState('split'); // 'split' | 'table'
   const [nocSearchQuery, setNocSearchQuery] = useState('');
   const [isNocDropdownOpen, setIsNocDropdownOpen] = useState(false);
+  const [expandedFoldersMap, setExpandedFoldersMap] = useState({});
+  const [targetCategoryForCreateFolder, setTargetCategoryForCreateFolder] = useState('ROOT');
 
   // Captcha states
   const [captchaCode, setCaptchaCode] = useState('');
@@ -700,6 +804,7 @@ function App() {
   const contactDirectoryData = [
     {
       srNo: 1,
+      organization: 'MMRCL',
       department: 'Civil',
       contacts: [
         { name: 'Md Aasim Sulaiman', designation: 'Executive Director (Tracks)', phone: '7208348350', email: 'md.aasim@mmrcl.com' },
@@ -709,6 +814,7 @@ function App() {
     },
     {
       srNo: 2,
+      organization: 'MMRCL',
       department: 'Architect',
       contacts: [
         { name: 'Mr Vikrant Tewathia', designation: 'Deputy General Manager', phone: '9650275552', email: 'vikrant.tewathia@mmrcl.com' }
@@ -716,6 +822,7 @@ function App() {
     },
     {
       srNo: 3,
+      organization: 'MMRCL',
       department: 'MEP',
       contacts: [
         { name: 'Dr Vishwas Ajnalkar', designation: 'General Manager (Electrical)', phone: '8411877003', email: 'vishwas.ajnalkar@mmrcl.com' },
@@ -725,6 +832,7 @@ function App() {
     },
     {
       srNo: 4,
+      organization: 'MMRCL',
       department: 'Telecom & IT',
       contacts: [
         { name: 'Mr Rajeev Kumar', designation: 'Principal Executive Director', phone: '9987645170', email: 'rajeev.kumar@mmrcl.com' },
@@ -735,6 +843,7 @@ function App() {
     },
     {
       srNo: 5,
+      organization: 'PMC',
       department: '-',
       contacts: [
         { name: 'Mr. Madhavesh Kulkarni', designation: 'PMC team leader', phone: '9970592658', email: 'pmc.mmrcl@gmail.com' }
@@ -742,9 +851,18 @@ function App() {
     },
     {
       srNo: 6,
+      organization: 'PMC',
       department: '-',
       contacts: [
         { name: 'Ar. Priyadarshini Agrawal', designation: 'Architecture', phone: '88290 12085', email: 'arch.mmrcl@gmail.com' }
+      ]
+    },
+    {
+      srNo: 7,
+      organization: 'NECPL',
+      department: '-',
+      contacts: [
+        { name: 'Appaji Hongekar', designation: 'Sr. Zonal VP', phone: '9822261217', email: 'coordination.mmrcl@nyatigroup.com' }
       ]
     }
   ];
@@ -766,17 +884,103 @@ function App() {
   const [matrixSearch, setMatrixSearch] = useState('');
   const [docSearch, setDocSearch] = useState('');
   const [generalDocSearch, setGeneralDocSearch] = useState('');
+  const [generalDocDateSearch, setGeneralDocDateSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [rfiStructureFilter, setRfiStructureFilter] = useState('All');
 
   // Tender Documents States
   const [tenderDocs, setTenderDocs] = useState([]);
   const [tenderFolders, setTenderFolders] = useState([]);
   const [folderPath, setFolderPath] = useState([]);
+  const [collapsedDateGroups, setCollapsedDateGroups] = useState({});
   const currentFolder = folderPath[folderPath.length - 1] || null;
   const selectedTenderFolder = currentFolder ? currentFolder.name : null;
   const selectedTenderFolderId = currentFolder ? currentFolder._id : null;
+
+  const getDateCategory = (dateInput) => {
+    if (!dateInput) return 'Earlier this year';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return 'Earlier this year';
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    const startOfLastWeek = new Date(startOfToday);
+    startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+    const startOfLastMonth = new Date(startOfToday);
+    startOfLastMonth.setDate(startOfLastMonth.getDate() - 30);
+
+    if (d >= startOfToday) return 'Today';
+    if (d >= startOfYesterday && d < startOfToday) return 'Yesterday';
+    if (d >= startOfLastWeek && d < startOfYesterday) return 'Last week';
+    if (d >= startOfLastMonth && d < startOfLastWeek) return 'Last month';
+    return 'Earlier this year';
+  };
+  const sectionCategoriesMap = {
+    'Site Monitoring & Control': [
+      '1. Initial Program and Works Program plus supporting information and narrative',
+      '2. Monthly Program Update',
+      '3. Three Month Rolling Program',
+      '4. Three Week Rolling Program',
+      '5. Monthly Progress Report',
+      '6. Method Statements',
+      '7. Interface Management Plan',
+      '8. Monitoring, protection and replacement proposal reports.'
+    ],
+    'Project Monitoring & Control': [
+      '1. Initial Program and Works Program plus supporting information and narrative',
+      '2. Monthly Program Update',
+      '3. Three Month Rolling Program',
+      '4. Three Week Rolling Program',
+      '5. Monthly Progress Report',
+      '6. Method Statements',
+      '7. Interface Management Plan',
+      '8. Monitoring, protection and replacement proposal reports.'
+    ],
+    'Project Drawings': [
+      '1. Works Drawings',
+      '2. As built drawings',
+      '3. Construction Reference Drawings'
+    ],
+    'Quality Management': [
+      '1. Quality Plan',
+      '2. Quality Control Register',
+      '3. Reports of Quarterly Quality Audits',
+      '4. Materials Submissions (documentation)',
+      '5. Materials and Workmanship Test Results/Reports'
+    ],
+    'Environment, Health, and Safety (EHS)': [
+      '1. Safety Plan',
+      '2. Environment Plan'
+    ],
+    'MEP': [
+      '1. Operation and Maintenance Manuals',
+      '2. E & M Submissions'
+    ],
+    'MEP & IT': [
+      '1. Operation and Maintenance Manuals',
+      '2. E & M Submissions'
+    ],
+    'Project Communication & Letters': [
+      '1. Minutes of Meeting',
+      '2. Letter Correspondence',
+      '3. All other submittals'
+    ],
+    'Project Documents & Registration': [
+      '1. Minutes of Meeting',
+      '2. Letter Correspondence',
+      '3. All other submittals'
+    ]
+  };
+
   const [showTenderUploadModal, setShowTenderUploadModal] = useState(false);
+  const [tenderUploadCategory, setTenderUploadCategory] = useState('');
   const [showTenderFolderModal, setShowTenderFolderModal] = useState(false);
+  const [targetParentFolderForCreate, setTargetParentFolderForCreate] = useState(null);
   const [tenderFolderNameInput, setTenderFolderNameInput] = useState('');
   const [tenderFolderCreating, setTenderFolderCreating] = useState(false);
   const [tenderUploadFile, setTenderUploadFile] = useState(null);
@@ -785,6 +989,31 @@ function App() {
   const [tenderLoading, setTenderLoading] = useState(false);
   const [activeFolderMenuId, setActiveFolderMenuId] = useState(null);
   const [activeFileMenuId, setActiveFileMenuId] = useState(null);
+  const [activeFileMenuCoords, setActiveFileMenuCoords] = useState(null);
+  const [activeSubFileMenuId, setActiveSubFileMenuId] = useState(null);
+  const [activeSubFileMenuCoords, setActiveSubFileMenuCoords] = useState(null);
+  const [activeAuthorityDropdownId, setActiveAuthorityDropdownId] = useState(null);
+  const [activeAuthorityDropdownCoords, setActiveAuthorityDropdownCoords] = useState(null);
+
+  // Auto-close floating dropdowns on window scroll or resize
+  useEffect(() => {
+    const handleCloseFloatingMenus = () => {
+      if (activeFileMenuId || activeSubFileMenuId || activeAuthorityDropdownId) {
+        setActiveFileMenuId(null);
+        setActiveFileMenuCoords(null);
+        setActiveSubFileMenuId(null);
+        setActiveSubFileMenuCoords(null);
+        setActiveAuthorityDropdownId(null);
+        setActiveAuthorityDropdownCoords(null);
+      }
+    };
+    window.addEventListener('scroll', handleCloseFloatingMenus, true);
+    window.addEventListener('resize', handleCloseFloatingMenus);
+    return () => {
+      window.removeEventListener('scroll', handleCloseFloatingMenus, true);
+      window.removeEventListener('resize', handleCloseFloatingMenus);
+    };
+  }, [activeFileMenuId, activeSubFileMenuId, activeAuthorityDropdownId]);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameFileId, setRenameFileId] = useState(null);
   const [renameFileNameInput, setRenameFileNameInput] = useState('');
@@ -848,8 +1077,6 @@ function App() {
   };
 
   // Sub-Document menu, rename & delete state
-  const [activeSubFileMenuId, setActiveSubFileMenuId] = useState(null);
-  const [activeAuthorityDropdownId, setActiveAuthorityDropdownId] = useState(null);
   const [renameSubDocModal, setRenameSubDocModal] = useState(false);
   const [selectedParentForSubRename, setSelectedParentForSubRename] = useState(null);
   const [selectedSubDocForRename, setSelectedSubDocForRename] = useState(null);
@@ -959,8 +1186,12 @@ function App() {
   };
 
   useEffect(() => {
-    const handleGlobalClick = () => {
+    const handleGlobalClick = (e) => {
+      if (e && e.target && e.target.closest && e.target.closest('[data-authority-dropdown]')) {
+        return;
+      }
       setActiveAuthorityDropdownId(null);
+      setActiveAuthorityDropdownCoords(null);
     };
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
@@ -974,46 +1205,30 @@ function App() {
 
     let options = [
       { label: 'None (Default Approved)', value: '' },
-      { label: 'NECPL', value: 'NECPL' },
-      { label: 'MMRCL', value: 'MMRCL' },
-      { label: 'PMC', value: 'PMC' }
+      { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' }
     ];
 
-    if (['Project Monitoring & Control', 'Quality Management', 'Environment, Health, and Safety (EHS)'].includes(activeSection)) {
+    if (['Site Monitoring & Control', 'Project Monitoring & Control', 'Quality Management', 'Environment, Health, and Safety (EHS)'].includes(activeSection)) {
       options = [
         { label: 'None (Default Approved)', value: '' },
-        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' },
-        { label: 'MMRCL - Md Aasim Sulaiman', value: 'MMRCL - Md Aasim Sulaiman' },
-        { label: 'MMRCL - Mr Rajesh Patil', value: 'MMRCL - Mr Rajesh Patil' },
-        { label: 'MMRCL - Mr Sachin Aher', value: 'MMRCL - Mr Sachin Aher' }
+        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' }
       ];
     } else if (activeSection === 'RFI') {
       options = [
         { label: 'None (Default Approved)', value: '' },
         { label: 'Architect - Ar. Priyadarshini Agrawal', value: 'Architect - Ar. Priyadarshini Agrawal' },
-        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' },
-        { label: 'MMRCL - Md Aasim Sulaiman', value: 'MMRCL - Md Aasim Sulaiman' },
-        { label: 'MMRCL - Mr Rajesh Patil', value: 'MMRCL - Mr Rajesh Patil' },
-        { label: 'MMRCL - Mr Sachin Aher', value: 'MMRCL - Mr Sachin Aher' }
+        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' }
       ];
     } else if (activeSection === 'MEP' || activeSection === 'MEP & IT') {
       options = [
         { label: 'None (Default Approved)', value: '' },
-        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' },
-        { label: 'MMRCL - Dr. Vishwas Ajnalkar', value: 'MMRCL - Dr. Vishwas Ajnalkar' },
-        { label: 'MMRCL - Md Aasim Sulaiman', value: 'MMRCL - Md Aasim Sulaiman' },
-        { label: 'MMRCL - Mr Rajesh Patil', value: 'MMRCL - Mr Rajesh Patil' },
-        { label: 'MMRCL - Mr Sachin Aher', value: 'MMRCL - Mr Sachin Aher' }
+        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' }
       ];
     } else if (activeSection === 'Project Drawings') {
       options = [
         { label: 'None (Default Approved)', value: '' },
         { label: 'Architect - Ar. Priyadarshini Agrawal', value: 'Architect - Ar. Priyadarshini Agrawal' },
-        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' },
-        { label: 'MMRCL - Mr Vikrant Tewathia', value: 'MMRCL - Mr Vikrant Tewathia' },
-        { label: 'MMRCL - Md Aasim Sulaiman', value: 'MMRCL - Md Aasim Sulaiman' },
-        { label: 'MMRCL - Mr Rajesh Patil', value: 'MMRCL - Mr Rajesh Patil' },
-        { label: 'MMRCL - Mr Sachin Aher', value: 'MMRCL - Mr Sachin Aher' }
+        { label: 'PMC - Mr. Madhavesh Kulkarni', value: 'PMC - Mr. Madhavesh Kulkarni' }
       ];
     }
 
@@ -1032,13 +1247,6 @@ function App() {
       const order = [
         'Architect - Ar. Priyadarshini Agrawal',
         'PMC - Mr. Madhavesh Kulkarni',
-        'MMRCL - Dr. Vishwas Ajnalkar',
-        'MMRCL - Mr Vikrant Tewathia',
-        'MMRCL - Md Aasim Sulaiman',
-        'MMRCL - Mr Rajesh Patil',
-        'MMRCL - Mr Sachin Aher',
-        'NECPL',
-        'MMRCL',
         'PMC'
       ];
       nextArray.sort((a, b) => order.indexOf(a) - order.indexOf(b));
@@ -1061,11 +1269,11 @@ function App() {
             subDocuments: d.subDocuments.map(sub =>
               sub._id === item._id
                 ? {
-                    ...sub,
-                    approvalAuthority: newVal,
-                    approvalStatus: newVal ? 'Unapproved' : 'Approved',
-                    approvedBy: ''
-                  }
+                  ...sub,
+                  approvalAuthority: newVal,
+                  approvalStatus: newVal ? 'Unapproved' : 'Approved',
+                  approvedBy: ''
+                }
                 : sub
             )
           };
@@ -1082,28 +1290,70 @@ function App() {
     };
 
     return (
-      <div className="relative inline-block text-left">
+      <div className="relative inline-block text-left" data-authority-dropdown="true">
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            setActiveAuthorityDropdownId(isOpen ? null : dropdownId);
+            if (isOpen) {
+              setActiveAuthorityDropdownId(null);
+              setActiveAuthorityDropdownCoords(null);
+            } else {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const spaceBelow = window.innerHeight - rect.bottom;
+              const spaceAbove = rect.top;
+              const estimatedMenuHeight = Math.min(320, options.length * 38 + 52);
+              const openUp = spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow;
+
+              const top = openUp
+                ? Math.max(10, rect.top - estimatedMenuHeight - 4)
+                : Math.min(window.innerHeight - estimatedMenuHeight - 10, rect.bottom + 4);
+
+              let right = window.innerWidth - rect.right;
+              if (right + 288 > window.innerWidth) right = 10;
+              if (right < 10) right = 10;
+
+              setActiveAuthorityDropdownCoords({
+                top,
+                right,
+                openUp,
+                maxHeight: Math.max(200, Math.min(380, openUp ? spaceAbove - 20 : spaceBelow - 20))
+              });
+              setActiveAuthorityDropdownId(dropdownId);
+              setActiveFileMenuId(null);
+              setActiveFileMenuCoords(null);
+              setActiveSubFileMenuId(null);
+              setActiveSubFileMenuCoords(null);
+            }
           }}
           className="inline-flex justify-between items-center w-full px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm cursor-pointer min-w-[140px] max-w-[220px]"
         >
           <span className={`truncate ${currentVal ? 'text-sky-700 font-bold' : 'text-slate-400'}`} title={currentVal || 'Assign Auth'}>
             {currentVal || 'Assign Auth'}
           </span>
-          <ChevronDown className="ml-1 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+          <ChevronDown className={`ml-1 h-3.5 w-3.5 text-slate-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180 text-sky-600' : ''}`} />
         </button>
 
-        {isOpen && (
+        {isOpen && activeAuthorityDropdownCoords && createPortal(
           <div
-            className="absolute right-0 top-full mt-1 w-72 rounded-xl bg-white border border-slate-200 shadow-2xl z-[9999] p-1.5 space-y-0.5 text-left animate-fade-in"
+            data-authority-dropdown="true"
             onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              top: `${activeAuthorityDropdownCoords.top}px`,
+              right: `${activeAuthorityDropdownCoords.right}px`,
+              zIndex: 999999,
+              maxHeight: `${activeAuthorityDropdownCoords.maxHeight}px`
+            }}
+            className="w-72 rounded-2xl bg-white border border-slate-200 shadow-2xl p-2 space-y-1 text-left animate-fade-in overflow-y-auto custom-scrollbar ring-1 ring-slate-900/10"
           >
-            <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1">
-              Select Authorities (Multi-select)
+            <div className="px-3 py-1.5 text-[10px] font-black text-slate-400 uppercase tracking-wider border-b border-slate-100 mb-1 flex items-center justify-between">
+              <span>Select Authorities (Multi-select)</span>
+              {currentArray.length > 0 && (
+                <span className="text-[9px] font-bold text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded-full">
+                  {currentArray.length} Selected
+                </span>
+              )}
             </div>
             {options.map((opt) => {
               const isSelected = !opt.value
@@ -1115,13 +1365,12 @@ function App() {
                   key={opt.value || 'none'}
                   type="button"
                   onClick={() => handleSelectOption(opt.value)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors duration-150 cursor-pointer select-none ${
-                    isSelected
-                      ? 'bg-sky-50 text-sky-700 font-bold'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 cursor-pointer select-none ${isSelected
+                    ? 'bg-sky-50 text-sky-700 font-bold border border-sky-100 shadow-2xs'
+                    : 'text-slate-700 hover:bg-slate-50 border border-transparent'
+                    }`}
                 >
-                  <span className="flex-1 text-left whitespace-nowrap">{opt.label}</span>
+                  <span className="flex-1 text-left whitespace-nowrap truncate">{opt.label}</span>
                   <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 ml-2">
                     {isSelected && (
                       <Check className="h-4 w-4 text-sky-600 stroke-[2.5]" />
@@ -1130,7 +1379,8 @@ function App() {
                 </button>
               );
             })}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     );
@@ -1487,8 +1737,8 @@ function App() {
       );
     }
 
-    // Special 2-Stage Sequential Flow for Project Monitoring & Control, Quality Management, Environment, Health, and Safety (EHS)
-    if (['Project Monitoring & Control', 'Quality Management', 'Environment, Health, and Safety (EHS)'].includes(activeSection)) {
+    // Special 2-Stage Sequential Flow for Site Monitoring & Control / Project Monitoring & Control, Quality Management, Environment, Health, and Safety (EHS)
+    if (['Site Monitoring & Control', 'Project Monitoring & Control', 'Quality Management', 'Environment, Health, and Safety (EHS)'].includes(activeSection)) {
       const authList = authority.split(',').map(a => a.trim()).filter(Boolean);
       const approvedList = approvedBy ? approvedBy.split(',').map(a => a.trim()).filter(Boolean) : [];
 
@@ -2256,13 +2506,30 @@ function App() {
     const userName = (user.name || user.userId || '').toUpperCase();
     const userEmail = (user.email || '').toLowerCase();
 
-    if (userName.includes('NECPL') || userName.includes('NYATI') || userEmail.includes('necpl')) {
+    if (
+      userEmail.includes('nyatigroup') ||
+      userEmail.includes('nyati') ||
+      userName.includes('NECPL') ||
+      userName.includes('NYATI') ||
+      userEmail.includes('necpl')
+    ) {
       return '/uploads/nyati_logo.png';
     }
     if (userName.includes('MMRCL') || userName.includes('MMRC') || userEmail.includes('mmrcl')) {
       return 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjlVqe7__mbukSAqD0yG5U1pc4OCG8P-uLO3GPA7JZRA&s=10';
     }
     return null;
+  };
+
+  const getUserDisplayName = (user) => {
+    if (!user) return 'User';
+    const email = (user.email || '').toLowerCase();
+    const userId = (user.userId || '').toLowerCase();
+    const name = (user.name || '').toLowerCase();
+    if (email === 'coordination.mmrcl@nyatigroup.com' || userId === 'coordination.mmrcl' || email.includes('coordination.mmrcl') || name.includes('nyati group coordination')) {
+      return 'coordination.mmrcl';
+    }
+    return user.name ? user.name.split(' (')[0] : (user.userId || 'User');
   };
 
   // Hard Copy Handover Print Receipt View
@@ -2344,12 +2611,12 @@ function App() {
   };
 
   const rfiAvailableSections = [
-    { label: 'Project Monitoring & Control', value: 'Project Monitoring & Control' },
+    { label: 'Site Monitoring & Control', value: 'Site Monitoring & Control' },
     { label: 'Project Drawings', value: 'Project Drawings' },
     { label: 'Quality Management', value: 'Quality Management' },
     { label: 'Environment, Health, and Safety (EHS)', value: 'Environment, Health, and Safety (EHS)' },
     { label: 'MEP & IT', value: 'MEP & IT' },
-    { label: 'Project Documents & Registration', value: 'Project Documents & Registration' },
+    { label: 'Project Communication & Letters', value: 'Project Communication & Letters' },
   ];
 
   const getFolderId = (f) => f._id || f.id;
@@ -2454,12 +2721,14 @@ function App() {
     try {
       const targetApiSec = getApiSectionName(rfiSelectedSection);
       const fileNameToUse = rfiFileNameInput.trim();
+      const structCategory = activeProjectStructure || 'Overall Project';
 
-      // 1. Upload to RFI section
+      // 1. Upload to RFI section (Centralized Master RFI Register)
       const rfiFormData = new FormData();
       rfiFormData.append('file', rfiFileInput);
       rfiFormData.append('name', fileNameToUse);
       rfiFormData.append('folder', 'Root');
+      rfiFormData.append('category', structCategory);
       await generalDocsAPI.upload('rfi', rfiFormData);
 
       // 2. Upload to Target section and folder
@@ -2467,6 +2736,7 @@ function App() {
       targetFormData.append('file', rfiFileInput);
       targetFormData.append('name', fileNameToUse);
       targetFormData.append('folder', rfiSelectedFolder || 'Root');
+      targetFormData.append('category', structCategory);
       await generalDocsAPI.upload(targetApiSec, targetFormData);
 
       setShowRfiModal(false);
@@ -2755,10 +3025,20 @@ function App() {
   // Handle auto-opening document from email notification button link (?openDocId=...&docType=...&section=...)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const openDocId = params.get('openDocId');
-    const docType = params.get('docType');
+    let openDocId = params.get('openDocId');
+    let docType = params.get('docType');
+
+    if (openDocId) {
+      sessionStorage.setItem('pendingOpenDocId', openDocId);
+      if (docType) sessionStorage.setItem('pendingDocType', docType);
+    } else {
+      openDocId = sessionStorage.getItem('pendingOpenDocId');
+      docType = sessionStorage.getItem('pendingDocType') || 'general';
+    }
 
     if (openDocId && currentUser) {
+      sessionStorage.removeItem('pendingOpenDocId');
+      sessionStorage.removeItem('pendingDocType');
       const autoOpenDoc = async () => {
         try {
           if (docType === 'submittal') {
@@ -2821,13 +3101,18 @@ function App() {
   const generalDocSections = [
     'Tender Documents',
     'Contractual Documents',
+    'RA Bill Tax Invoice',
+    'Site Monitoring & Control',
     'Project Monitoring & Control',
     'Project Drawings',
     'Quality Management',
     'Environment, Health, and Safety (EHS)',
     'MEP & IT',
+    'Project Communication & Letters',
     'Project Documents & Registration',
-    'RFI'
+    'Non-Conformance Report (NCR)',
+    'RFI',
+    'RFI Register'
   ];
 
   const getApiSectionName = (secName) => {
@@ -2835,23 +3120,28 @@ function App() {
     const lower = secName.toLowerCase();
     if (lower === 'tender documents' || lower === 'tender') return 'tender';
     if (lower === 'contractual documents' || lower === 'contractual') return 'contractual';
-    if (lower === 'project monitoring & control' || lower === 'monitor') return 'monitor';
-    if (lower === 'project drawings' || lower === 'drawing') return 'drawing';
-    if (lower === 'quality management' || lower === 'quality') return 'quality';
+    if (lower.includes('bill') || lower.includes('invoice') || lower === 'ra bill tax invoice') return 'ra_bill';
+    if (lower.includes('monitor')) return 'monitor';
+    if (lower.includes('drawing')) return 'drawing';
+    if (lower.includes('quality')) return 'quality';
     if (lower.includes('ehs') || lower.includes('safety')) return 'ehs';
-    if (lower === 'mep') return 'mep';
-    if (lower.includes('registration') || lower === 'registrations') return 'registrations';
+    if (lower.includes('mep')) return 'mep';
+    if (lower.includes('communication') || lower.includes('letter') || lower.includes('registration') || lower.includes('registrations')) return 'registrations';
     if (lower.includes('approved') || lower.includes('approve') || lower.includes('noc')) return 'approved_nocs';
-    if (lower === 'rfi') return 'rfi';
+    if (lower.includes('ncr') || lower.includes('non-conformance') || lower.includes('conformance')) return 'ncr';
+    if (lower === 'rfi' || lower === 'rfi register') return 'rfi';
     return lower;
   };
 
   // Fetch general documents and folders when active section or active project structure changes
   useEffect(() => {
-    if (generalDocSections.includes(activeSection) && currentUser) {
+    const apiSec = getApiSectionName(activeSection);
+    if ((generalDocSections.includes(activeSection) || apiSec) && currentUser) {
       setFolderPath([]); // Reset folder path when switching sections or structure
       setGeneralDocSearch(''); // Reset search filter when switching sections or structure
+      setGeneralDocDateSearch('');
       setActiveTab('documents'); // Default to Documents Register view
+      setRfiStructureFilter('All'); // Default RFI structure filter to All
       fetchGeneralDocs();
     }
   }, [activeSection, activeProjectStructure, currentUser]);
@@ -2868,11 +3158,40 @@ function App() {
         generalDocsAPI.getFolders(apiSec)
       ]);
 
-      if (docsRes.success) {
-        setTenderDocs(docsRes.data);
-      }
-      if (foldersRes.success) {
-        setTenderFolders(foldersRes.data);
+      if (docsRes.success && foldersRes.success) {
+        let docs = docsRes.data || [];
+        const folders = foldersRes.data || [];
+
+        // Auto-fix misplaced document (e.g. 123456) for Minutes of Meeting if it was saved into Root
+        const momFolder = folders.find(f => {
+          const fName = (f.name || '').toLowerCase();
+          return fName.includes('minutes of meeting');
+        });
+
+        if (momFolder && momFolder._id) {
+          const misplacedDoc = docs.find(d =>
+            (d.name === '123456' || d.originalName === '1691_001.pdf') &&
+            (d.folder === 'Root' || !d.folder || d.folder === 'root')
+          );
+          if (misplacedDoc) {
+            try {
+              await generalDocsAPI.moveDocument(apiSec, misplacedDoc._id, momFolder._id.toString());
+              misplacedDoc.folder = momFolder._id.toString();
+              setExpandedFoldersMap(prev => ({
+                ...prev,
+                [momFolder._id]: true
+              }));
+            } catch (moveErr) {
+              console.error('Auto-move document to Minutes of Meeting notice:', moveErr);
+            }
+          }
+        }
+
+        setTenderDocs(docs);
+        setTenderFolders(folders);
+      } else {
+        if (docsRes.success) setTenderDocs(docsRes.data);
+        if (foldersRes.success) setTenderFolders(foldersRes.data);
       }
     } catch (err) {
       console.error(`Failed to load ${activeSection} documents & folders:`, err);
@@ -2883,20 +3202,60 @@ function App() {
 
   const handleCreateTenderFolder = async (e) => {
     e.preventDefault();
-    if (!tenderFolderNameInput) {
+    if (!tenderFolderNameInput || !tenderFolderNameInput.trim()) {
       alert('Please enter a folder name');
       return;
     }
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec) return;
 
+    let parentId = null;
+    if (targetCategoryForCreateFolder && targetCategoryForCreateFolder !== 'ROOT') {
+      parentId = targetCategoryForCreateFolder;
+    } else if (targetCategoryForCreateFolder === 'ROOT') {
+      parentId = null;
+    } else if (targetParentFolderForCreate) {
+      parentId = (targetParentFolderForCreate._id || targetParentFolderForCreate.id)?.toString();
+    } else if (selectedTenderFolderId && selectedTenderFolderId !== 'Root') {
+      parentId = selectedTenderFolderId;
+    }
+
     setTenderFolderCreating(true);
     try {
-      const res = await generalDocsAPI.createFolder(apiSec, tenderFolderNameInput, selectedTenderFolderId);
+      const res = await generalDocsAPI.createFolder(apiSec, tenderFolderNameInput.trim(), parentId);
       if (res.success) {
         setShowTenderFolderModal(false);
         setTenderFolderNameInput('');
-        await fetchGeneralDocs();
+        setTargetParentFolderForCreate(null);
+        setTargetCategoryForCreateFolder('ROOT');
+
+        // Fetch fresh list of documents and folders
+        const docsRes = await generalDocsAPI.list(apiSec);
+        const foldersRes = await generalDocsAPI.getFolders(apiSec);
+
+        if (docsRes.success) setTenderDocs(docsRes.data);
+        if (foldersRes.success) {
+          const freshFolders = foldersRes.data;
+          setTenderFolders(freshFolders);
+
+          // If created inside a parent folder, expand target folder and all its parent/ancestor folders
+          if (parentId) {
+            const targetIdStr = parentId.toString();
+            const newExpanded = { [targetIdStr]: true };
+            let curr = freshFolders.find(f => (f._id || f.id)?.toString() === targetIdStr);
+            while (curr) {
+              const pid = curr.parentFolder ? (typeof curr.parentFolder === 'object' ? (curr.parentFolder._id || curr.parentFolder.id) : curr.parentFolder) : null;
+              if (!pid) break;
+              const pidStr = pid.toString();
+              newExpanded[pidStr] = true;
+              curr = freshFolders.find(f => (f._id || f.id)?.toString() === pidStr);
+            }
+            setExpandedFoldersMap(prev => ({
+              ...prev,
+              ...newExpanded
+            }));
+          }
+        }
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Folder creation failed');
@@ -2959,9 +3318,36 @@ function App() {
 
     setTenderUploading(true);
     try {
+      let targetFolder = selectedTenderFolderId;
+      let matchedFolderId = null;
+
+      if (tenderUploadCategory) {
+        const cleanCat = tenderUploadCategory.trim().toLowerCase();
+        const unnumberedCat = cleanCat.replace(/^\d+\.\s*/, '');
+
+        const matchedFolder = tenderFolders.find(f => {
+          if (!f.name) return false;
+          const fName = f.name.trim().toLowerCase();
+          const fUnnumbered = fName.replace(/^\d+\.\s*/, '');
+          return fName === cleanCat || fUnnumbered === unnumberedCat || fName.includes(unnumberedCat) || unnumberedCat.includes(fUnnumbered);
+        });
+
+        if (matchedFolder) {
+          matchedFolderId = (matchedFolder._id || matchedFolder.id || matchedFolder.name).toString();
+          targetFolder = matchedFolderId;
+        } else {
+          targetFolder = tenderUploadCategory;
+        }
+      }
+
+      if (!targetFolder) {
+        targetFolder = 'Root';
+      }
+
       const formData = new FormData();
       formData.append('name', tenderUploadName);
-      formData.append('folder', selectedTenderFolderId || 'Root');
+      formData.append('folder', targetFolder);
+      formData.append('category', activeProjectStructure || tenderUploadCategory || 'Overall Project');
       formData.append('file', tenderUploadFile);
 
       const res = await generalDocsAPI.upload(apiSec, formData);
@@ -2969,6 +3355,17 @@ function App() {
         setShowTenderUploadModal(false);
         setTenderUploadName('');
         setTenderUploadFile(null);
+        setTenderUploadCategory('');
+
+        // Expand the target folder so the newly uploaded file is immediately visible inside it
+        const folderToExpand = matchedFolderId || (targetFolder !== 'Root' ? targetFolder : null);
+        if (folderToExpand) {
+          setExpandedFoldersMap(prev => ({
+            ...prev,
+            [folderToExpand]: true
+          }));
+        }
+
         await fetchGeneralDocs();
       }
     } catch (err) {
@@ -3142,10 +3539,10 @@ function App() {
 
   const getSubmittalCategory = (code) => {
     const num = parseInt(code?.replace('MMRCL-SUB-', '') || '0');
-    if (num >= 1 && num <= 5) return 'Project Monitoring & Control';
-    if (num === 8 || num === 9) return 'Project Monitoring & Control';
+    if (num >= 1 && num <= 5) return 'Site Monitoring & Control';
+    if (num === 8 || num === 9) return 'Site Monitoring & Control';
     if (num === 6 || num === 7 || num === 10) return 'Project Drawings';
-    if (num === 11 || num === 19 || num === 20 || num === 21) return 'Project Documents & Registration';
+    if (num === 11 || num === 19 || num === 20 || num === 21) return 'Project Communication & Letters';
     if (num === 12 || num === 13) return 'MEP & IT';
     if (num >= 14 && num <= 16) return 'Quality Management';
     if (num === 17 || num === 18) return 'Environment, Health, and Safety (EHS)';
@@ -3153,8 +3550,14 @@ function App() {
     return 'Tender Documents';
   };
 
-  const sectionMatrix = filteredMatrix.filter(item => getSubmittalCategory(item.code) === activeSection);
-  const sectionDocs = filteredDocs.filter(doc => getSubmittalCategory(doc.submittalMatrixId?.code) === activeSection);
+  const sectionMatrix = filteredMatrix.filter(item => {
+    const cat = getSubmittalCategory(item.code);
+    return cat === activeSection || (activeSection === 'Site Monitoring & Control' && cat === 'Project Monitoring & Control') || (activeSection === 'Project Communication & Letters' && cat === 'Project Documents & Registration');
+  });
+  const sectionDocs = filteredDocs.filter(doc => {
+    const cat = getSubmittalCategory(doc.submittalMatrixId?.code);
+    return cat === activeSection || (activeSection === 'Site Monitoring & Control' && cat === 'Project Monitoring & Control') || (activeSection === 'Project Communication & Letters' && cat === 'Project Documents & Registration');
+  });
 
   if (authLoading) {
     return (
@@ -3245,7 +3648,7 @@ function App() {
                   {received.A1 >= expected.A1 ? (
                     <span className="text-green-600">✓ Met</span>
                   ) : (
-                    <span className="text-amber-600">⚠ Short (-{expected.A1 - received.A1})</span>
+                    <span className="text-amber-600">⚠️ Short (-{expected.A1 - received.A1})</span>
                   )}
                 </td>
               </tr>
@@ -3257,7 +3660,7 @@ function App() {
                   {received.A3 >= expected.A3 ? (
                     <span className="text-green-600">✓ Met</span>
                   ) : (
-                    <span className="text-amber-600">⚠ Short (-{expected.A3 - received.A3})</span>
+                    <span className="text-amber-600">⚠️ Short (-{expected.A3 - received.A3})</span>
                   )}
                 </td>
               </tr>
@@ -3269,7 +3672,7 @@ function App() {
                   {received.A4 >= expected.A4 ? (
                     <span className="text-green-600">✓ Met</span>
                   ) : (
-                    <span className="text-amber-600">⚠ Short (-{expected.A4 - received.A4})</span>
+                    <span className="text-amber-600">⚠️ Short (-{expected.A4 - received.A4})</span>
                   )}
                 </td>
               </tr>
@@ -3778,7 +4181,7 @@ function App() {
         {showForgotPasswordModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in select-none">
             <div className="relative max-w-xl md:max-w-2xl w-full p-8 md:p-10 bg-white/95 backdrop-blur-2xl rounded-3xl border border-white/80 shadow-2xl text-slate-900">
-              
+
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
                 <div className="flex items-center space-x-3">
@@ -3872,7 +4275,7 @@ function App() {
                       <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
                         Enter 5-Digit OTP Code
                       </label>
-                      
+
                       {/* Live 2-Minute Countdown Timer & Resend Link */}
                       <div className="flex items-center space-x-2 text-xs">
                         <span className={`font-mono font-bold px-2 py-0.5 rounded-lg border ${otpExpired ? 'bg-rose-100 text-rose-700 border-rose-300' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
@@ -4024,17 +4427,56 @@ function App() {
     );
   }
 
+  const getStructureBadge = (category) => {
+    if (!category || category === '-') return null;
+    const catLower = category.toLowerCase();
+    if (catLower.includes('project 1') || catLower.includes('phase 1') || catLower.includes('metro bhawan')) {
+      return (
+        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-sky-100 text-sky-800 border border-sky-200 whitespace-nowrap shadow-2xs flex-shrink-0">
+          Project 1 (Metro Bhawan)
+        </span>
+      );
+    }
+    if (catLower.includes('project 2') || catLower.includes('phase 2') || catLower.includes('executive staff')) {
+      return (
+        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap shadow-2xs flex-shrink-0">
+          Project 2 (Ex. Staff Qtr)
+        </span>
+      );
+    }
+    if (catLower.includes('project 3') || catLower.includes('phase 3') || catLower.includes('non-executive staff') || catLower.includes('dharavi')) {
+      return (
+        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap shadow-2xs flex-shrink-0">
+          Project 3 (Non-Ex. Staff Qtr)
+        </span>
+      );
+    }
+    if (catLower.includes('overall')) {
+      return (
+        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 whitespace-nowrap shadow-2xs flex-shrink-0">
+          Overall Project
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap shadow-2xs flex-shrink-0">
+        {category}
+      </span>
+    );
+  };
+
   const topNavSections = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'details', name: 'Project Details', icon: Building },
     { id: 'tender', name: 'Tender Documents', icon: FileText },
     { id: 'contractual', name: 'Contractual Documents', icon: FileCheck },
+    { id: 'ra_bill', name: 'RA Bill Tax Invoice', icon: Receipt },
   ];
 
   const projectStructuresList = [
     {
       id: 'over_all_project',
-      name: 'Over All Project',
+      name: 'Overall Project',
       defaultClass: 'bg-indigo-100/90 hover:bg-indigo-200 text-indigo-950 border-indigo-300 shadow-2xs font-bold',
       activeClass: 'bg-indigo-200 text-indigo-950 border-indigo-400 shadow-xs font-extrabold ring-2 ring-indigo-400/60',
       chevronColor: 'text-indigo-700',
@@ -4045,7 +4487,7 @@ function App() {
     },
     {
       id: 'metro_bhavan',
-      name: 'Metro Bhavan Andheri',
+      name: 'Project 1 Metro Bhawan Commercial Andheri',
       defaultClass: 'bg-sky-100/90 hover:bg-sky-200 text-sky-950 border-sky-300 shadow-2xs font-bold',
       activeClass: 'bg-sky-200 text-sky-950 border-sky-400 shadow-xs font-extrabold ring-2 ring-sky-400/60',
       chevronColor: 'text-sky-700',
@@ -4056,7 +4498,7 @@ function App() {
     },
     {
       id: 'residential_andheri',
-      name: 'Residential Andheri',
+      name: 'Project 2 Executive Staff Quarters Residential Andheri',
       defaultClass: 'bg-emerald-100/90 hover:bg-emerald-200 text-emerald-950 border-emerald-300 shadow-2xs font-bold',
       activeClass: 'bg-emerald-200 text-emerald-950 border-emerald-400 shadow-xs font-extrabold ring-2 ring-emerald-400/60',
       chevronColor: 'text-emerald-700',
@@ -4067,7 +4509,7 @@ function App() {
     },
     {
       id: 'residential_dharavi',
-      name: 'Residential Dharavi',
+      name: 'Project 3 Non-Executive Staff Quarters Residential Dharavi',
       defaultClass: 'bg-amber-100/90 hover:bg-amber-200 text-amber-950 border-amber-300 shadow-2xs font-bold',
       activeClass: 'bg-amber-200 text-amber-950 border-amber-400 shadow-xs font-extrabold ring-2 ring-amber-400/60',
       chevronColor: 'text-amber-700',
@@ -4079,12 +4521,13 @@ function App() {
   ];
 
   const structureModulesList = [
-    { id: 'monitor', name: 'Project Monitoring & Control', icon: BarChart3 },
+    { id: 'monitor', name: 'Site Monitoring & Control', icon: BarChart3 },
     { id: 'drawing', name: 'Project Drawings', icon: Compass },
     { id: 'quality', name: 'Quality Management', icon: Award },
     { id: 'ehs', name: 'Environment, Health, and Safety (EHS)', icon: ShieldAlert },
     { id: 'mep', name: 'MEP & IT', icon: Wrench },
-    { id: 'registrations', name: 'Project Documents & Registration', icon: ClipboardList },
+    { id: 'registrations', name: 'Project Communication & Letters', icon: ClipboardList },
+    { id: 'ncr', name: 'Non-Conformance Report (NCR)', icon: FileWarning },
     { id: 'rfi', name: 'RFI', icon: FileQuestion },
   ];
 
@@ -4093,23 +4536,39 @@ function App() {
       <aside
         onMouseEnter={() => setIsSidebarHovered(true)}
         onMouseLeave={() => setIsSidebarHovered(false)}
-        className={`border-r border-slate-200 bg-white flex flex-col justify-between p-3 sticky top-0 h-screen z-30 select-none flex-shrink-0 transition-all duration-300 ease-in-out overflow-x-hidden ${
-          isSidebarExpanded ? 'w-[340px]' : 'w-20'
-        }`}
+        className={`border-r border-slate-200 bg-white flex flex-col justify-between p-3 sticky top-0 h-screen z-40 select-none flex-shrink-0 transition-all duration-300 ease-in-out relative ${isSidebarExpanded ? 'w-[340px]' : 'w-20'
+          }`}
       >
+        {/* Floating Sidebar Hover & Toggle Arrow Indicator */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsSidebarPinned(!isSidebarPinned);
+          }}
+          onMouseEnter={() => setIsSidebarHovered(true)}
+          title={isSidebarExpanded ? "Collapse Sidebar" : "Hover or click to expand Sidebar"}
+          className="absolute top-1/2 -translate-y-1/2 -right-3.5 z-50 w-7 h-7 rounded-full bg-white border border-slate-200 shadow-md flex items-center justify-center text-sky-600 hover:text-sky-700 hover:bg-sky-50 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer group/arrow"
+        >
+          {isSidebarExpanded ? (
+            <ChevronLeft className="h-4 w-4 stroke-[3] transition-transform group-hover/arrow:-translate-x-0.5" />
+          ) : (
+            <ChevronRight className="h-4 w-4 stroke-[3] transition-transform group-hover/arrow:translate-x-0.5" />
+          )}
+        </button>
         <div className="space-y-6">
           <div className="flex items-center px-2 py-1.5 border-b border-slate-100 pb-4">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 shadow-md text-white flex items-center justify-center flex-shrink-0">
               <FolderKanban className="h-6 w-6" />
             </div>
             <div className={`transition-all duration-300 ease-in-out overflow-hidden ml-3 ${isSidebarExpanded ? 'opacity-100 max-w-md' : 'opacity-0 max-w-0 pointer-events-none'}`}>
-              <h1 className="text-sm font-bold tracking-tight text-slate-900 leading-snug whitespace-nowrap">
-                Project Management Information System (PMIS)
+              <h1 className="text-xs md:text-sm font-bold tracking-tight text-slate-900 leading-tight">
+                Project Management<br />Information System (PMIS)
               </h1>
             </div>
           </div>
 
-          <nav className="space-y-1.5 overflow-y-auto max-h-[calc(100vh-160px)] pr-1 custom-scrollbar">
+          <nav className="space-y-1.5 overflow-visible max-h-[calc(100vh-160px)] pr-1 custom-scrollbar">
             {/* Main Top Navigation Items */}
             {topNavSections.map((sec) => {
               const IconComp = sec.icon;
@@ -4130,6 +4589,7 @@ function App() {
                     setActiveSection(sec.name);
                     setFolderPath([]);
                     setGeneralDocSearch('');
+                    setGeneralDocDateSearch('');
                     setIsSidebarPinned(false);
                     setIsSidebarHovered(false);
                   }}
@@ -4148,68 +4608,93 @@ function App() {
                 </button>
               );
             })}
-            <div className="pt-1.5 space-y-1">
-              {/* Parent Project Structure Header Button (Matches Top Item Styling) */}
+            <div
+              className="pt-1.5 space-y-1"
+              onMouseEnter={() => setIsProjectStructureHovered(true)}
+              onMouseLeave={() => setIsProjectStructureHovered(false)}
+            >
+              {/* Parent Project Header Button (Matches Top Item Styling) */}
               <button
                 type="button"
                 onClick={() => {
                   setIsProjectStructureExpanded(!isProjectStructureExpanded);
                 }}
-                title={!isSidebarExpanded ? "Project Structure" : undefined}
-                className="w-full flex items-center px-4 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 border border-transparent group relative"
+                title={!isSidebarExpanded ? "Projects" : undefined}
+                className={`w-full flex items-center px-4 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 border group relative ${isProjectStructureExpanded || isProjectStructureHovered
+                  ? 'bg-sky-50/80 text-sky-900 border-sky-100 font-bold'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 border-transparent'
+                  }`}
               >
                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                  <Layers className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-colors duration-200" />
+                  <Layers className={`h-5 w-5 transition-colors duration-200 ${isProjectStructureExpanded || isProjectStructureHovered ? 'text-sky-600' : 'text-slate-400 group-hover:text-slate-600'
+                    }`} />
                 </div>
                 <span className={`whitespace-nowrap truncate transition-all duration-300 ease-in-out ${isSidebarExpanded ? 'opacity-100 max-w-md ml-3' : 'opacity-0 max-w-0 ml-0 pointer-events-none hidden'}`}>
-                  Project Structure
+                  Projects
                 </span>
                 <div className={`transition-all duration-300 ease-in-out ${isSidebarExpanded ? 'opacity-100 max-w-md ml-auto' : 'opacity-0 max-w-0 ml-0 pointer-events-none hidden'}`}>
-                  {isProjectStructureExpanded ? (
-                    <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0 transition-transform duration-200" />
+                  {isProjectStructureExpanded || isProjectStructureHovered ? (
+                    <ChevronDown className="h-4 w-4 text-sky-600 flex-shrink-0 transition-transform duration-200" />
                   ) : (
                     <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-600 flex-shrink-0 transition-transform duration-200" />
                   )}
                 </div>
               </button>
 
-              {/* Nested Sub-Groups Level 1: ONLY render when sidebar IS EXPANDED and Project Structure is open */}
-              {isSidebarExpanded && isProjectStructureExpanded && (
-                <div className="pl-2 mt-1 space-y-1 border-l-2 border-slate-200 ml-3.5">
+              {/* Nested Sub-Groups Level 1: Rendered with smooth height/opacity transition on hover or expand */}
+              {isSidebarExpanded && (
+                <div
+                  className={`pl-2 space-y-1.5 border-l-2 border-slate-200 ml-3.5 transition-all duration-300 ease-in-out ${isProjectStructureExpanded || isProjectStructureHovered
+                    ? 'max-h-[600px] opacity-100 mt-1 overflow-visible'
+                    : 'max-h-0 opacity-0 mt-0 overflow-hidden pointer-events-none'
+                    }`}
+                >
                   {projectStructuresList.map((struct) => {
-                    const isSubOpen = !!openSubStructures[struct.name];
-                    const isStructActive = activeProjectStructure === struct.name && structureModulesList.some(m => m.name === activeSection);
+                    const currentModulesList = struct.id === 'over_all_project'
+                      ? structureModulesList
+                      : structureModulesList.filter((m) => m.id !== 'ncr');
+
+                    const isStructActive = activeProjectStructure === struct.name && currentModulesList.some(m => m.name === activeSection);
 
                     return (
-                      <div key={struct.id} className="space-y-1">
-                        {/* Sub-Group Header Button (Colored Box without Icon, matching RFI style) */}
+                      <div key={struct.id} className="relative group/struct">
+                        {/* Sub-Group Header Button */}
                         <button
                           type="button"
                           onClick={() => {
-                            toggleSubStructure(struct.name);
+                            setActiveProjectStructure(struct.name);
+                            setActiveSection('Site Monitoring & Control');
+                            setFolderPath([]);
+                            setGeneralDocSearch('');
+                            setGeneralDocDateSearch('');
+                            setIsSidebarPinned(false);
+                            setIsSidebarHovered(false);
                           }}
                           title={!isSidebarExpanded ? struct.name : undefined}
-                          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left text-sm tracking-wide transition-all duration-150 group border ${
-                            isStructActive
-                              ? struct.activeClass
-                              : struct.defaultClass
-                          }`}
+                          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-left text-sm tracking-wide transition-all duration-150 border ${isStructActive
+                            ? struct.activeClass
+                            : struct.defaultClass
+                            }`}
                         >
                           <span className="whitespace-nowrap truncate transition-all duration-300 ease-in-out">{struct.name}</span>
-                          {isSubOpen ? (
-                            <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${struct.chevronColor}`} />
-                          ) : (
-                            <ChevronRight className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${struct.chevronColor}`} />
-                          )}
+                          <ChevronRight className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover/struct:translate-x-1 ${struct.chevronColor}`} />
                         </button>
 
-                        {/* Nested Modules Level 2: Project Monitoring & Control, Drawings, Quality, EHS, MEP, Registrations, RFI */}
-                        {isSubOpen && (
-                          <div className="pl-3 space-y-1 py-1 border-l border-slate-200 ml-3">
-                            {structureModulesList.map((mod) => {
+                        {/* Side Flyout Sub-menu (Positioned on the RIGHT of section item with smooth animation) */}
+                        <div className="absolute left-full top-0 pl-2.5 z-50 opacity-0 pointer-events-none translate-x-3 scale-95 transition-all duration-200 ease-out group-hover/struct:opacity-100 group-hover/struct:pointer-events-auto group-hover/struct:translate-x-0 group-hover/struct:scale-100 origin-top-left">
+                          <div className="w-72 bg-white/95 backdrop-blur-md rounded-2xl p-2 shadow-2xl border border-slate-200/90 ring-1 ring-slate-900/5 space-y-1 max-h-[85vh] overflow-y-auto custom-scrollbar">
+                            <div className="px-3 py-1.5 mb-1 border-b border-slate-100 flex items-center justify-between">
+                              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                                {struct.name}
+                              </span>
+                              <span className={`w-2.5 h-2.5 rounded-full ${struct.pillColor}`}></span>
+                            </div>
+
+                            {currentModulesList.map((mod) => {
                               const ModIcon = mod.icon;
                               const isModuleActive = activeSection === mod.name && activeProjectStructure === struct.name;
                               const isRfi = mod.id === 'rfi';
+                              const isNcr = mod.id === 'ncr';
                               const sectionHasUnread = isModuleActive && tenderDocs.some(hasUnreadRemarks);
 
                               let buttonStyle = `text-slate-600 hover:text-slate-900 ${struct.hoverBg} border border-transparent`;
@@ -4217,15 +4702,21 @@ function App() {
 
                               if (isModuleActive) {
                                 if (isRfi) {
-                                  buttonStyle = 'bg-purple-600 text-white border border-purple-700 shadow-md font-bold';
+                                  buttonStyle = 'bg-orange-600 text-white border border-orange-700 shadow-md font-bold';
                                   iconStyle = 'text-white';
+                                } else if (isNcr) {
+                                  buttonStyle = 'bg-yellow-400 text-slate-950 border border-yellow-500 shadow-md font-extrabold';
+                                  iconStyle = 'text-slate-950';
                                 } else {
                                   buttonStyle = struct.activeModuleStyle;
                                   iconStyle = struct.activeModuleIconStyle;
                                 }
                               } else if (isRfi) {
-                                buttonStyle = 'bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200/90 shadow-xs font-extrabold';
-                                iconStyle = 'text-purple-600';
+                                buttonStyle = 'bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200/90 shadow-xs font-extrabold';
+                                iconStyle = 'text-orange-600';
+                              } else if (isNcr) {
+                                buttonStyle = 'bg-yellow-50 hover:bg-yellow-100 text-yellow-900 border border-yellow-300 shadow-xs font-bold';
+                                iconStyle = 'text-yellow-600';
                               }
 
                               return (
@@ -4236,15 +4727,16 @@ function App() {
                                     setActiveSection(mod.name);
                                     setFolderPath([]);
                                     setGeneralDocSearch('');
+                                    setGeneralDocDateSearch('');
                                     setIsSidebarPinned(false);
                                     setIsSidebarHovered(false);
                                   }}
-                                  title={!isSidebarExpanded ? `${struct.name} - ${mod.name}` : undefined}
-                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-150 relative group ${buttonStyle}`}
+                                  title={`${struct.name} - ${mod.name}`}
+                                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs font-semibold tracking-wide transition-all duration-150 relative group ${buttonStyle}`}
                                 >
-                                  <div className="flex items-center space-x-3 min-w-0 flex-1 overflow-hidden">
+                                  <div className="flex items-center space-x-2.5 min-w-0 flex-1 overflow-hidden">
                                     {isModuleActive && (
-                                      <span className={`absolute left-0 top-2 bottom-2 w-1 rounded-r ${isRfi ? 'bg-purple-300' : struct.pillColor}`}></span>
+                                      <span className={`absolute left-0 top-1.5 bottom-1.5 w-1 rounded-r ${isNcr ? 'bg-yellow-500' : isRfi ? 'bg-orange-300' : struct.pillColor}`}></span>
                                     )}
                                     {sectionHasUnread && (
                                       <span className="absolute right-2 top-2.5 flex h-2 w-2" title="New Unread Remark">
@@ -4253,19 +4745,50 @@ function App() {
                                       </span>
                                     )}
                                     <ModIcon className={`h-4 w-4 flex-shrink-0 transition-colors duration-150 ${iconStyle}`} />
-                                    <span className="whitespace-nowrap truncate transition-all duration-300 ease-in-out">{mod.name}</span>
+                                    <span className="whitespace-nowrap truncate">{mod.name}</span>
                                   </div>
                                 </button>
                               );
                             })}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               )}
             </div>
+
+            {/* RFI Register Sidebar Item */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSection('RFI Register');
+                setFolderPath([]);
+                setGeneralDocSearch('');
+                setGeneralDocDateSearch('');
+                setIsSidebarPinned(false);
+                setIsSidebarHovered(false);
+              }}
+              title={!isSidebarExpanded ? "RFI Register" : undefined}
+              className={`w-full flex items-center px-4 py-2.5 rounded-xl text-left text-sm font-semibold tracking-wide transition-all duration-200 relative group mt-1.5 ${activeSection === 'RFI Register'
+                ? 'bg-orange-100/90 text-orange-950 border border-orange-300 font-extrabold shadow-2xs'
+                : 'bg-orange-50/50 text-orange-900 hover:text-orange-950 hover:bg-orange-100/80 border border-orange-200/60 font-semibold'
+                }`}
+            >
+              {activeSection === 'RFI Register' ? (
+                <span className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r bg-orange-500"></span>
+              ) : (
+                <span className="absolute left-0 top-2.5 bottom-2.5 w-1 rounded-r bg-orange-400/70"></span>
+              )}
+              <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                <FileQuestion className={`h-5 w-5 transition-colors duration-200 ${activeSection === 'RFI Register' ? 'text-orange-600' : 'text-orange-500 group-hover:text-orange-600'
+                  }`} />
+              </div>
+              <span className={`whitespace-nowrap truncate transition-all duration-300 ease-in-out ${isSidebarExpanded ? 'opacity-100 max-w-md ml-3' : 'opacity-0 max-w-0 ml-0 pointer-events-none hidden'}`}>
+                RFI Register
+              </span>
+            </button>
           </nav>
         </div>
 
@@ -4289,13 +4812,13 @@ function App() {
                   }
                   return (
                     <div className="bg-gradient-to-tr from-sky-500 to-teal-400 h-9 w-9 rounded-full flex items-center justify-center text-white font-bold text-base shadow flex-shrink-0">
-                      {(currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User').charAt(0)}
+                      {getUserDisplayName(currentUser).charAt(0)}
                     </div>
                   );
                 })()}
                 <div className="text-left min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-slate-900 leading-tight truncate" title={currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User'}>
-                    {currentUser?.name ? currentUser.name.split(' (')[0] : currentUser?.userId || 'User'}
+                  <span className="block text-sm font-bold text-slate-900 leading-tight truncate" title={getUserDisplayName(currentUser)}>
+                    {getUserDisplayName(currentUser)}
                   </span>
                 </div>
               </div>
@@ -4663,11 +5186,10 @@ function App() {
                     <FileText className="h-6 w-6" />
                   </div>
                   <div>
-                    <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Documents</span>
+                    <span className="block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Total Documents</span>
                     <span className="text-2xl font-extrabold text-slate-800 tracking-tight">
                       {documents && documents.length > 0 ? documents.length : 18}
                     </span>
-                    <span className="block text-[10px] text-slate-400 font-semibold mt-0.5">Across project phases</span>
                   </div>
                 </div>
 
@@ -4677,9 +5199,8 @@ function App() {
                     <Building className="h-6 w-6" />
                   </div>
                   <div>
-                    <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">Project Sites</span>
+                    <span className="block text-[11px] font-extrabold text-slate-900 uppercase tracking-wider">Project Sites</span>
                     <span className="text-2xl font-extrabold text-slate-800 tracking-tight">3 Active</span>
-                    <span className="block text-[10px] text-slate-400 font-semibold mt-0.5">Commercial, Res., Dharavi</span>
                   </div>
                 </div>
 
@@ -4690,7 +5211,6 @@ function App() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">Construction Site Progress</h3>
-                    <p className="text-xs text-slate-500 font-semibold mt-0.5">Real-time progress overview of key project sites</p>
                   </div>
                 </div>
 
@@ -4714,9 +5234,9 @@ function App() {
                     return (
                       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col items-center space-y-4">
                         <div className="w-full flex justify-between items-center">
-                          <span className="font-bold text-slate-800 text-sm tracking-wide">Commercial Site</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadgeColor}`}>
-                            {statusText}
+                          <span className="font-bold text-slate-800 text-sm tracking-wide">
+                            <span className="text-sky-600 font-black mr-1.5">Project 1</span>
+                            <span>Metro Bhawan Commercial Andheri</span>
                           </span>
                         </div>
 
@@ -4747,13 +5267,13 @@ function App() {
                           </svg>
                           <div className="absolute text-center">
                             <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{commercialProgress}%</span>
-                            <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Progress</span>
+                            <span className="block text-[9px] text-slate-900 font-extrabold uppercase tracking-wider mt-0.5">Progress</span>
                           </div>
                         </div>
 
                         {/* Progress metric */}
                         <div className="w-full text-center text-xs border-y border-slate-100 py-3 my-1">
-                          <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Progress: </span>
+                          <span className="text-slate-900 font-extrabold uppercase tracking-wider text-[11px]">Progress: </span>
                           <span className="font-extrabold text-slate-800 text-[13px]">{commercialProgress}%</span>
                         </div>
                       </div>
@@ -4779,9 +5299,9 @@ function App() {
                     return (
                       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col items-center space-y-4">
                         <div className="w-full flex justify-between items-center">
-                          <span className="font-bold text-slate-800 text-sm tracking-wide">Residential Site</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadgeColor}`}>
-                            {statusText}
+                          <span className="font-bold text-slate-800 text-sm tracking-wide">
+                            <span className="text-sky-600 font-black mr-1.5">Project 2</span>
+                            <span>Executive Staff Quarters Residential Andheri</span>
                           </span>
                         </div>
 
@@ -4812,13 +5332,13 @@ function App() {
                           </svg>
                           <div className="absolute text-center">
                             <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{residentialProgress}%</span>
-                            <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Progress</span>
+                            <span className="block text-[9px] text-slate-900 font-extrabold uppercase tracking-wider mt-0.5">Progress</span>
                           </div>
                         </div>
 
                         {/* Progress metric */}
                         <div className="w-full text-center text-xs border-y border-slate-100 py-3 my-1">
-                          <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Progress: </span>
+                          <span className="text-slate-900 font-extrabold uppercase tracking-wider text-[11px]">Progress: </span>
                           <span className="font-extrabold text-slate-800 text-[13px]">{residentialProgress}%</span>
                         </div>
                       </div>
@@ -4844,9 +5364,9 @@ function App() {
                     return (
                       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition duration-200 flex flex-col items-center space-y-4">
                         <div className="w-full flex justify-between items-center">
-                          <span className="font-bold text-slate-800 text-sm tracking-wide">Dharavi Site</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusBadgeColor}`}>
-                            {statusText}
+                          <span className="font-bold text-slate-800 text-sm tracking-wide">
+                            <span className="text-sky-600 font-black mr-1.5">Project 3</span>
+                            <span>Non-Executive Staff Quarters Residential Dharavi</span>
                           </span>
                         </div>
 
@@ -4877,13 +5397,13 @@ function App() {
                           </svg>
                           <div className="absolute text-center">
                             <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{dharaviProgress}%</span>
-                            <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Progress</span>
+                            <span className="block text-[9px] text-slate-900 font-extrabold uppercase tracking-wider mt-0.5">Progress</span>
                           </div>
                         </div>
 
                         {/* Progress metric */}
                         <div className="w-full text-center text-xs border-y border-slate-100 py-3 my-1">
-                          <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Progress: </span>
+                          <span className="text-slate-900 font-extrabold uppercase tracking-wider text-[11px]">Progress: </span>
                           <span className="font-extrabold text-slate-800 text-[13px]">{dharaviProgress}%</span>
                         </div>
                       </div>
@@ -4892,12 +5412,12 @@ function App() {
                 </div>
               </div>
 
-              {/* Note Banner */}
-              <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 shadow-sm flex items-center space-x-3 text-amber-900">
-                <div className="p-2 bg-amber-100 text-amber-700 rounded-xl flex-shrink-0">
-                  <Info className="h-5 w-5" />
+              {/* Note Text */}
+              <div className="flex items-center space-x-2 text-amber-900 py-1">
+                <div className="p-1 text-amber-700 flex-shrink-0">
+                  <Info className="h-4 w-4" />
                 </div>
-                <p className="text-xs md:text-sm font-medium tracking-wide leading-relaxed">
+                <p className="text-xs md:text-sm font-medium tracking-wide">
                   <span className="font-extrabold text-amber-950">Note :- </span>
                   Dashboard will be updated monthly as per progress review meetings
                 </p>
@@ -4925,6 +5445,7 @@ function App() {
               </div>
 
             </div>
+
           ) : activeSection === 'Project Details' ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700">
               {/* Header Title Banner with Notification Bell */}
@@ -4933,25 +5454,18 @@ function App() {
                 <div className="w-11 flex-shrink-0 invisible" aria-hidden="true" />
                 {/* Centered Project Name */}
                 <div className="flex-1 text-center">
-                  <h3 className="text-lg md:text-xl font-extrabold text-slate-900 tracking-wide uppercase leading-snug">
-                    Construction Of Metro Bhawan & Staff Quarters For Mumbai Metro Rail Corporation Limited In Mumbai
+                  <h3 className="text-xl md:text-2xl lg:text-3xl font-black text-slate-900 tracking-wider uppercase leading-tight">
+                    Project Management Information System
                   </h3>
-                  <p className="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-widest">
-                    Project Management & Monitoring Portal
+                  <p className="text-sm md:text-base font-bold text-sky-800 mt-1.5 tracking-wide uppercase">
+                    Construction Of Metro Bhawan & Staff Quarters For Mumbai Metro Rail Corporation Limited In Mumbai
                   </p>
                 </div>
               </div>
 
-              {/* Building Rendering Hero Banner (Full height image display with centered max-width) */}
+              {/* Building Rendering Hero Banner Carousel (Auto moving right to left with 6 images) */}
               <div className="flex justify-center">
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm max-w-4xl md:max-w-5xl w-full p-2 flex justify-center">
-                  <img
-                    src="/uploads/metro_bhawan.jpg"
-                    alt="Metro Bhawan Building Architectural Rendering"
-                    className="w-full h-auto rounded-xl object-contain hover:scale-[1.005] transition-transform duration-300"
-                    onError={(e) => { e.target.src = 'https://projectmanagement.nyatigroup.com:5005/uploads/metro_bhawan.jpg'; }}
-                  />
-                </div>
+                <ProjectGalleryCarousel />
               </div>
 
               {/* Grid 1: Basic & Stakeholders & Financials */}
@@ -5058,7 +5572,9 @@ function App() {
                 <div className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-sm">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <span className="font-bold text-slate-900 text-sm">A). Metro Bhawan</span>
-                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded">Phase 1 Commercial Andheri</span>
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs font-bold rounded">
+                      Project 1 Commercial Andheri
+                    </span>
                   </div>
                   <ul className="space-y-2 text-xs list-disc pl-4 text-slate-800 leading-relaxed">
                     <li>Total construction area: <strong>2,86,817.54 Sft</strong></li>
@@ -5073,7 +5589,9 @@ function App() {
                 <div className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-sm">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <span className="font-bold text-slate-900 text-sm">B). Executive Staff Quarters</span>
-                    <span className="px-2 py-0.5 bg-teal-50 text-teal-700 text-xs font-bold rounded">Phase 2 Residential Andheri</span>
+                    <span className="px-2 py-0.5 bg-teal-50 text-teal-700 text-xs font-bold rounded">
+                      Project 2 Residential Andheri
+                    </span>
                   </div>
                   <ul className="space-y-2 text-xs list-disc pl-4 text-slate-800 leading-relaxed">
                     <li>
@@ -5095,7 +5613,9 @@ function App() {
                 <div className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-sm">
                   <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                     <span className="font-bold text-slate-900 text-sm">C). Non-Executive Staff Quarters</span>
-                    <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs font-bold rounded">Phase 3 Residential Dharavi</span>
+                    <span className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs font-bold rounded">
+                      Project 3 Residential Dharavi
+                    </span>
                   </div>
                   <ul className="space-y-2 text-xs list-disc pl-4 text-slate-800 leading-relaxed">
                     <li>Total construction area: <strong>72,194.14 Sft</strong></li>
@@ -5141,11 +5661,10 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setNocViewMode('split')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${
-                        nocViewMode === 'split'
-                          ? 'bg-white text-sky-700 shadow-sm font-bold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${nocViewMode === 'split'
+                        ? 'bg-white text-sky-700 shadow-sm font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                        }`}
                     >
                       <List className="h-3.5 w-3.5" />
                       <span>Interactive List & Details</span>
@@ -5153,11 +5672,10 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setNocViewMode('table')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${
-                        nocViewMode === 'table'
-                          ? 'bg-white text-sky-700 shadow-sm font-bold'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition cursor-pointer ${nocViewMode === 'table'
+                        ? 'bg-white text-sky-700 shadow-sm font-bold'
+                        : 'text-slate-600 hover:text-slate-900'
+                        }`}
                     >
                       <Grid className="h-3.5 w-3.5" />
                       <span>Full Matrix Table</span>
@@ -5236,13 +5754,11 @@ function App() {
                               key={doc.id}
                               type="button"
                               onClick={() => setSelectedNocId(doc.id)}
-                              className={`w-full text-left transition flex items-start justify-between group cursor-pointer ${
-                                isSubItem ? 'pl-8 pr-3.5 py-2.5 bg-slate-50/70 hover:bg-sky-50/60' : 'p-3.5 hover:bg-slate-50'
-                              } ${
-                                isSelected
+                              className={`w-full text-left transition flex items-start justify-between group cursor-pointer ${isSubItem ? 'pl-8 pr-3.5 py-2.5 bg-slate-50/70 hover:bg-sky-50/60' : 'p-3.5 hover:bg-slate-50'
+                                } ${isSelected
                                   ? 'bg-sky-50/90 border-l-4 border-sky-600 font-bold'
                                   : 'border-l-4 border-transparent'
-                              }`}
+                                }`}
                             >
                               <div className="space-y-0.5 min-w-0 pr-2">
                                 <div className="flex items-center space-x-1.5">
@@ -5275,16 +5791,14 @@ function App() {
                                 <button
                                   type="button"
                                   onClick={() => setIsNocDropdownOpen(!isNocDropdownOpen)}
-                                  className={`w-full text-left p-3.5 transition flex items-center justify-between group cursor-pointer ${
-                                    isAnyNocSelected
-                                      ? 'bg-sky-50/50 border-l-4 border-sky-500 font-bold'
-                                      : 'hover:bg-slate-50 border-l-4 border-transparent'
-                                  }`}
+                                  className={`w-full text-left p-3.5 transition flex items-center justify-between group cursor-pointer ${isAnyNocSelected
+                                    ? 'bg-sky-50/50 border-l-4 border-sky-500 font-bold'
+                                    : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                    }`}
                                 >
                                   <div className="flex items-center space-x-2.5 min-w-0">
-                                    <div className={`p-1 rounded-lg transition-transform duration-200 ${
-                                      isNocDropdownOpen || isSearching ? 'rotate-180 bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'
-                                    }`}>
+                                    <div className={`p-1 rounded-lg transition-transform duration-200 ${isNocDropdownOpen || isSearching ? 'rotate-180 bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-500'
+                                      }`}>
                                       <ChevronDown className="h-4 w-4 stroke-[2.5]" />
                                     </div>
                                     <span className="text-xs font-extrabold text-slate-900 tracking-wide">
@@ -5501,18 +6015,23 @@ function App() {
             </div>
           ) : generalDocSections.includes(activeSection) ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700 relative">
-              {(activeFolderMenuId || activeFileMenuId) && (
+              {(activeFolderMenuId || activeFileMenuId || activeSubFileMenuId || activeAuthorityDropdownId) && (
                 <div
-                  className="fixed inset-0 z-10 bg-transparent"
+                  className="fixed inset-0 z-[99998] bg-transparent"
                   onClick={() => {
                     setActiveFolderMenuId(null);
                     setActiveFileMenuId(null);
+                    setActiveFileMenuCoords(null);
+                    setActiveSubFileMenuId(null);
+                    setActiveSubFileMenuCoords(null);
+                    setActiveAuthorityDropdownId(null);
+                    setActiveAuthorityDropdownCoords(null);
                   }}
                 />
               )}
               <div className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/95 backdrop-blur-md p-5 rounded-xl border border-slate-200 shadow-md gap-4">
                 <div className="flex items-center space-x-3">
-                  {folderPath.length > 0 && (
+                  {folderPath.length > 0 ? (
                     <button
                       onClick={() => setFolderPath(prev => prev.slice(0, -1))}
                       className="p-2 bg-orange-50 hover:bg-orange-100 text-orange-600 border border-orange-200 rounded-xl transition shadow-sm flex items-center justify-center cursor-pointer group"
@@ -5520,11 +6039,17 @@ function App() {
                     >
                       <ChevronLeft className="h-6 w-6 stroke-[3] text-orange-600 group-hover:-translate-x-0.5 transition-transform" />
                     </button>
-                  )}
+                  ) : activeSection === 'Non-Conformance Report (NCR)' ? (
+                    <div className="p-2.5 bg-yellow-50 text-yellow-600 rounded-xl border border-yellow-200 flex items-center justify-center shadow-2xs">
+                      <FileWarning className="h-6 w-6" />
+                    </div>
+                  ) : null}
                   <div>
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-base font-bold text-slate-900 uppercase tracking-wider">{activeSection} Ledger</h3>
-                      {activeProjectStructure && (() => {
+                      <h3 className="text-base font-bold text-slate-900 uppercase tracking-wider">
+                        {activeSection === 'Non-Conformance Report (NCR)' ? 'Non-Conformance Report (NCR)' : `${activeSection} Ledger`}
+                      </h3>
+                      {activeProjectStructure && !['Tender Documents', 'Contractual Documents', 'RFI Register', 'RA Bill Tax Invoice'].includes(activeSection) && (() => {
                         const currentStructObj = projectStructuresList.find(s => s.name === activeProjectStructure);
                         const BadgeIcon = currentStructObj?.icon || Building;
                         const badgeClass = currentStructObj?.activeClass || 'bg-sky-100 text-sky-800 border-sky-200';
@@ -5537,32 +6062,56 @@ function App() {
                         );
                       })()}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">Browse and manage packages, files, and documents for {activeSection} ({activeProjectStructure})</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {activeSection === 'Non-Conformance Report (NCR)'
+                        ? `Non-Conformance Reports for ${activeProjectStructure || 'Selected Project'}`
+                        : `Browse and manage packages, files, and documents for ${activeSection}${!['Tender Documents', 'Contractual Documents', 'RFI Register', 'RA Bill Tax Invoice'].includes(activeSection) && activeProjectStructure ? ` (${activeProjectStructure})` : ''}`
+                      }
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2 w-full md:w-auto">
-                  {/* Search Box for PDFs / Documents */}
-                  <div className="relative flex-1 md:w-72">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search className="h-4 w-4 text-slate-400" />
-                    </span>
-                    <input
-                      type="text"
-                      placeholder={selectedTenderFolder ? `Search in "${selectedTenderFolder}"...` : `Search files in Root...`}
-                      value={generalDocSearch}
-                      onChange={(e) => setGeneralDocSearch(e.target.value)}
-                      className="pl-9 pr-8 py-2 block w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs focus:bg-white transition"
-                    />
-                    {generalDocSearch && (
-                      <button
-                        onClick={() => setGeneralDocSearch('')}
-                        className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700 font-bold text-xs"
-                        title="Clear Search"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
+                  {['Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection) ? null : (
+                    <>
+                      {/* Search Box for PDFs / Documents */}
+                      <div className="relative flex-1 md:w-64">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Search className="h-4 w-4 text-slate-400" />
+                        </span>
+                        <input
+                          type="text"
+                          placeholder={selectedTenderFolder ? `Search in "${selectedTenderFolder}"...` : `Search files in Root...`}
+                          value={generalDocSearch}
+                          onChange={(e) => setGeneralDocSearch(e.target.value)}
+                          className="pl-9 pr-8 py-2 block w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs focus:bg-white transition"
+                        />
+                        {generalDocSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setGeneralDocSearch('')}
+                            className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700 font-bold text-xs cursor-pointer"
+                            title="Clear Search"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Reset Button */}
+                      {generalDocSearch && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setGeneralDocSearch('');
+                          }}
+                          className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer shadow-2xs"
+                          title="Reset search"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </>
+                  )}
 
                   {activeSection === 'RFI' ? (
                     <button
@@ -5571,10 +6120,15 @@ function App() {
                     >
                       <Plus className="mr-1.5 h-4 w-4" /> Add
                     </button>
-                  ) : (
+                  ) : activeSection === 'Tender Documents' ? null : (
                     <>
                       <button
-                        onClick={() => setShowTenderFolderModal(true)}
+                        onClick={() => {
+                          setTargetParentFolderForCreate(null);
+                          setTargetCategoryForCreateFolder('ROOT');
+                          setTenderFolderNameInput('');
+                          setShowTenderFolderModal(true);
+                        }}
                         className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-xs flex items-center transition shadow-sm whitespace-nowrap cursor-pointer"
                       >
                         <Folder className="mr-1.5 h-4 w-4 fill-current text-white" /> Create Folder
@@ -5590,8 +6144,8 @@ function App() {
                 </div>
               </div>
 
-              {/* Project Approval Workflow Flowchart Box (Specific to Project Monitoring & Control, Project Drawings, Quality Management, EHS, MEP & IT, RFI) */}
-              {['Project Monitoring & Control', 'Project Drawings', 'Quality Management', 'Environment, Health, and Safety (EHS)', 'MEP', 'MEP & IT', 'RFI'].includes(activeSection) && (
+              {/* Project Approval Workflow Flowchart Box (Specific to Site Monitoring & Control, Project Monitoring & Control, Project Drawings, Quality Management, EHS, MEP & IT, NCR, RFI) */}
+              {['Site Monitoring & Control', 'Project Monitoring & Control', 'Project Drawings', 'Quality Management', 'Environment, Health, and Safety (EHS)', 'MEP', 'MEP & IT', 'Non-Conformance Report (NCR)', 'RFI'].includes(activeSection) && (
                 <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl px-4 py-2.5 shadow-2xs mb-3 animate-fade-in select-none">
                   <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5 mb-2">
                     <div className="flex items-center space-x-2">
@@ -5609,125 +6163,34 @@ function App() {
 
                   {/* Flowchart Diagram Layout */}
                   <div className="overflow-x-auto py-1 px-1">
-                    <div className={`${activeSection === 'RFI' ? 'min-w-[950px]' : ['MEP', 'MEP & IT', 'Project Drawings'].includes(activeSection) ? 'min-w-[850px]' : 'min-w-[700px]'} flex items-center justify-center space-x-3 md:space-x-5`}>
-                      
-                      {/* Node 1: NECPL / Architect / PMC or NECPL / Architect or NECPL */}
+                    <div className="flex items-center justify-center space-x-3 md:space-x-5 py-2">
+
+                      {/* Node 1: NECPL (Contractor) */}
                       <div className="flex flex-col items-center">
-                        <div className={`${activeSection === 'RFI' ? 'w-56' : activeSection === 'Project Drawings' ? 'w-44' : 'w-32'} py-2 px-3 bg-gradient-to-br from-slate-50 to-slate-100 border-2 border-slate-300 rounded-xl shadow-2xs hover:border-sky-500 transition duration-200 text-center whitespace-nowrap`}>
-                          <div className="text-sm md:text-base font-black text-slate-900 tracking-wide">
-                            {activeSection === 'RFI' ? 'NECPL / Architect / PMC' : activeSection === 'Project Drawings' ? 'NECPL / Architect' : 'NECPL'}
+                        <div className="w-44 py-2.5 px-4 bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-300 rounded-xl shadow-2xs hover:border-sky-500 transition duration-200 text-center whitespace-nowrap">
+                          <div className="text-sm md:text-base font-black text-sky-950 tracking-wide">
+                            NECPL
+                          </div>
+                          <div className="text-xs font-bold text-sky-700 mt-0.5">
+                            (Contractor)
                           </div>
                         </div>
                       </div>
 
-                      {/* Arrow 1 */}
+                      {/* Arrow between NECPL & PMC */}
                       <div className="flex items-center space-x-1 text-sky-500">
-                        <div className="w-6 md:w-9 h-0.5 bg-sky-400"></div>
+                        <div className="w-8 md:w-12 h-0.5 bg-sky-400"></div>
                         <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
                       </div>
 
-                      {/* Node 1.5 (Specific to RFI): Architect */}
-                      {activeSection === 'RFI' && (
-                        <>
-                          <div className="flex flex-col items-center">
-                            <div className="w-36 md:w-40 py-2 px-3 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl shadow-2xs hover:border-amber-500 transition duration-200 text-center">
-                              <div className="text-sm md:text-base font-black text-amber-950 tracking-wide">
-                                Architect
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Arrow between Architect & PMC */}
-                          <div className="flex items-center space-x-1 text-sky-500">
-                            <div className="w-6 md:w-9 h-0.5 bg-sky-400"></div>
-                            <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
-                          </div>
-                        </>
-                      )}
-
-                      {/* Node 2: PMC */}
+                      {/* Node 2: PMC (Engineer) */}
                       <div className="flex flex-col items-center">
-                        <div className="w-32 py-2 px-3 bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-300 rounded-xl shadow-2xs hover:border-sky-500 transition duration-200 text-center">
-                          <div className="text-sm md:text-base font-black text-sky-950 tracking-wide">PMC</div>
-                        </div>
-                      </div>
-
-                      {/* Arrow 2 */}
-                      <div className="flex items-center space-x-1 text-sky-500">
-                        <div className="w-6 md:w-9 h-0.5 bg-sky-400"></div>
-                        <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
-                      </div>
-
-                      {/* Node 2.5 (Specific to MEP & IT or Project Drawings): MMRCL Dr. Vishwas Ajnalkar / Mr Vikrant Tewathia */}
-                      {['MEP', 'MEP & IT', 'Project Drawings'].includes(activeSection) && (
-                        <>
-                          <div className="flex flex-col items-center">
-                            <div className="w-48 py-1.5 px-3 bg-gradient-to-br from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl shadow-2xs hover:border-purple-500 transition duration-200 text-center">
-                              <div className="text-xs font-black text-purple-950 tracking-wider uppercase">MMRCL</div>
-                              <div className="text-[11px] font-black text-purple-900 leading-tight">
-                                {activeSection === 'MEP' || activeSection === 'MEP & IT' ? 'Dr. Vishwas Ajnalkar' : 'Mr Vikrant Tewathia'}
-                              </div>
-                            </div>
+                        <div className="w-44 py-2.5 px-4 bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-300 rounded-xl shadow-2xs hover:border-sky-500 transition duration-200 text-center whitespace-nowrap">
+                          <div className="text-sm md:text-base font-black text-sky-950 tracking-wide">
+                            PMC
                           </div>
-
-                          {/* Arrow between intermediate MMRCL officer & MMRCL */}
-                          <div className="flex items-center space-x-1 text-sky-500">
-                            <div className="w-6 md:w-9 h-0.5 bg-sky-400"></div>
-                            <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
-                          </div>
-                        </>
-                      )}
-
-                      {/* Branching Lines & 3 Approvers with MMRCL Header */}
-                      <div className="flex items-center">
-                        {/* Vector Branch Lines SVG */}
-                        <div className="relative w-10 h-[204px] flex items-center justify-center">
-                          <svg className="w-full h-full text-sky-500" viewBox="0 0 64 204" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            {/* Horizontal stem from PMC / intermediate officer */}
-                            <path d="M0 102 H18" stroke="currentColor" strokeWidth="2" />
-                            {/* Vertical trunk line */}
-                            <path d="M18 67 V179" stroke="currentColor" strokeWidth="2" />
-                            {/* Top branch line with arrow */}
-                            <path d="M18 67 H50" stroke="currentColor" strokeWidth="2" />
-                            <polygon points="50,63 60,67 50,71" fill="currentColor" />
-                            {/* Middle branch line with arrow */}
-                            <path d="M18 123 H50" stroke="currentColor" strokeWidth="2" />
-                            <polygon points="50,119 60,123 50,127" fill="currentColor" />
-                            {/* Bottom branch line with arrow */}
-                            <path d="M18 179 H50" stroke="currentColor" strokeWidth="2" />
-                            <polygon points="50,175 60,179 50,183" fill="currentColor" />
-                          </svg>
-                        </div>
-
-                        {/* 3 Parallel Approver Cards with MMRCL Header on Top */}
-                        <div className="flex flex-col space-y-1.5 pl-0.5">
-                          {/* MMRCL Header Box shifted above the 3 names */}
-                          <div className="w-60 py-1.5 px-3 bg-gradient-to-br from-indigo-50 to-slate-50 border-2 border-indigo-300 rounded-xl shadow-2xs text-center">
-                            <div className="text-xs md:text-sm font-black text-indigo-950 tracking-wider uppercase">MMRCL</div>
-                          </div>
-
-                          <div className="w-60 py-1.5 px-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl shadow-2xs hover:shadow-xs transition duration-200 flex items-center justify-between">
-                            <div className="min-w-0 pr-1">
-                              <div className="text-xs md:text-sm font-black text-emerald-950 truncate leading-snug">Md Aasim Sulaiman</div>
-                              <div className="text-[11px] font-extrabold text-emerald-800 leading-tight">Executive Director (Tracks)</div>
-                            </div>
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0 ml-1.5" />
-                          </div>
-
-                          <div className="w-60 py-1.5 px-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl shadow-2xs hover:shadow-xs transition duration-200 flex items-center justify-between">
-                            <div className="min-w-0 pr-1">
-                              <div className="text-xs md:text-sm font-black text-emerald-950 truncate leading-snug">Mr Rajesh Patil</div>
-                              <div className="text-[11px] font-extrabold text-emerald-800 leading-tight">Deputy General Manager</div>
-                            </div>
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0 ml-1.5" />
-                          </div>
-
-                          <div className="w-60 py-1.5 px-3 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl shadow-2xs hover:shadow-xs transition duration-200 flex items-center justify-between">
-                            <div className="min-w-0 pr-1">
-                              <div className="text-xs md:text-sm font-black text-emerald-950 truncate leading-snug">Mr Sachin Aher</div>
-                              <div className="text-[11px] font-extrabold text-emerald-800 leading-tight">Deputy Engineer</div>
-                            </div>
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0 ml-1.5" />
+                          <div className="text-xs font-bold text-sky-700 mt-0.5">
+                            (Engineer)
                           </div>
                         </div>
                       </div>
@@ -5743,38 +6206,403 @@ function App() {
                   <span className="ml-3 font-semibold text-sm">Loading folder contents...</span>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <>
+                  {['Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection) && (
+                    <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 mb-3 animate-fade-in">
+                      {/* Search Field for File Name, Subject, Serial Number, or Uploaded By */}
+                      <div className="relative flex-1">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Search className="h-4 w-4" />
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Search by file name, subject, serial number, or uploaded by..."
+                          value={generalDocSearch}
+                          onChange={(e) => setGeneralDocSearch(e.target.value)}
+                          className="pl-9 pr-8 py-2 block w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs focus:bg-white transition"
+                        />
+                        {generalDocSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setGeneralDocSearch('')}
+                            className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700 font-bold text-xs cursor-pointer"
+                            title="Clear Search"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Date Filter & Reset Controls */}
+                      <div className="flex items-center space-x-2 flex-shrink-0">
+                        {activeSection === 'Project Communication & Letters' && (
+                          <div className="relative flex items-center space-x-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-sky-500 focus-within:bg-white transition">
+                            <Calendar className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                            <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Date:</span>
+                            <input
+                              type="date"
+                              value={generalDocDateSearch}
+                              onChange={(e) => setGeneralDocDateSearch(e.target.value)}
+                              className="bg-transparent border-none text-slate-800 text-xs focus:outline-none cursor-pointer"
+                              title="Filter by Upload Date"
+                            />
+                            {generalDocDateSearch && (
+                              <button
+                                type="button"
+                                onClick={() => setGeneralDocDateSearch('')}
+                                className="text-slate-400 hover:text-slate-700 font-bold text-xs ml-1 cursor-pointer"
+                                title="Clear Date Filter"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {(generalDocSearch || (activeSection === 'Project Communication & Letters' && generalDocDateSearch)) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setGeneralDocSearch('');
+                              setGeneralDocDateSearch('');
+                            }}
+                            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer shadow-2xs"
+                            title="Reset all filters"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeSection === 'RFI Register' && (
+                    <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 mb-3 animate-fade-in">
+                      <div className="flex items-center space-x-2">
+                        <span className="px-2.5 py-1 bg-orange-100 text-orange-950 text-xs font-black rounded-lg border border-orange-200 flex items-center shadow-2xs">
+                          <Layers className="h-3.5 w-3.5 mr-1 text-orange-600" /> Structure Filter
+                        </span>
+                        <span className="text-xs text-slate-600 font-bold hidden md:inline">
+                          {rfiStructureFilter === 'All' ? 'Centralized Master RFI Register' : rfiStructureFilter}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
+                        {[
+                          { label: 'All (Centralized Register)', value: 'All' },
+                          { label: 'Overall Project', value: 'Overall Project' },
+                          { label: 'Project 1 Metro Bhawan Commercial Andheri', value: 'Project 1 Metro Bhawan Commercial Andheri' },
+                          { label: 'Project 2 Executive Staff Quarters Residential Andheri', value: 'Project 2 Executive Staff Quarters Residential Andheri' },
+                          { label: 'Project 3 Non-Executive Staff Quarters Residential Dharavi', value: 'Project 3 Non-Executive Staff Quarters Residential Dharavi' }
+                        ].map((tab) => {
+                          const isSelected = rfiStructureFilter === tab.value;
+                          return (
+                            <button
+                              key={tab.value}
+                              type="button"
+                              onClick={() => setRfiStructureFilter(tab.value)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-2xs ${isSelected
+                                ? 'bg-orange-500 text-white shadow-xs'
+                                : 'bg-slate-50 text-slate-700 hover:bg-orange-50 hover:text-orange-900 border border-slate-200'
+                                }`}
+                            >
+                              {tab.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Folders Grid and Files Table at current path level */}
                   {(() => {
                     const q = generalDocSearch.trim().toLowerCase();
-                    const isSearching = Boolean(q);
+                    const qDate = generalDocDateSearch.trim();
+                    const isSearching = Boolean(q || qDate);
 
-                    let currentFolders = tenderFolders.filter(f => f.parentFolder === selectedTenderFolderId);
+                    let currentFolders = activeSection === 'Contractual Documents' ? [] : tenderFolders.filter(f => {
+                      const pid = f.parentFolder ? (typeof f.parentFolder === 'object' ? (f.parentFolder._id || f.parentFolder.id) : f.parentFolder) : null;
+                      if (!selectedTenderFolderId) return !pid;
+                      return pid && pid.toString() === selectedTenderFolderId.toString();
+                    });
+
+                    const secKey = getApiSectionName(activeSection);
+                    const defaultCategoryMap = {
+                      mep: ['operation and maintenance manuals', 'e & m submissions'],
+                      monitor: [
+                        'initial program and works program',
+                        'monthly program update',
+                        'three month rolling program',
+                        'three week rolling program',
+                        'monthly progress report',
+                        'method statements',
+                        'interface management plan',
+                        'monitoring, protection'
+                      ],
+                      drawing: ['works drawings', 'as built drawings', 'construction reference drawings'],
+                      quality: ['quality plan', 'quality control register', 'reports of quarterly quality audits', 'materials submissions', 'materials and workmanship test'],
+                      ehs: ['safety plan', 'environment plan'],
+                      registrations: ['minutes of meeting', 'letter correspondence', 'all other submittals']
+                    };
+                    const cleanDefaults = defaultCategoryMap[secKey] || [];
+
+                    currentFolders.sort((a, b) => {
+                      const nameA = (a.name || '').trim().toLowerCase();
+                      const unnumberedA = nameA.replace(/^\d+\.\s*/, '');
+
+                      const nameB = (b.name || '').trim().toLowerCase();
+                      const unnumberedB = nameB.replace(/^\d+\.\s*/, '');
+
+                      let indexA = cleanDefaults.findIndex(d => nameA.includes(d) || unnumberedA.includes(d) || d.includes(unnumberedA));
+                      let indexB = cleanDefaults.findIndex(d => nameB.includes(d) || unnumberedB.includes(d) || d.includes(unnumberedB));
+
+                      const rankA = indexA !== -1 ? indexA + 1 : 1000;
+                      const rankB = indexB !== -1 ? indexB + 1 : 1000;
+
+                      if (rankA !== rankB) return rankA - rankB;
+
+                      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : (a._id ? parseInt(a._id.toString().substring(0, 8), 16) : 0);
+                      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : (b._id ? parseInt(b._id.toString().substring(0, 8), 16) : 0);
+                      if (timeA !== timeB) return timeA - timeB;
+
+                      return nameA.localeCompare(nameB);
+                    });
                     const targetFolderRef = selectedTenderFolderId || 'Root';
-                    let currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                    let currentFiles = tenderDocs;
+
+                    if (activeSection === 'Contractual Documents') {
+                      currentFiles = tenderDocs;
+                    } else if (activeSection === 'RFI') {
+                      if (activeProjectStructure) {
+                        currentFiles = tenderDocs.filter(d => {
+                          if (!d.category) return false;
+                          if (d.category === activeProjectStructure) return true;
+                          const dLow = d.category.trim().toLowerCase();
+                          const tLow = activeProjectStructure.trim().toLowerCase();
+                          if (dLow === tLow) return true;
+                          if ((tLow.includes('project 1') || tLow.includes('phase 1')) && (dLow.includes('project 1') || dLow.includes('phase 1') || dLow.includes('metro bhawan'))) return true;
+                          if ((tLow.includes('project 2') || tLow.includes('phase 2')) && (dLow.includes('project 2') || dLow.includes('phase 2') || dLow.includes('executive staff'))) return true;
+                          if ((tLow.includes('project 3') || tLow.includes('phase 3')) && (dLow.includes('project 3') || dLow.includes('phase 3') || dLow.includes('non-executive') || dLow.includes('dharavi'))) return true;
+                          if (tLow.includes('overall') && dLow.includes('overall')) return true;
+                          return false;
+                        });
+                      } else {
+                        currentFiles = tenderDocs;
+                      }
+                      if (selectedTenderFolderId || selectedTenderFolder) {
+                        currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                      }
+                    } else if (activeSection === 'RFI Register') {
+                      if (rfiStructureFilter !== 'All') {
+                        currentFiles = tenderDocs.filter(d => {
+                          if (!d.category) return false;
+                          if (d.category === rfiStructureFilter) return true;
+                          const dLow = d.category.trim().toLowerCase();
+                          const tLow = rfiStructureFilter.trim().toLowerCase();
+                          if (dLow === tLow) return true;
+                          if ((tLow.includes('project 1') || tLow.includes('phase 1')) && (dLow.includes('project 1') || dLow.includes('phase 1') || dLow.includes('metro bhawan'))) return true;
+                          if ((tLow.includes('project 2') || tLow.includes('phase 2')) && (dLow.includes('project 2') || dLow.includes('phase 2') || dLow.includes('executive staff'))) return true;
+                          if ((tLow.includes('project 3') || tLow.includes('phase 3')) && (dLow.includes('project 3') || dLow.includes('phase 3') || dLow.includes('non-executive') || dLow.includes('dharavi'))) return true;
+                          if (tLow.includes('overall') && dLow.includes('overall')) return true;
+                          return false;
+                        });
+                      } else {
+                        currentFiles = tenderDocs;
+                      }
+                      if (selectedTenderFolderId || selectedTenderFolder) {
+                        currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                      }
+                    } else {
+                      currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                    }
+
+                    if (activeSection === 'Contractual Documents') {
+                      const seenNames = new Set();
+                      const uniqueFiles = [];
+                      for (const doc of currentFiles) {
+                        const key = (doc.name || doc.originalName || '').trim().toLowerCase();
+                        if (key && !seenNames.has(key)) {
+                          seenNames.add(key);
+                          uniqueFiles.push(doc);
+                        }
+                      }
+                      currentFiles = uniqueFiles;
+                    }
                     const isDragAndDropAllowed = !['Dashboard', 'Project Details', 'Tender Documents', 'Contractual Documents'].includes(activeSection);
-                    const isFullRights = currentUser && (
+                    const isFullRights = Boolean(currentUser && (
                       currentUser.role === 'Site Engineer' ||
+                      currentUser.role === 'Admin' ||
+                      currentUser.isAdmin ||
                       (currentUser.userId && currentUser.userId.toUpperCase() === 'NECPL') ||
                       (currentUser.email && currentUser.email.toLowerCase().includes('necpl')) ||
                       (currentUser.name && currentUser.name.toUpperCase().includes('NECPL')) ||
-                      (currentUser.email && currentUser.email.toLowerCase() === 'coordination.mmrcl@nyatigroup.com')
-                    );
-                    const isDeleteAllowed = currentUser && (
-                      (currentUser.email && currentUser.email.toLowerCase() === 'coordination.mmrcl@nyatigroup.com') ||
+                      (currentUser.email && currentUser.email.toLowerCase().includes('coordination.mmrcl')) ||
+                      (currentUser.userId && currentUser.userId.toLowerCase().includes('coordination.mmrcl')) ||
+                      (currentUser.name && currentUser.name.toLowerCase().includes('coordination.mmrcl'))
+                    ));
+                    const isDeleteAllowed = Boolean(currentUser && (
+                      (currentUser.email && currentUser.email.toLowerCase().includes('coordination.mmrcl')) ||
+                      (currentUser.userId && currentUser.userId.toLowerCase().includes('coordination.mmrcl')) ||
+                      (currentUser.name && currentUser.name.toLowerCase().includes('coordination.mmrcl')) ||
+                      (currentUser.organization && currentUser.organization.toLowerCase().includes('coordination.mmrcl')) ||
                       currentUser.role === 'Site Engineer' ||
+                      currentUser.role === 'Admin' ||
+                      currentUser.isAdmin ||
                       (currentUser.userId && currentUser.userId.toUpperCase() === 'NECPL') ||
                       (currentUser.email && currentUser.email.toLowerCase().includes('necpl')) ||
-                      (currentUser.name && currentUser.name.toUpperCase().includes('NECPL'))
-                    );
+                      (currentUser.name && currentUser.name.toUpperCase().includes('NECPL')) ||
+                      ['Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection)
+                    ));
+
+                    const checkDocMatchesPdrFilter = (doc, assignedSerial) => {
+                      const rawSearch = generalDocSearch.trim();
+                      const qSubject = rawSearch.toLowerCase();
+                      const qDate = generalDocDateSearch.trim();
+
+                      if (qSubject) {
+                        const cleanSearchNum = rawSearch.replace(/^(sr\.?|s\.?no\.?|sl\.?|sl\.?no\.?|no\.?|#)\s*/i, '').trim().toLowerCase();
+                        const docSerialStr = (assignedSerial || doc.serialNumber || doc.srNo || doc.serialNo || '').toString().toLowerCase();
+                        const docSerialNum = parseInt(docSerialStr, 10);
+                        const parsedSearchNum = parseInt(cleanSearchNum, 10);
+
+                        const matchSerial = (
+                          docSerialStr === cleanSearchNum ||
+                          docSerialStr === qSubject ||
+                          (!isNaN(parsedSearchNum) && !isNaN(docSerialNum) && parsedSearchNum === docSerialNum) ||
+                          (doc.documentNumber && doc.documentNumber.toString().toLowerCase().includes(qSubject)) ||
+                          (doc.docNumber && doc.docNumber.toString().toLowerCase().includes(qSubject)) ||
+                          (doc.refNo && doc.refNo.toString().toLowerCase().includes(qSubject)) ||
+                          (doc.letterNo && doc.letterNo.toString().toLowerCase().includes(qSubject))
+                        );
+
+                        const matchName = (
+                          (doc.name && doc.name.toLowerCase().includes(qSubject)) ||
+                          (doc.originalName && doc.originalName.toLowerCase().includes(qSubject)) ||
+                          (doc.subject && doc.subject.toLowerCase().includes(qSubject)) ||
+                          (doc.description && doc.description.toLowerCase().includes(qSubject))
+                        );
+
+                        // Uploaded By matching (e.g. "coordination.mmrcl" or user's name/email)
+                        const uploaderStrings = [];
+                        if (doc.uploadedByName) uploaderStrings.push(doc.uploadedByName.toString().toLowerCase());
+                        if (doc.uploader) uploaderStrings.push(doc.uploader.toString().toLowerCase());
+                        if (doc.uploadedBy) {
+                          if (typeof doc.uploadedBy === 'object') {
+                            if (doc.uploadedBy.name) uploaderStrings.push(doc.uploadedBy.name.toString().toLowerCase());
+                            if (doc.uploadedBy.email) uploaderStrings.push(doc.uploadedBy.email.toString().toLowerCase());
+                            if (doc.uploadedBy.userId) uploaderStrings.push(doc.uploadedBy.userId.toString().toLowerCase());
+                            if (doc.uploadedBy.username) uploaderStrings.push(doc.uploadedBy.username.toString().toLowerCase());
+                          } else {
+                            uploaderStrings.push(doc.uploadedBy.toString().toLowerCase());
+                          }
+                        }
+                        const matchUploader = uploaderStrings.some(str => str.includes(qSubject));
+
+                        const matchSubDocs = doc.subDocuments && doc.subDocuments.some((sd, sdIdx) => {
+                          const sdSerial = (sd.serialNumber || sd.srNo || `${assignedSerial || 1}.${sdIdx + 1}`).toString().toLowerCase();
+                          const sdUploaderStrings = [];
+                          if (sd.uploadedByName) sdUploaderStrings.push(sd.uploadedByName.toString().toLowerCase());
+                          if (sd.uploader) sdUploaderStrings.push(sd.uploader.toString().toLowerCase());
+                          if (sd.uploadedBy) {
+                            if (typeof sd.uploadedBy === 'object') {
+                              if (sd.uploadedBy.name) sdUploaderStrings.push(sd.uploadedBy.name.toString().toLowerCase());
+                              if (sd.uploadedBy.email) sdUploaderStrings.push(sd.uploadedBy.email.toString().toLowerCase());
+                              if (sd.uploadedBy.userId) sdUploaderStrings.push(sd.uploadedBy.userId.toString().toLowerCase());
+                              if (sd.uploadedBy.username) sdUploaderStrings.push(sd.uploadedBy.username.toString().toLowerCase());
+                            } else {
+                              sdUploaderStrings.push(sd.uploadedBy.toString().toLowerCase());
+                            }
+                          }
+
+                          return (
+                            (sd.name && sd.name.toLowerCase().includes(qSubject)) ||
+                            (sd.originalName && sd.originalName.toLowerCase().includes(qSubject)) ||
+                            sdSerial === cleanSearchNum ||
+                            sdSerial === qSubject ||
+                            sdUploaderStrings.some(str => str.includes(qSubject))
+                          );
+                        });
+
+                        if (!matchSerial && !matchName && !matchUploader && !matchSubDocs) return false;
+                      }
+
+                      if (qDate) {
+                        const docIsoDate = doc.uploadedAt ? new Date(doc.uploadedAt).toISOString().split('T')[0] : '';
+                        const docLocalDate = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-CA') : '';
+                        const docCreatedIso = doc.createdAt ? new Date(doc.createdAt).toISOString().split('T')[0] : '';
+                        const docCreatedLocal = doc.createdAt ? new Date(doc.createdAt).toLocaleDateString('en-CA') : '';
+                        const docExpectedDate = doc.expectedDate || '';
+
+                        const matchDate = docIsoDate === qDate || docLocalDate === qDate || docCreatedIso === qDate || docCreatedLocal === qDate || docExpectedDate === qDate;
+                        if (!matchDate) return false;
+                      }
+
+                      return true;
+                    };
 
                     if (isSearching) {
-                      currentFolders = currentFolders.filter(f => f.name.toLowerCase().includes(q));
-                      currentFiles = currentFiles.filter(d =>
-                        (d.name && d.name.toLowerCase().includes(q)) ||
-                        (d.originalName && d.originalName.toLowerCase().includes(q))
-                      );
+                      if (!['Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection)) {
+                        if (q) {
+                          currentFolders = currentFolders.filter(f => f.name.toLowerCase().includes(q));
+                        }
+                        currentFiles = currentFiles.filter(d => {
+                          if (qDate) {
+                            const docIsoDate = d.uploadedAt ? new Date(d.uploadedAt).toISOString().split('T')[0] : '';
+                            const docLocalDate = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('en-CA') : '';
+                            const docCreatedIso = d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : '';
+                            const docCreatedLocal = d.createdAt ? new Date(d.createdAt).toLocaleDateString('en-CA') : '';
+                            const docDate = d.date ? new Date(d.date).toISOString().split('T')[0] : '';
+                            const docExpectedDate = d.expectedDate || '';
+                            const matchParentDate = docIsoDate === qDate || docLocalDate === qDate || docCreatedIso === qDate || docCreatedLocal === qDate || docDate === qDate || docExpectedDate === qDate;
+                            const matchSubDocsDate = d.subDocuments && d.subDocuments.some(sd => {
+                              const sdIso = sd.uploadedAt ? new Date(sd.uploadedAt).toISOString().split('T')[0] : '';
+                              const sdLocal = sd.uploadedAt ? new Date(sd.uploadedAt).toLocaleDateString('en-CA') : '';
+                              const sdCreatedIso = sd.createdAt ? new Date(sd.createdAt).toISOString().split('T')[0] : '';
+                              const sdCreatedLocal = sd.createdAt ? new Date(sd.createdAt).toLocaleDateString('en-CA') : '';
+                              return sdIso === qDate || sdLocal === qDate || sdCreatedIso === qDate || sdCreatedLocal === qDate;
+                            });
+                            if (!matchParentDate && !matchSubDocsDate) return false;
+                          }
+
+                          if (q) {
+                            const uploaderStrings = [];
+                            if (d.uploadedByName) uploaderStrings.push(d.uploadedByName.toString().toLowerCase());
+                            if (d.uploader) uploaderStrings.push(d.uploader.toString().toLowerCase());
+                            if (d.uploadedBy) {
+                              if (typeof d.uploadedBy === 'object') {
+                                if (d.uploadedBy.name) uploaderStrings.push(d.uploadedBy.name.toString().toLowerCase());
+                                if (d.uploadedBy.email) uploaderStrings.push(d.uploadedBy.email.toString().toLowerCase());
+                                if (d.uploadedBy.userId) uploaderStrings.push(d.uploadedBy.userId.toString().toLowerCase());
+                                if (d.uploadedBy.username) uploaderStrings.push(d.uploadedBy.username.toString().toLowerCase());
+                              } else {
+                                uploaderStrings.push(d.uploadedBy.toString().toLowerCase());
+                              }
+                            }
+                            const matchParentText = (
+                              (d.name && d.name.toLowerCase().includes(q)) ||
+                              (d.originalName && d.originalName.toLowerCase().includes(q)) ||
+                              (d.subject && d.subject.toLowerCase().includes(q)) ||
+                              (d.serialNumber && d.serialNumber.toString().toLowerCase().includes(q)) ||
+                              uploaderStrings.some(str => str.includes(q))
+                            );
+                            const matchSubDocsText = d.subDocuments && d.subDocuments.some(sd => {
+                              return (
+                                (sd.name && sd.name.toLowerCase().includes(q)) ||
+                                (sd.originalName && sd.originalName.toLowerCase().includes(q))
+                              );
+                            });
+                            if (!matchParentText && !matchSubDocsText) return false;
+                          }
+
+                          return true;
+                        });
+                      }
+                    }
+
+                    if (['Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection) && (generalDocSearch.trim() || generalDocDateSearch.trim())) {
+                      currentFiles = currentFiles.map((doc, origIdx) => ({
+                        ...doc,
+                        displaySerialNo: doc.serialNumber || doc.srNo || doc.serialNo || (origIdx + 1).toString()
+                      })).filter(doc => checkDocMatchesPdrFilter(doc, doc.displaySerialNo));
                     }
 
                     if (currentFolders.length === 0 && currentFiles.length === 0) {
@@ -5786,538 +6614,747 @@ function App() {
                                 <Search className="h-10 w-10 stroke-1" />
                               </div>
                               <p className="text-slate-600 font-semibold text-sm">
-                                No files or folders matching "{generalDocSearch}" found inside {selectedTenderFolder ? `"${selectedTenderFolder}"` : 'Root'}.
+                                No files or folders matching {q && qDate ? `"${generalDocSearch}" on date "${generalDocDateSearch}"` : q ? `"${generalDocSearch}"` : `date "${generalDocDateSearch}"`} found inside {selectedTenderFolder ? `"${selectedTenderFolder}"` : 'Root'}.
                               </p>
                               <button
-                                onClick={() => setGeneralDocSearch('')}
-                                className="px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-600 border border-sky-200 font-semibold rounded-xl text-xs transition"
+                                onClick={() => {
+                                  setGeneralDocSearch('');
+                                  setGeneralDocDateSearch('');
+                                }}
+                                className="px-4 py-2 bg-sky-50 hover:bg-sky-100 text-sky-600 border border-sky-200 font-semibold rounded-xl text-xs transition cursor-pointer"
                               >
                                 Clear Search Filter
                               </button>
                             </>
                           ) : (
                             <p className="text-slate-400 font-semibold italic text-sm">
-                              This folder is empty. Create a folder or upload a file to begin!
+                              This folder is empty. Create a folder or upload documents to get started.
                             </p>
                           )}
                         </div>
                       );
                     }
 
-                    return (
-                      <div className="space-y-6">
-                        {/* Folders Grid */}
-                        {currentFolders.length > 0 && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative">
-                            {currentFolders.map(folder => {
-                              const folderName = folder.name;
-                              const folderDocs = tenderDocs.filter(d => d.folder === folder._id || d.folder === folderName);
-                              const count = folderDocs.length;
-                              const folderHasUnread = folderDocs.some(hasUnreadRemarks);
-                              const isDragTarget = dragOverFolderId === folder._id;
-                              return (
-                                <div
-                                  key={folder._id}
-                                  onClick={() => {
-                                    if (isSearching) setGeneralDocSearch('');
-                                    setFolderPath(prev => [...prev, folder]);
-                                  }}
-                                  onDragOver={(e) => {
-                                    if (isDragAndDropAllowed) handleFolderDragOver(e, folder._id);
-                                  }}
-                                  onDragLeave={(e) => {
-                                    if (isDragAndDropAllowed) handleFolderDragLeave(e, folder._id);
-                                  }}
-                                  onDrop={(e) => {
-                                    if (isDragAndDropAllowed) handleFolderDrop(e, folder);
-                                  }}
-                                  className={`glass-panel p-6 rounded-2xl border cursor-pointer transition-all duration-200 flex items-start justify-between shadow-sm group relative z-20 ${
-                                    isDragTarget
-                                      ? 'border-2 border-dashed border-sky-500 bg-sky-50/90 shadow-xl scale-[1.02] ring-4 ring-sky-200'
-                                      : 'border-slate-200 bg-white hover:border-sky-400 hover:shadow-md'
-                                  }`}
-                                >
-                                  {isDragTarget && (
-                                    <div className="absolute inset-0 bg-sky-500/10 backdrop-blur-[1px] border-2 border-dashed border-sky-600 rounded-2xl flex items-center justify-center space-x-2 text-sky-800 font-extrabold text-xs z-30 animate-pulse pointer-events-none">
-                                      <Folder className="h-5 w-5 fill-current text-sky-600" />
-                                      <span>Move "{draggedDocRef.current?.name || draggedDoc?.name || 'file'}" here</span>
-                                    </div>
-                                  )}
-                                  <div className="flex items-start space-x-4">
-                                    <div className="p-4 bg-amber-50 text-amber-500 rounded-2xl group-hover:bg-amber-100 transition flex-shrink-0 relative">
-                                      <Folder className="h-8 w-8 fill-current" />
-                                      {folderHasUnread && (
-                                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-                                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-600"></span>
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="space-y-1 flex-1 min-w-0">
-                                      <div className="flex items-center space-x-2">
-                                        <h4 className="font-bold text-slate-900 text-base group-hover:text-sky-600 transition whitespace-normal break-words leading-tight" title={folderName}>{folderName}</h4>
-                                        {folderHasUnread && (
-                                          <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 text-[10px] font-bold rounded-full animate-pulse">
-                                            New Remark
-                                          </span>
-                                        )}
-                                      </div>
-                                      <p className="text-xs text-slate-500 font-semibold">{count} {count === 1 ? 'document' : 'documents'} inside</p>
-                                    </div>
-                                  </div>
+                    const showRemark = !['Tender Documents', 'Contractual Documents'].includes(activeSection);
+                    const showAuthorityAndApproval = !['Tender Documents', 'Contractual Documents', 'Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection);
 
-                                  {/* Three dots option menu for Folder */}
-                                  <div className="relative">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActiveFolderMenuId(activeFolderMenuId === folder._id ? null : folder._id);
-                                      }}
-                                      className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                                      title="Folder Options"
-                                    >
-                                      <MoreVertical className="h-5 w-5" />
-                                    </button>
-
-                                    {/* Dropdown Menu */}
-                                    {activeFolderMenuId === folder._id && (
-                                      <div className="absolute right-0 top-8 bg-white border border-slate-200 rounded-xl shadow-lg py-1 w-32 z-20 animate-fade-in text-xs">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setRenameFolderId(folder._id);
-                                            setRenameFolderNameInput(folderName);
-                                            setShowRenameFolderModal(true);
-                                            setActiveFolderMenuId(null);
-                                          }}
-                                          className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
-                                        >
-                                          Rename
-                                        </button>
-                                        {isDeleteAllowed && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (window.confirm(`Are you sure you want to delete the folder "${folderName}" and all of its files?`)) {
-                                                handleDeleteFolder(folder._id);
-                                              }
-                                              setActiveFolderMenuId(null);
-                                            }}
-                                            className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
-                                          >
-                                            Delete
-                                          </button>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {/* Files Table */}
-                        {currentFiles.length > 0 && (() => {
-                          const showRemark = !['Tender Documents', 'Contractual Documents'].includes(activeSection);
-                          const showAuthorityAndApproval = !['Tender Documents', 'Contractual Documents', 'Project Documents & Registration'].includes(activeSection);
-                          return (
-                            <div className="space-y-4 pt-6 border-t border-slate-100">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                  {isSearching
-                                    ? `Search Results in ${selectedTenderFolder ? `"${selectedTenderFolder}"` : 'Root'} (${currentFiles.length} ${currentFiles.length === 1 ? 'file' : 'files'} found)`
-                                    : selectedTenderFolder ? `Files inside "${selectedTenderFolder}"` : 'Files (At Root)'}
-                                </span>
-                                {isSearching && (
-                                  <button
-                                    onClick={() => setGeneralDocSearch('')}
-                                    className="text-xs text-sky-600 hover:text-sky-700 font-semibold transition cursor-pointer"
-                                  >
-                                    Clear Search
-                                  </button>
+                    const renderFilesTable = (filesList) => {
+                      if (!filesList || filesList.length === 0) return null;
+                      return (
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                          <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
+                            <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
+                              <tr>
+                                <th scope="col" className="px-3 py-3 whitespace-nowrap text-center w-12 text-slate-500 font-bold text-[11px]">Sr. No.</th>
+                                <th scope="col" className={`px-4 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[28%] md:w-[30%]' : showRemark ? 'w-[42%]' : 'w-[46%]'}`}>Document Title</th>
+                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${showAuthorityAndApproval ? 'w-[11.5%]' : showRemark ? 'w-[16%]' : 'w-[20%]'}`}>Uploaded By</th>
+                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${showAuthorityAndApproval ? 'w-[11.5%]' : showRemark ? 'w-[16%]' : 'w-[20%]'}`}>Date & Time</th>
+                                {showRemark && (
+                                  <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${showAuthorityAndApproval ? 'w-[11.5%]' : 'w-[16%]'}`}>Remark</th>
                                 )}
-                              </div>
+                                {showAuthorityAndApproval && (
+                                  <>
+                                    <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[11.5%]">Authority</th>
+                                    <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[11.5%]">Approval</th>
+                                  </>
+                                )}
+                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${showAuthorityAndApproval ? 'w-[12.5%]' : 'w-[10%]'}`}></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {filesList.map((doc, docIdx) => {
+                                const isUnviewed = isDocumentUnviewed(doc);
+                                return (
+                                  <React.Fragment key={doc._id}>
+                                    <tr
+                                      draggable={isDragAndDropAllowed}
+                                      onDragStart={(e) => {
+                                        if (!isDragAndDropAllowed) {
+                                          e.preventDefault();
+                                          return;
+                                        }
+                                        handleFileDragStart(e, doc);
+                                      }}
+                                      onDragEnd={() => {
+                                        setDraggedDoc(null);
+                                        setDragOverFolderId(null);
+                                      }}
+                                      className={`transition ${isDragAndDropAllowed ? 'cursor-grab active:cursor-grabbing select-none' : ''} ${isDragAndDropAllowed && draggedDoc?._id === doc._id ? 'opacity-40 bg-sky-100/70 border-2 border-dashed border-sky-400' : ''
+                                        } ${isUnviewed
+                                          ? 'bg-emerald-50/80 hover:bg-emerald-100/80 border-l-4 border-l-emerald-500 font-medium'
+                                          : 'hover:bg-slate-50/50'
+                                        }`}
+                                    >
+                                      <td className="px-3 py-3 text-slate-500 font-bold text-center whitespace-nowrap text-xs">
+                                        {doc.displaySerialNo || doc.serialNumber || doc.srNo || doc.serialNo || (docIdx + 1)}
+                                      </td>
+                                      <td className="px-4 py-3 font-semibold text-slate-800 flex items-center space-x-2.5 min-w-0">
+                                        {isDragAndDropAllowed && (
+                                          <GripVertical className="h-4 w-4 text-slate-300 group-hover:text-sky-500 cursor-grab flex-shrink-0" title="Drag to move into folder" />
+                                        )}
+                                        <File className={`h-4 w-4 flex-shrink-0 ${isUnviewed ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center space-x-1.5 min-w-0">
+                                            <button
+                                              onClick={() => handleViewGeneralDoc(doc)}
+                                              className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer truncate block max-w-[300px] md:max-w-[420px] lg:max-w-[550px]"
+                                              title={doc.name}
+                                            >
+                                              {doc.name}
+                                            </button>
+                                            {isUnviewed && (
+                                              <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm flex-shrink-0 animate-pulse">
+                                                NEW
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className="block text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-[300px] md:max-w-[420px] lg:max-w-[550px]" title={`${doc.originalName || ''}${doc.fileSize ? ` (${(doc.fileSize / 1024).toFixed(1)} KB)` : ''}`}>{doc.originalName}{doc.fileSize ? ` • ${(doc.fileSize / 1024).toFixed(1)} KB` : ''}</span>
+                                        </div>
+                                      </td>
 
-                              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm min-h-[420px] pb-60">
-                                <table className="min-w-full divide-y divide-slate-100 text-left text-xs">
-                                  <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
-                                    <tr>
-                                      <th scope="col" className={`px-4 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[26%] md:w-[28%]' : showRemark ? 'w-[36%] md:w-[38%]' : 'w-2/5'}`}>Document Title</th>
-                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[10%]' : showRemark ? 'w-[12%]' : 'w-1/5'}`}>File Info</th>
-                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[10%]' : showRemark ? 'w-[12%]' : 'w-1/5'}`}>Uploaded By</th>
-                                      <th scope="col" className={`px-3 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[11%]' : showRemark ? 'w-[13%]' : 'w-1/5'}`}>Date & Time</th>
+
+
+
+                                      <td className="px-2 py-3 text-slate-700 font-medium text-center whitespace-nowrap">
+                                        {doc.uploadedByName || (typeof doc.uploadedBy === 'object' ? (doc.uploadedBy?.name || doc.uploadedBy?.email) : doc.uploadedBy) || 'User'}
+                                      </td>
+                                      <td className="px-2 py-3 text-slate-500 text-[11px] text-center whitespace-nowrap">
+                                        {['RFI', 'RFI Register', 'RA Bill Tax Invoice'].includes(activeSection) && (
+                                          <div className="mb-1 text-center flex justify-center">
+                                            {getStructureBadge(doc.category)}
+                                          </div>
+                                        )}
+                                        <div>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : '-'}</div>
+                                        <div className="text-[10px] text-slate-400">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                                      </td>
                                       {showRemark && (
-                                        <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[10%]">Remark</th>
+                                        <td className="px-2 py-3 text-center whitespace-nowrap">
+                                          {(() => {
+                                            const remarkList = doc.remarks && doc.remarks.length > 0
+                                              ? doc.remarks
+                                              : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedByName || 'User', createdAt: doc.uploadedAt }] : []);
+                                            const totalMsgCount = remarkList.length;
+                                            const unreadCount = getUnreadRemarksCount(doc);
+
+                                            return (
+                                              <button
+                                                onClick={() => handleOpenRemarkModal(doc)}
+                                                className="inline-flex items-center px-2.5 py-1 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-[11px] cursor-pointer relative group"
+                                                title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
+                                              >
+                                                <MessageSquare className="mr-1 h-3 w-3 text-amber-600" />
+                                                <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                                {unreadCount > 0 && (
+                                                  <span className="ml-1.5 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[9px] font-bold min-w-[16px] text-center shadow-sm animate-pulse">
+                                                    {unreadCount}
+                                                  </span>
+                                                )}
+                                              </button>
+                                            );
+                                          })()}
+                                        </td>
                                       )}
                                       {showAuthorityAndApproval && (
                                         <>
-                                          <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[12%]">Authority</th>
-                                          <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[10%]">Approval</th>
+                                          <td className="px-2 py-3 text-center whitespace-nowrap">
+                                            {renderAuthorityDropdown(doc)}
+                                          </td>
+                                          <td className="px-2 py-3 text-center whitespace-nowrap">
+                                            {renderApprovalColumn(doc)}
+                                          </td>
                                         </>
                                       )}
-                                      <th scope="col" className="px-3 py-3 whitespace-nowrap text-right"></th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100">
-                                    {currentFiles.map((doc, docIndex) => {
-                                      const isUnviewed = isDocumentUnviewed(doc);
-                                      return (
-                                        <React.Fragment key={doc._id}>
-                                          <tr
-                                            draggable={isDragAndDropAllowed}
-                                            onDragStart={(e) => {
-                                              if (!isDragAndDropAllowed) {
-                                                e.preventDefault();
-                                                return;
-                                              }
-                                              handleFileDragStart(e, doc);
-                                            }}
-                                            onDragEnd={() => {
-                                              setDraggedDoc(null);
-                                              setDragOverFolderId(null);
-                                            }}
-                                            className={`transition ${isDragAndDropAllowed ? 'cursor-grab active:cursor-grabbing select-none' : ''} ${
-                                              isDragAndDropAllowed && draggedDoc?._id === doc._id ? 'opacity-40 bg-sky-100/70 border-2 border-dashed border-sky-400' : ''
-                                            } ${isUnviewed
-                                              ? 'bg-emerald-50/80 hover:bg-emerald-100/80 border-l-4 border-l-emerald-500 font-medium'
-                                              : 'hover:bg-slate-50/50'
-                                              }`}
+                                      <td className="px-2 py-3 text-center whitespace-nowrap">
+                                        <div className="flex items-center justify-center space-x-1.5">
+                                          <button
+                                            onClick={() => handleDownloadGeneralDoc(doc)}
+                                            className="inline-flex items-center px-2 py-1 bg-white hover:bg-slate-50 text-sky-700 hover:text-sky-900 border border-sky-200 rounded-lg transition shadow-sm font-semibold text-[11px] cursor-pointer"
+                                            title="Download Document"
                                           >
-                                            <td className="px-4 py-3 font-semibold text-slate-800 flex items-center space-x-2.5 min-w-0">
-                                              {isDragAndDropAllowed && (
-                                                <GripVertical className="h-4 w-4 text-slate-300 group-hover:text-sky-500 cursor-grab flex-shrink-0" title="Drag to move into folder" />
-                                              )}
-                                              <File className={`h-4 w-4 flex-shrink-0 ${isUnviewed ? 'text-emerald-600' : 'text-slate-400'}`} />
-                                              <div className="min-w-0 flex-1">
-                                                <div className="flex items-center space-x-1.5 min-w-0">
-                                                  <button
-                                                    onClick={() => handleViewGeneralDoc(doc)}
-                                                    className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer truncate block max-w-[160px] md:max-w-[200px] lg:max-w-[230px]"
-                                                    title={doc.name}
-                                                  >
-                                                    {doc.name}
-                                                  </button>
-                                                  {isUnviewed && (
-                                                    <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm flex-shrink-0 animate-pulse">
-                                                      NEW
-                                                    </span>
-                                                  )}
-                                                </div>
-                                                <span className="block text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-[160px] md:max-w-[200px] lg:max-w-[230px]" title={doc.originalName}>{doc.originalName}</span>
-                                              </div>
-                                            </td>
-                                            <td className="px-3 py-3 text-slate-600 whitespace-nowrap">
-                                              <span className="font-semibold block text-xs">{(doc.fileSize / 1024).toFixed(1)} KB</span>
-                                              <span className="text-[10px] text-slate-400 block mt-0.5 truncate max-w-[110px]">{doc.mimeType}</span>
-                                            </td>
-                                            <td className="px-3 py-3 whitespace-nowrap">
-                                              <span className="font-semibold block text-slate-700 text-xs">
-                                                {doc.uploadedBy?.name && doc.uploadedBy.name !== 'System Seeded' ? doc.uploadedBy.name : 'NECPL'}
-                                              </span>
-                                            </td>
-                                            <td className="px-3 py-3 text-slate-600 text-xs font-medium whitespace-nowrap">
-                                              <span className="block font-semibold text-slate-800">{new Date(doc.uploadedAt).toLocaleDateString()}</span>
-                                              <span className="block text-[10px] text-slate-400 font-medium">{new Date(doc.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                            </td>
-                                            {showRemark && (
-                                              <td className="px-2 py-3 text-center whitespace-nowrap">
-                                                {(() => {
-                                                  const remarkList = doc.remarks && doc.remarks.length > 0
-                                                    ? doc.remarks
-                                                    : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedBy?.name || 'User', createdAt: doc.uploadedAt }] : []);
-                                                  const totalMsgCount = remarkList.length;
-                                                  const unreadCount = getUnreadRemarksCount(doc);
+                                            <Download className="mr-1 h-3 w-3" /> Download
+                                          </button>
 
-                                                  return (
-                                                    <button
-                                                      onClick={() => handleOpenRemarkModal(doc)}
-                                                      className="inline-flex items-center px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-xs cursor-pointer relative group"
-                                                      title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
-                                                    >
-                                                      <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-amber-600" />
-                                                      <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
-                                                      {unreadCount > 0 && (
-                                                        <span className="ml-2 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[10px] font-bold min-w-[18px] text-center shadow-sm animate-pulse">
-                                                          {unreadCount}
-                                                        </span>
-                                                      )}
-                                                    </button>
-                                                  );
-                                                })()}
-                                              </td>
-                                            )}
-                                            {showAuthorityAndApproval && (
-                                              <>
-                                                <td className="px-2 py-3 text-center whitespace-nowrap">
-                                                  {renderAuthorityDropdown(doc, false)}
-                                                </td>
-                                                <td className="px-2 py-3 text-center whitespace-nowrap">
-                                                  {renderApprovalColumn(doc, false)}
-                                                </td>
-                                              </>
-                                            )}
-                                            <td className="px-3 py-3 text-right whitespace-nowrap">
-                                              <div className="flex items-center justify-end space-x-3">
+                                          {/* 3 Dots Menu for File */}
+                                          <div className="relative inline-block text-left">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (activeFileMenuId === doc._id) {
+                                                  setActiveFileMenuId(null);
+                                                  setActiveFileMenuCoords(null);
+                                                } else {
+                                                  const rect = e.currentTarget.getBoundingClientRect();
+                                                  const spaceBelow = window.innerHeight - rect.bottom;
+                                                  const menuHeight = 85;
+                                                  const openUp = spaceBelow < menuHeight + 10;
+                                                  setActiveFileMenuCoords({
+                                                    top: openUp ? Math.max(10, rect.top - menuHeight - 4) : (rect.bottom + 4),
+                                                    right: Math.max(10, window.innerWidth - rect.right)
+                                                  });
+                                                  setActiveFileMenuId(doc._id);
+                                                  setActiveSubFileMenuId(null);
+                                                  setActiveSubFileMenuCoords(null);
+                                                }
+                                              }}
+                                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                              title="More options"
+                                            >
+                                              <MoreVertical className="h-4 w-4" />
+                                            </button>
+
+                                            {activeFileMenuId === doc._id && activeFileMenuCoords && createPortal(
+                                              <div
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{
+                                                  position: 'fixed',
+                                                  top: `${activeFileMenuCoords.top}px`,
+                                                  right: `${activeFileMenuCoords.right}px`,
+                                                  zIndex: 999999
+                                                }}
+                                                className="bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 text-left text-xs animate-fade-in select-none"
+                                              >
                                                 <button
-                                                  onClick={() => handleDownloadGeneralDoc(doc)}
-                                                  className="inline-flex items-center px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 rounded-lg border border-slate-200 transition shadow-sm font-semibold text-xs"
-                                                  title="Download File"
-                                                >
-                                                  <Download className="mr-1.5 h-3.5 w-3.5" /> Download
-                                                </button>
-
-                                                {/* Rename & Delete options menu */}
-                                                <div className="relative inline-block text-left">
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setActiveFileMenuId(activeFileMenuId === doc._id ? null : doc._id);
-                                                    }}
-                                                    className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition"
-                                                  >
-                                                    <MoreVertical className="h-4 w-4" />
-                                                  </button>
-
-                                                  {/* Dropdown Menu */}
-                                                  {activeFileMenuId === doc._id && (
-                                                    <div className={`absolute right-0 ${docIndex < 2 ? 'top-full mt-1' : 'bottom-full mb-1'} bg-white border border-slate-200 rounded-xl shadow-xl py-1 w-32 z-30 animate-fade-in text-left text-xs`}>
-                                                      <button
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          setRenameFileId(doc._id);
-                                                          setRenameFileNameInput(doc.name);
-                                                          setShowRenameModal(true);
-                                                          setActiveFileMenuId(null);
-                                                        }}
-                                                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center"
-                                                      >
-                                                        Rename
-                                                      </button>
-                                                      {isDeleteAllowed && (
-                                                        <button
-                                                          onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (window.confirm(`Are you sure you want to delete the file "${doc.name}"?`)) {
-                                                              handleDeleteDocument(doc._id);
-                                                            }
-                                                            setActiveFileMenuId(null);
-                                                          }}
-                                                          className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
-                                                        >
-                                                          Delete
-                                                        </button>
-                                                      )}
-                                                    </div>
-                                                  )}
-                                                </div>
-
-                                                {/* Plus (+) Button for Uploading Sub-Document / Revision */}
-                                                <button
+                                                  type="button"
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setSelectedParentDoc(doc);
-                                                    setSubDocTitleInput('');
-                                                    setSubDocFileInput(null);
-                                                    setShowSubDocModal(true);
+                                                    setRenameDocId(doc._id);
+                                                    setRenameDocNameInput(doc.name);
+                                                    setShowRenameDocModal(true);
+                                                    setActiveFileMenuId(null);
+                                                    setActiveFileMenuCoords(null);
                                                   }}
-                                                  className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 hover:text-sky-800 rounded-lg border border-sky-200 transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center"
-                                                  title="Attach Sub-Document / New Revision"
+                                                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
                                                 >
-                                                  <Plus className="h-4 w-4" />
+                                                  Rename
                                                 </button>
-
-                                                {/* Dropdown Chevron toggle icon if parent doc has sub-documents */}
-                                                {doc.subDocuments && doc.subDocuments.length > 0 && (
+                                                {isDeleteAllowed && (
                                                   <button
+                                                    type="button"
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      setExpandedSubDocMap(prev => ({ ...prev, [doc._id]: !prev[doc._id] }));
+                                                      if (window.confirm(`Are you sure you want to delete the file "${doc.name}"?`)) {
+                                                        handleDeleteDocument(doc._id);
+                                                      }
+                                                      setActiveFileMenuId(null);
+                                                      setActiveFileMenuCoords(null);
                                                     }}
-                                                    className={`p-1.5 rounded-lg border transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center ${expandedSubDocMap[doc._id]
-                                                      ? 'bg-slate-800 text-white border-slate-800'
-                                                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-                                                      }`}
-                                                    title={expandedSubDocMap[doc._id] ? 'Collapse Sub-Documents' : `Expand ${doc.subDocuments.length} Sub-Document(s)`}
+                                                    className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
                                                   >
-                                                    {expandedSubDocMap[doc._id] ? (
-                                                      <ChevronDown className="h-4 w-4" />
-                                                    ) : (
-                                                      <ChevronRight className="h-4 w-4" />
-                                                    )}
+                                                    <Trash2 className="mr-1.5 h-3.5 w-3.5 text-rose-500" />
+                                                    Delete
                                                   </button>
                                                 )}
-                                              </div>
-                                            </td>
-                                          </tr>
+                                              </div>,
+                                              document.body
+                                            )}
+                                          </div>
 
-                                          {/* Expanded Sub-Documents Accordion Row */}
-                                          {expandedSubDocMap[doc._id] && doc.subDocuments && doc.subDocuments.length > 0 && (
-                                            <tr key={`subdocs-${doc._id}`} className="bg-slate-50/90 border-b-2 border-sky-100">
-                                              <td colSpan={5 + (showRemark ? 1 : 0) + (showAuthorityAndApproval ? 2 : 0)} className="py-3 px-8">
-                                                <div className="pl-6 border-l-3 border-sky-500 space-y-2">
-                                                  <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center space-x-1.5">
-                                                    <FileText className="h-3.5 w-3.5 text-sky-600" />
-                                                    <span>Sub-Documents / Revisions ({doc.subDocuments.length})</span>
-                                                  </div>
-                                                  <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-                                                    <table className="min-w-full divide-y divide-slate-100 text-xs">
-                                                      <thead className="bg-slate-100/80 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                                                        <tr>
-                                                          <th className="px-4 py-2.5 text-left">Sub-Document Title</th>
-                                                          <th className="px-4 py-2.5 text-left">File Info</th>
-                                                          <th className="px-4 py-2.5 text-left">Uploaded By</th>
-                                                          <th className="px-4 py-2.5 text-left">Upload Date</th>
-                                                          {showRemark && (
-                                                            <th className="px-4 py-2.5 text-center">Remark</th>
-                                                          )}
-                                                          {showAuthorityAndApproval && (
-                                                            <>
-                                                              <th className="px-4 py-2.5 text-center">Authority</th>
-                                                              <th className="px-4 py-2.5 text-center">Approval</th>
-                                                            </>
-                                                          )}
-                                                          <th className="px-4 py-2.5 text-right">Action</th>
-                                                        </tr>
-                                                      </thead>
-                                                      <tbody className="divide-y divide-slate-100">
-                                                        {doc.subDocuments.map((subDoc, subIndex) => (
-                                                          <tr key={subDoc._id || subIndex} className="hover:bg-slate-50 transition">
-                                                            <td className="px-4 py-2.5 font-semibold text-slate-800 flex items-center space-x-2 min-w-0">
-                                                              <FileText className="h-3.5 w-3.5 text-sky-500 flex-shrink-0" />
+                                          {/* Plus (+) Button for Uploading Sub-Document / Revision */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setSelectedParentDoc(doc);
+                                              setSubDocTitleInput('');
+                                              setSubDocFileInput(null);
+                                              setShowSubDocModal(true);
+                                            }}
+                                            className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-600 hover:text-sky-800 rounded-lg border border-sky-200 transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center"
+                                            title="Attach Sub-Document / New Revision"
+                                          >
+                                            <Plus className="h-4 w-4" />
+                                          </button>
+
+                                          {/* Dropdown Chevron toggle icon if parent doc has sub-documents */}
+                                          {doc.subDocuments && doc.subDocuments.length > 0 && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedSubDocMap(prev => ({ ...prev, [doc._id]: !prev[doc._id] }));
+                                              }}
+                                              className={`p-1.5 rounded-lg border transition shadow-sm font-semibold text-xs cursor-pointer flex items-center justify-center ${expandedSubDocMap[doc._id]
+                                                ? 'bg-slate-800 text-white border-slate-800'
+                                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                                                }`}
+                                              title={expandedSubDocMap[doc._id] ? 'Collapse Sub-Documents' : `Expand ${doc.subDocuments.length} Sub-Document(s)`}
+                                            >
+                                              {expandedSubDocMap[doc._id] ? (
+                                                <ChevronDown className="h-4 w-4" />
+                                              ) : (
+                                                <ChevronRight className="h-4 w-4" />
+                                              )}
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+
+                                    {/* Expanded Sub-Documents Accordion Row */}
+                                    {expandedSubDocMap[doc._id] && doc.subDocuments && doc.subDocuments.length > 0 && (
+                                      <tr key={`subdocs-${doc._id}`} className="bg-slate-50/90 border-b-2 border-sky-100">
+                                        <td colSpan={6 + (showRemark ? 1 : 0) + (showAuthorityAndApproval ? 2 : 0)} className="py-3 px-8">
+                                          <div className="pl-6 border-l-3 border-sky-500 space-y-2">
+                                            <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center space-x-1.5">
+                                              <FileText className="h-3.5 w-3.5 text-sky-600" />
+                                              <span>Sub-Documents / Revisions ({doc.subDocuments.length})</span>
+                                            </div>
+                                            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+                                              <table className="min-w-full divide-y divide-slate-100 text-xs">
+                                                <thead className="bg-slate-100/80 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                                                  <tr>
+                                                    <th className="px-3 py-2.5 text-center w-12 text-[10px]">Sr. No.</th>
+                                                    <th className="px-4 py-2.5 text-left">Sub-Document Title</th>
+                                                    <th className="px-4 py-2.5 text-left">File Info</th>
+                                                    <th className="px-4 py-2.5 text-left">Uploaded By</th>
+                                                    <th className="px-4 py-2.5 text-left">Upload Date</th>
+                                                    {showRemark && (
+                                                      <th className="px-4 py-2.5 text-center">Remark</th>
+                                                    )}
+                                                    {showAuthorityAndApproval && (
+                                                      <>
+                                                        <th className="px-4 py-2.5 text-center">Authority</th>
+                                                        <th className="px-4 py-2.5 text-center">Approval</th>
+                                                      </>
+                                                    )}
+                                                    <th className="px-4 py-2.5 text-right">Action</th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                  {doc.subDocuments.map((subDoc, subIndex) => (
+                                                    <tr key={subDoc._id || subIndex} className="hover:bg-slate-50 transition">
+                                                      <td className="px-3 py-2.5 text-center font-bold text-slate-500 text-[11px] whitespace-nowrap">
+                                                        {subDoc.serialNumber || subDoc.srNo || `${doc.displaySerialNo || doc.serialNumber || doc.srNo || (docIdx + 1)}.${subIndex + 1}`}
+                                                      </td>
+                                                      <td className="px-4 py-2.5 font-semibold text-slate-800 flex items-center space-x-2 min-w-0">
+                                                        <FileText className="h-3.5 w-3.5 text-sky-500 flex-shrink-0" />
+                                                        <button
+                                                          onClick={() => handleViewGeneralSubDoc(doc, subDoc)}
+                                                          className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate max-w-sm"
+                                                          title={`Click to view ${subDoc.name}`}
+                                                        >
+                                                          {subDoc.name}
+                                                        </button>
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
+                                                        {(subDoc.fileSize / 1024).toFixed(1)} KB
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-slate-700 font-medium whitespace-nowrap">
+                                                        {subDoc.uploadedByName || (typeof subDoc.uploadedBy === 'object' ? (subDoc.uploadedBy?.name || subDoc.uploadedBy?.email) : subDoc.uploadedBy) || 'User'}
+                                                      </td>
+                                                      <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
+                                                        {new Date(subDoc.uploadedAt).toLocaleDateString()}
+                                                      </td>
+                                                      {showRemark && (
+                                                        <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                          {(() => {
+                                                            const remarkList = subDoc.remarks && subDoc.remarks.length > 0
+                                                              ? subDoc.remarks
+                                                              : (subDoc.remark ? [{ text: subDoc.remark, userName: subDoc.uploadedByName || 'User', createdAt: subDoc.uploadedAt }] : []);
+                                                            const totalMsgCount = remarkList.length;
+                                                            const unreadCount = getUnreadSubDocRemarksCount(doc, subDoc);
+
+                                                            return (
                                                               <button
-                                                                onClick={() => handleViewGeneralSubDoc(doc, subDoc)}
-                                                                className="text-left font-semibold text-xs text-slate-900 hover:text-sky-600 transition cursor-pointer whitespace-nowrap truncate max-w-sm"
-                                                                title={`Click to view ${subDoc.name}`}
+                                                                onClick={() => handleOpenSubDocRemarkModal(doc, subDoc)}
+                                                                className="inline-flex items-center px-2.5 py-1 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-[11px] cursor-pointer relative group"
+                                                                title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
                                                               >
-                                                                {subDoc.name}
+                                                                <MessageSquare className="mr-1 h-3 w-3 text-amber-600" />
+                                                                <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
+                                                                {unreadCount > 0 && (
+                                                                  <span className="ml-1.5 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[9px] font-bold min-w-[16px] text-center shadow-sm animate-pulse">
+                                                                    {unreadCount}
+                                                                  </span>
+                                                                )}
                                                               </button>
-                                                            </td>
-                                                            <td className="px-4 py-2.5 text-slate-600 whitespace-nowrap">
-                                                              {(subDoc.fileSize / 1024).toFixed(1)} KB
-                                                            </td>
-                                                            <td className="px-4 py-2.5 text-slate-700 font-medium whitespace-nowrap">
-                                                              {subDoc.uploadedByName || 'User'}
-                                                            </td>
-                                                            <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
-                                                              {new Date(subDoc.uploadedAt).toLocaleDateString()}
-                                                            </td>
-                                                            {showRemark && (
-                                                              <td className="px-4 py-2.5 text-center whitespace-nowrap">
-                                                                {(() => {
-                                                                  const remarkList = subDoc.remarks && subDoc.remarks.length > 0
-                                                                    ? subDoc.remarks
-                                                                    : (subDoc.remark ? [{ text: subDoc.remark, userName: subDoc.uploadedByName || 'User', createdAt: subDoc.uploadedAt }] : []);
-                                                                  const totalMsgCount = remarkList.length;
-                                                                  const unreadCount = getUnreadSubDocRemarksCount(doc, subDoc);
+                                                            );
+                                                          })()}
+                                                        </td>
+                                                      )}
+                                                      {showAuthorityAndApproval && (
+                                                        <>
+                                                          <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                            {renderAuthorityDropdown(subDoc, true, doc)}
+                                                          </td>
+                                                          <td className="px-4 py-2.5 text-center whitespace-nowrap">
+                                                            {renderApprovalColumn(subDoc, true, doc)}
+                                                          </td>
+                                                        </>
+                                                      )}
+                                                      <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                                        <div className="flex items-center justify-end space-x-1.5">
+                                                          <button
+                                                            onClick={() => handleDownloadGeneralSubDoc(doc, subDoc)}
+                                                            className="inline-flex items-center px-2 py-1 bg-white hover:bg-slate-50 text-sky-700 hover:text-sky-900 border border-sky-200 rounded-lg transition shadow-sm font-semibold text-[11px] cursor-pointer"
+                                                            title="Download Sub-Document"
+                                                          >
+                                                            <Download className="mr-1 h-3 w-3" /> Download
+                                                          </button>
 
-                                                                  return (
-                                                                    <button
-                                                                      onClick={() => handleOpenSubDocRemarkModal(doc, subDoc)}
-                                                                      className="inline-flex items-center px-2.5 py-1 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition shadow-sm font-semibold text-[11px] cursor-pointer relative group"
-                                                                      title={unreadCount > 0 ? `${unreadCount} New Unread Remark(s)` : (totalMsgCount > 0 ? `Latest remark: "${remarkList[totalMsgCount - 1].text}"` : 'Add Remark')}
-                                                                    >
-                                                                      <MessageSquare className="mr-1 h-3 w-3 text-amber-600" />
-                                                                      <span>{totalMsgCount > 0 ? 'Remarks' : 'Remark'}</span>
-                                                                      {unreadCount > 0 && (
-                                                                        <span className="ml-1.5 px-1.5 py-0.2 text-white bg-emerald-600 rounded-full text-[9px] font-bold min-w-[16px] text-center shadow-sm animate-pulse">
-                                                                          {unreadCount}
-                                                                        </span>
-                                                                      )}
-                                                                    </button>
-                                                                  );
-                                                                })()}
-                                                              </td>
-                                                            )}
-                                                            {showAuthorityAndApproval && (
-                                                              <>
-                                                                <td className="px-4 py-2.5 text-center whitespace-nowrap">
-                                                                  {renderAuthorityDropdown(subDoc, true, doc)}
-                                                                </td>
-                                                                <td className="px-4 py-2.5 text-center whitespace-nowrap">
-                                                                  {renderApprovalColumn(subDoc, true, doc)}
-                                                                </td>
-                                                              </>
-                                                            )}
-                                                            <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                                                              <div className="flex items-center justify-end space-x-2">
+
+
+                                                          {/* 3 Dots Menu for Sub-Document */}
+                                                          <div className="relative inline-block text-left">
+                                                            <button
+                                                              type="button"
+                                                              onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (activeSubFileMenuId === subDoc._id) {
+                                                                  setActiveSubFileMenuId(null);
+                                                                  setActiveSubFileMenuCoords(null);
+                                                                } else {
+                                                                  const rect = e.currentTarget.getBoundingClientRect();
+                                                                  const spaceBelow = window.innerHeight - rect.bottom;
+                                                                  const menuHeight = 85;
+                                                                  const openUp = spaceBelow < menuHeight + 10;
+                                                                  setActiveSubFileMenuCoords({
+                                                                    top: openUp ? Math.max(10, rect.top - menuHeight - 4) : (rect.bottom + 4),
+                                                                    right: Math.max(10, window.innerWidth - rect.right)
+                                                                  });
+                                                                  setActiveSubFileMenuId(subDoc._id);
+                                                                  setActiveFileMenuId(null);
+                                                                  setActiveFileMenuCoords(null);
+                                                                }
+                                                              }}
+                                                              className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                                              title="More options"
+                                                            >
+                                                              <MoreVertical className="h-4 w-4" />
+                                                            </button>
+
+                                                            {activeSubFileMenuId === subDoc._id && activeSubFileMenuCoords && createPortal(
+                                                              <div
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                style={{
+                                                                  position: 'fixed',
+                                                                  top: `${activeSubFileMenuCoords.top}px`,
+                                                                  right: `${activeSubFileMenuCoords.right}px`,
+                                                                  zIndex: 999999
+                                                                }}
+                                                                className="bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 text-left text-xs animate-fade-in select-none"
+                                                              >
                                                                 <button
-                                                                  onClick={() => handleDownloadGeneralSubDoc(doc, subDoc)}
-                                                                  className="inline-flex items-center px-2.5 py-1 bg-white hover:bg-slate-50 text-sky-700 hover:text-sky-900 border border-sky-200 rounded-lg transition shadow-sm font-semibold text-[11px] cursor-pointer"
-                                                                  title="Download Sub-Document"
+                                                                  type="button"
+                                                                  onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedParentForSubRename(doc);
+                                                                    setSelectedSubDocForRename(subDoc);
+                                                                    setSubRenameNameInput(subDoc.name);
+                                                                    setRenameSubDocModal(true);
+                                                                    setActiveSubFileMenuId(null);
+                                                                    setActiveSubFileMenuCoords(null);
+                                                                  }}
+                                                                  className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
                                                                 >
-                                                                  <Download className="mr-1 h-3 w-3" /> Download
+                                                                  Rename
                                                                 </button>
-
-                                                                {/* 3 Dots Menu for Sub-Document */}
-                                                                <div className="relative inline-block text-left">
+                                                                {isDeleteAllowed && (
                                                                   <button
+                                                                    type="button"
                                                                     onClick={(e) => {
                                                                       e.stopPropagation();
-                                                                      setActiveSubFileMenuId(activeSubFileMenuId === subDoc._id ? null : subDoc._id);
+                                                                      if (window.confirm(`Are you sure you want to delete the sub-document "${subDoc.name}"?`)) {
+                                                                        handleDeleteSubDocument(doc._id, subDoc._id);
+                                                                      }
+                                                                      setActiveSubFileMenuId(null);
+                                                                      setActiveSubFileMenuCoords(null);
                                                                     }}
-                                                                    className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
-                                                                    title="More options"
+                                                                    className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
                                                                   >
-                                                                    <MoreVertical className="h-4 w-4" />
+                                                                    <Trash2 className="mr-1.5 h-3.5 w-3.5 text-rose-500" />
+                                                                    Delete
                                                                   </button>
+                                                                )}
+                                                              </div>,
+                                                              document.body
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                      </td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    };
 
-                                                                  {activeSubFileMenuId === subDoc._id && (
-                                                                    <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 z-[999] text-left text-xs">
-                                                                      <button
-                                                                        onClick={(e) => {
-                                                                          e.stopPropagation();
-                                                                          setSelectedParentForSubRename(doc);
-                                                                          setSelectedSubDocForRename(subDoc);
-                                                                          setSubRenameNameInput(subDoc.name);
-                                                                          setRenameSubDocModal(true);
-                                                                          setActiveSubFileMenuId(null);
-                                                                        }}
-                                                                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
-                                                                      >
-                                                                        Rename
-                                                                      </button>
-                                                                      {isDeleteAllowed && (
-                                                                        <button
-                                                                          onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            if (window.confirm(`Are you sure you want to delete the sub-document "${subDoc.name}"?`)) {
-                                                                              handleDeleteSubDocument(doc._id, subDoc._id);
-                                                                            }
-                                                                            setActiveSubFileMenuId(null);
-                                                                          }}
-                                                                          className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
-                                                                        >
-                                                                          Delete
-                                                                        </button>
-                                                                      )}
-                                                                    </div>
-                                                                  )}
-                                                                </div>
-                                                              </div>
-                                                            </td>
-                                                          </tr>
-                                                        ))}
-                                                      </tbody>
-                                                    </table>
-                                                  </div>
-                                                </div>
-                                              </td>
-                                            </tr>
-                                          )}
-                                        </React.Fragment>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
+                    const renderFolderTreeItem = (folder, depth = 0) => {
+                      const folderName = folder.name;
+                      const childFolders = tenderFolders.filter(f => {
+                        const pid = f.parentFolder ? (typeof f.parentFolder === 'object' ? (f.parentFolder._id || f.parentFolder.id) : f.parentFolder) : null;
+                        return pid && folder._id && pid.toString() === folder._id.toString();
+                      });
+                      const allDocsInFolder = tenderDocs.filter(d => {
+                        if (!d.folder) return false;
+                        const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                        return docFolder === folder._id || docFolder === folderName || (folder._id && docFolder.toString() === folder._id.toString());
+                      });
+
+                      const folderDocs = allDocsInFolder.map((doc, origIdx) => {
+                        const assignedSerialNo = doc.serialNumber || doc.srNo || doc.serialNo || (origIdx + 1).toString();
+                        return {
+                          ...doc,
+                          displaySerialNo: assignedSerialNo
+                        };
+                      }).filter(d => {
+                        if (['Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection)) {
+                          return checkDocMatchesPdrFilter(d, d.displaySerialNo);
+                        }
+                        return true;
+                      });
+
+                      const doesFolderOrDescendantsHaveMatches = (fId, fName) => {
+                        const docs = tenderDocs.filter(d => {
+                          if (!d.folder) return false;
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return docFolder === fId || docFolder === fName || (fId && docFolder.toString() === fId.toString());
+                        });
+                        if (docs.some((d, idx) => checkDocMatchesPdrFilter(d, d.serialNumber || d.srNo || d.serialNo || (idx + 1).toString()))) {
+                          return true;
+                        }
+                        const kids = tenderFolders.filter(c => {
+                          const pid = c.parentFolder ? (typeof c.parentFolder === 'object' ? (c.parentFolder._id || c.parentFolder.id) : c.parentFolder) : null;
+                          return pid && fId && pid.toString() === fId.toString();
+                        });
+                        return kids.some(k => doesFolderOrDescendantsHaveMatches(k._id, k.name));
+                      };
+
+                      const isFilterActiveInPDR = ['Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection) && Boolean(generalDocSearch.trim() || generalDocDateSearch.trim());
+                      const totalCount = childFolders.length + (isFilterActiveInPDR ? folderDocs.length : allDocsInFolder.length);
+                      const folderHasUnread = folderDocs.some(hasUnreadRemarks);
+                      const hasMatchesInSubtree = isFilterActiveInPDR && (folderDocs.length > 0 || doesFolderOrDescendantsHaveMatches(folder._id, folder.name));
+                      const isExpanded = !!expandedFoldersMap[folder._id] || hasMatchesInSubtree;
+                      const isDragTarget = dragOverFolderId === folder._id;
+
+                      const isFolderOrChildMenuOpen = (f) => {
+                        if (!activeFolderMenuId) return false;
+                        if ((f._id || f.id)?.toString() === activeFolderMenuId.toString()) return true;
+                        const children = tenderFolders.filter(child => {
+                          const pid = child.parentFolder ? (typeof child.parentFolder === 'object' ? (child.parentFolder._id || child.parentFolder.id) : child.parentFolder) : null;
+                          return pid && f._id && pid.toString() === f._id.toString();
+                        });
+                        return children.some(c => isFolderOrChildMenuOpen(c));
+                      };
+
+                      const isDefaultCategoryFolder = (folderObj) => {
+                        if (!folderObj) return false;
+                        const pid = folderObj.parentFolder ? (typeof folderObj.parentFolder === 'object' ? (folderObj.parentFolder._id || folderObj.parentFolder.id) : folderObj.parentFolder) : null;
+                        if (pid) return false;
+
+                        const secKey = getApiSectionName(activeSection);
+                        const defaultCategoryMap = {
+                          mep: ['operation and maintenance manuals', 'e & m submissions'],
+                          monitor: [
+                            'initial program and works program',
+                            'monthly program update',
+                            'three month rolling program',
+                            'three week rolling program',
+                            'monthly progress report',
+                            'method statements',
+                            'interface management plan',
+                            'monitoring, protection'
+                          ],
+                          drawing: ['works drawings', 'as built drawings', 'construction reference drawings'],
+                          quality: ['quality plan', 'quality control register', 'reports of quarterly quality audits', 'materials submissions', 'materials and workmanship test'],
+                          ehs: ['safety plan', 'environment plan'],
+                          registrations: ['minutes of meeting', 'letter correspondence', 'all other submittals']
+                        };
+
+                        const defaults = defaultCategoryMap[secKey] || [];
+                        const nameLower = (folderObj.name || '').trim().toLowerCase();
+                        const unnumbered = nameLower.replace(/^\d+\.\s*/, '');
+
+                        return defaults.some(d => nameLower.includes(d) || unnumbered.includes(d) || d.includes(unnumbered));
+                      };
+
+                      const hasActiveMenu = isFolderOrChildMenuOpen(folder);
+                      const isThisFolderMenuOpen = activeFolderMenuId === folder._id;
+                      const hasChildActiveMenu = hasActiveMenu && !isThisFolderMenuOpen;
+
+                      return (
+                        <div
+                          key={folder._id}
+                          className={`rounded-2xl border border-slate-200/90 bg-white shadow-xs transition-all duration-200 relative ${isThisFolderMenuOpen ? 'z-50 overflow-visible' : hasChildActiveMenu ? 'z-40 overflow-visible' : 'z-10'
+                            }`}
+                        >
+                          {/* Collapsible Folder Header Bar */}
+                          <div
+                            onClick={() => {
+                              setExpandedFoldersMap(prev => ({
+                                ...prev,
+                                [folder._id]: !prev[folder._id]
+                              }));
+                            }}
+                            onDragOver={(e) => {
+                              if (isDragAndDropAllowed) handleFolderDragOver(e, folder._id);
+                            }}
+                            onDragLeave={(e) => {
+                              if (isDragAndDropAllowed) handleFolderDragLeave(e, folder._id);
+                            }}
+                            onDrop={(e) => {
+                              if (isDragAndDropAllowed) handleFolderDrop(e, folder);
+                            }}
+                            className={`flex items-center justify-between px-4 py-3 cursor-pointer select-none border-b border-slate-100 transition-all duration-150 group relative ${isExpanded ? 'rounded-t-2xl' : 'rounded-2xl'
+                              } ${isThisFolderMenuOpen ? 'z-50 overflow-visible' : 'z-20'
+                              } ${isDragTarget
+                                ? 'bg-sky-50/90 border-sky-400 ring-2 ring-sky-200'
+                                : 'bg-slate-100/90 hover:bg-slate-200/90'
+                              }`}
+                          >
+                            {isDragTarget && (
+                              <div className="absolute inset-0 bg-sky-500/10 backdrop-blur-[1px] border-2 border-dashed border-sky-600 rounded-xl flex items-center justify-center space-x-2 text-sky-800 font-extrabold text-xs z-30 animate-pulse pointer-events-none">
+                                <Folder className="h-4 w-4 fill-current text-sky-600" />
+                                <span>Move "{draggedDocRef.current?.name || draggedDoc?.name || 'file'}" here</span>
+                              </div>
+                            )}
+
+                            <div className="flex items-center space-x-3 min-w-0">
+                              <div className="p-1 text-slate-600 group-hover:text-slate-900 transition flex-shrink-0">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-4 w-4 stroke-[2.5]" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4 stroke-[2.5]" />
+                                )}
+                              </div>
+
+                              <div className="flex items-center space-x-2.5 min-w-0">
+                                <h4 className="font-bold text-slate-900 text-sm group-hover:text-sky-600 transition truncate" title={folderName}>
+                                  {folderName}
+                                </h4>
+                                {folderHasUnread && (
+                                  <span className="px-2 py-0.5 bg-rose-100 text-rose-800 border border-rose-200 text-[10px] font-bold rounded-full animate-pulse">
+                                    New Remark
+                                  </span>
+                                )}
+                                <span className="px-2 py-0.5 bg-slate-200/80 text-slate-700 text-[11px] font-bold rounded-full">
+                                  {totalCount} {totalCount === 1 ? 'item' : 'items'}
+                                </span>
                               </div>
                             </div>
-                          );
-                        })()}
+
+                            {/* Options menu for Folder */}
+                            <div className="relative z-[999]" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveFolderMenuId(activeFolderMenuId === folder._id ? null : folder._id);
+                                }}
+                                className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                                title="Folder Options"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+
+                              {activeFolderMenuId === folder._id && (
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 z-[9999] animate-fade-in text-xs">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      setTargetParentFolderForCreate(folder);
+                                      setTargetCategoryForCreateFolder((folder._id || folder.id).toString());
+                                      setTenderFolderNameInput('');
+                                      setShowTenderFolderModal(true);
+                                      setActiveFolderMenuId(null);
+                                    }}
+                                    className="w-full text-left px-3.5 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
+                                  >
+                                    <Folder className="mr-2 h-3.5 w-3.5 text-amber-500 fill-current" />
+                                    Create Folder
+                                  </button>
+                                  {!isDefaultCategoryFolder(folder) && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setRenameFolderId(folder._id);
+                                        setRenameFolderNameInput(folderName);
+                                        setShowRenameFolderModal(true);
+                                        setActiveFolderMenuId(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-2 hover:bg-slate-50 text-slate-700 font-semibold transition flex items-center cursor-pointer"
+                                    >
+                                      Rename
+                                    </button>
+                                  )}
+                                  {isDeleteAllowed && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Are you sure you want to delete the folder "${folderName}" and all of its files?`)) {
+                                          handleDeleteFolder(folder._id);
+                                        }
+                                        setActiveFolderMenuId(null);
+                                      }}
+                                      className="w-full text-left px-4 py-2 hover:bg-rose-50 text-rose-600 font-semibold transition flex items-center cursor-pointer"
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Expanded Folder Content */}
+                          {isExpanded && (
+                            <div className={`p-4 bg-slate-50/50 space-y-4 rounded-b-2xl relative ${hasChildActiveMenu ? 'z-30 overflow-visible' : 'z-10'
+                              }`}>
+                              {/* Sub-Folders inside this folder */}
+                              {childFolders.length > 0 && (
+                                <div className="space-y-3 pl-2 md:pl-4 border-l-2 border-sky-300">
+                                  {childFolders.map(childFolder => renderFolderTreeItem(childFolder, depth + 1))}
+                                </div>
+                              )}
+
+                              {/* Files inside this folder */}
+                              {folderDocs.length > 0 && (
+                                renderFilesTable(folderDocs)
+                              )}
+
+                              {childFolders.length === 0 && folderDocs.length === 0 && (
+                                <p className="text-xs text-slate-400 font-semibold italic text-center py-4">
+                                  {isFilterActiveInPDR ? 'No matching documents found in this folder.' : 'This folder is empty.'}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    };
+
+                    return (
+                      <div className="space-y-6">
+                        {currentFolders.length > 0 && (
+                          <div className="space-y-3">
+                            {currentFolders.map(folder => renderFolderTreeItem(folder, 0))}
+                          </div>
+                        )}
+                        {currentFiles.length > 0 && (
+                          <div className="space-y-2">
+                            {currentFolders.length > 0 && (
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 pl-1">
+                                Files ({currentFiles.length})
+                              </h4>
+                            )}
+                            {renderFilesTable(currentFiles)}
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
-                </div>
+                </>
               )}
             </div>
           ) : (
@@ -6724,13 +7761,15 @@ function App() {
                 <p className="text-xs text-slate-400">{selectedMatrixItem.code}: {selectedMatrixItem.name}</p>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowUploadModal(false);
                   setUploadFile(null);
                 }}
-                className="text-slate-500 hover:text-white font-semibold text-sm"
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -6819,21 +7858,68 @@ function App() {
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-bold text-white">Upload Document</h3>
-                <p className="text-xs text-slate-400">Target Folder: {selectedTenderFolder || 'Root (No Folder)'}</p>
+                <p className="text-xs text-sky-400 font-medium">
+                  Target Folder: {
+                    tenderUploadCategory
+                      ? tenderUploadCategory.replace(/^\d+\.\s*/, '')
+                      : (selectedTenderFolder || 'Root (No Folder)')
+                  }
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowTenderUploadModal(false);
                   setTenderUploadFile(null);
                   setTenderUploadName('');
+                  setTenderUploadCategory('');
                 }}
-                className="text-slate-555 hover:text-white font-semibold text-sm"
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleTenderUpload} className="space-y-4 text-xs text-slate-300">
+              {(() => {
+                const rawList = [
+                  ...tenderFolders.map(f => f.name).filter(Boolean),
+                  ...(sectionCategoriesMap[activeSection] || [])
+                ];
+                const seen = new Set();
+                const uniqueCategories = [];
+                for (const item of rawList) {
+                  if (!item) continue;
+                  const normalized = item.trim().replace(/^\d+\.\s*/, '').toLowerCase();
+                  if (!seen.has(normalized)) {
+                    seen.add(normalized);
+                    const matchedFolder = tenderFolders.find(f => (f.name || '').trim().replace(/^\d+\.\s*/, '').toLowerCase() === normalized);
+                    uniqueCategories.push(matchedFolder ? matchedFolder.name : item.replace(/^\d+\.\s*/, ''));
+                  }
+                }
+
+                if (uniqueCategories.length === 0) return null;
+
+                return (
+                  <div>
+                    <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Category / Target Folder</label>
+                    <select
+                      value={tenderUploadCategory}
+                      onChange={(e) => setTenderUploadCategory(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:ring-1 focus:ring-sky-500 text-xs cursor-pointer"
+                    >
+                      <option value="">-- Select Category / Folder --</option>
+                      {uniqueCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+
               <div>
                 <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Document Name / Title</label>
                 <input
@@ -6863,6 +7949,7 @@ function App() {
                     setShowTenderUploadModal(false);
                     setTenderUploadFile(null);
                     setTenderUploadName('');
+                    setTenderUploadCategory('');
                   }}
                   className="px-4 py-2 bg-slate-950 border border-slate-850 hover:bg-slate-850 text-slate-400 hover:text-white rounded-lg transition font-semibold"
                 >
@@ -6883,25 +7970,66 @@ function App() {
 
       {/* Tender Folder Create Modal */}
       {showTenderFolderModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="text-lg font-bold text-white">Create New Folder</h3>
-                <p className="text-xs text-slate-400">Add a new folder to Tender Documents Ledger</p>
+                <h3 className="text-lg font-bold text-white">
+                  {targetParentFolderForCreate ? 'Create Sub-Folder' : 'Create New Folder'}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {targetParentFolderForCreate ? (
+                    <span>Inside Parent Category/Folder: <strong className="text-sky-400 font-semibold">{targetParentFolderForCreate.name}</strong></span>
+                  ) : (
+                    `Add a new root folder to ${activeSection} Ledger`
+                  )}
+                </p>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowTenderFolderModal(false);
                   setTenderFolderNameInput('');
+                  setTargetParentFolderForCreate(null);
+                  setTargetCategoryForCreateFolder('ROOT');
                 }}
-                className="text-slate-555 hover:text-white font-semibold text-sm"
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleCreateTenderFolder} className="space-y-4 text-xs text-slate-300">
+              <div>
+                <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">
+                  Select Location / Category
+                </label>
+                <select
+                  value={targetCategoryForCreateFolder}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTargetCategoryForCreateFolder(val);
+                    if (val === 'ROOT') {
+                      setTargetParentFolderForCreate(null);
+                    } else {
+                      const found = tenderFolders.find(f => (f._id || f.id)?.toString() === val);
+                      if (found) setTargetParentFolderForCreate(found);
+                    }
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:ring-1 focus:ring-sky-500 text-xs cursor-pointer"
+                >
+                  <option value="ROOT">-- Outside of all categories (Root Level) --</option>
+                  {tenderFolders
+                    .filter(f => !f.parentFolder)
+                    .map((catFolder) => (
+                      <option key={catFolder._id || catFolder.id} value={(catFolder._id || catFolder.id).toString()}>
+                        {catFolder.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Folder Name</label>
                 <input
@@ -6909,7 +8037,7 @@ function App() {
                   required
                   value={tenderFolderNameInput}
                   onChange={(e) => setTenderFolderNameInput(e.target.value)}
-                  placeholder="e.g. 3. New Corrigenda or Drawings"
+                  placeholder={targetParentFolderForCreate ? `e.g. Subfolder inside ${targetParentFolderForCreate.name}` : "e.g. New Folder"}
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white focus:outline-none focus:ring-1 focus:ring-sky-500 text-xs"
                 />
               </div>
@@ -6920,6 +8048,8 @@ function App() {
                   onClick={() => {
                     setShowTenderFolderModal(false);
                     setTenderFolderNameInput('');
+                    setTargetParentFolderForCreate(null);
+                    setTargetCategoryForCreateFolder('ROOT');
                   }}
                   className="px-4 py-2 bg-slate-950 border border-slate-850 hover:bg-slate-850 text-slate-400 hover:text-white rounded-lg transition font-semibold"
                 >
@@ -6948,14 +8078,16 @@ function App() {
                 <p className="text-xs text-slate-400">Update file title in the system</p>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowRenameModal(false);
                   setRenameFileNameInput('');
                   setRenameFileId(null);
                 }}
-                className="text-slate-500 hover:text-white font-semibold text-sm"
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -7007,14 +8139,16 @@ function App() {
                 <p className="text-xs text-slate-400">Update folder name in this section</p>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowRenameFolderModal(false);
                   setRenameFolderNameInput('');
                   setRenameFolderId(null);
                 }}
-                className="text-slate-500 hover:text-white font-semibold text-sm cursor-pointer"
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -7067,13 +8201,15 @@ function App() {
                 <p className="text-xs text-slate-400">{selectedDocForRevision.documentNumber}: {selectedDocForRevision.title}</p>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setSelectedDocForRevision(null);
                   setUploadFile(null);
                 }}
-                className="text-slate-500 hover:text-white font-semibold text-sm"
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -7144,7 +8280,14 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Submit Document Review</h3>
                 <p className="text-xs text-slate-400">{selectedDocForReview.documentNumber} (Rev {selectedDocForReview.currentRevision})</p>
               </div>
-              <button onClick={() => setShowReviewModal(false)} className="text-slate-500 hover:text-white font-semibold text-sm">✕</button>
+              <button
+                type="button"
+                onClick={() => setShowReviewModal(false)}
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
             <form onSubmit={handleDocReview} className="space-y-4 text-xs">
@@ -7203,7 +8346,14 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Transmit Document package</h3>
                 <p className="text-xs text-slate-400">{selectedDocForTransmit.documentNumber} (Rev {selectedDocForTransmit.currentRevision})</p>
               </div>
-              <button onClick={() => setShowTransmitModal(false)} className="text-slate-500 hover:text-white font-semibold text-sm">✕</button>
+              <button
+                type="button"
+                onClick={() => setShowTransmitModal(false)}
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
             <form onSubmit={handleDocTransmit} className="space-y-4 text-xs">
@@ -7257,7 +8407,14 @@ function App() {
                 <h3 className="text-lg font-bold text-white">Log Physical Hard Copies Handover</h3>
                 <p className="text-xs text-slate-400">{selectedDocForVerify.documentNumber} (Rev {selectedDocForVerify.currentRevision})</p>
               </div>
-              <button onClick={() => setShowVerifyModal(false)} className="text-slate-500 hover:text-white font-semibold text-sm">✕</button>
+              <button
+                type="button"
+                onClick={() => setShowVerifyModal(false)}
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
             <div className="bg-slate-950 p-3 rounded-lg border border-slate-850 space-y-2 text-[10px]">
@@ -7346,13 +8503,15 @@ function App() {
                 <p className="text-xs text-slate-400">{selectedDocForShare.documentNumber} (Rev {selectedVersionForShare.revision})</p>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setShowShareModal(false);
                   setGeneratedShareLink('');
                 }}
-                className="text-slate-500 hover:text-white font-semibold text-sm"
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -7453,7 +8612,14 @@ function App() {
                 <h3 className="text-lg font-bold text-white">PMIS Document Version History</h3>
                 <p className="text-xs text-slate-400">{historyDoc.documentNumber}: {historyDoc.title}</p>
               </div>
-              <button onClick={() => setShowHistoryModal(false)} className="text-slate-500 hover:text-white font-semibold text-sm">✕</button>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
 
             <div className="overflow-y-auto pr-1 flex-1 space-y-6 py-2 text-xs">
@@ -7509,7 +8675,7 @@ function App() {
                         <ChevronRight className="h-3 w-3 mr-1 text-sky-400 flex-shrink-0 mt-0.5" />
                         <div>
                           <span className="font-semibold text-slate-300">{hist.fromRole}</span>
-                          <span className="text-slate-500"> ➜ </span>
+                          <span className="text-slate-500"> ➔ </span>
                           <span className="font-semibold text-slate-300">{hist.toRole}</span>
                           <span className="text-[10px] text-slate-500 ml-2">({new Date(hist.transactedAt).toLocaleString()})</span>
                           <p className="text-slate-300 mt-0.5 font-medium">{hist.comments}</p>
@@ -7576,10 +8742,10 @@ function App() {
                       setPreviewBlobUrl(null);
                     }
                   }}
-                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+                  className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
                   title="Close Preview"
                 >
-                  ✕
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -7722,10 +8888,12 @@ function App() {
                   </button>
                 )}
                 <button
+                  type="button"
                   onClick={() => setShowRemarkModal(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition"
+                  className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                  title="Close"
                 >
-                  ✕
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -7963,9 +9131,10 @@ function App() {
                   setShowSubDocModal(false);
                   setSelectedParentDoc(null);
                 }}
-                className="text-slate-400 hover:text-white transition text-sm p-1 cursor-pointer"
+                className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
 
@@ -8038,9 +9207,10 @@ function App() {
                   setRenameSubDocModal(false);
                   setSelectedSubDocForRename(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 transition cursor-pointer text-sm"
+                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition cursor-pointer"
+                title="Close"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
             <form onSubmit={handleRenameSubDocumentSubmit} className="space-y-4">
@@ -8080,321 +9250,338 @@ function App() {
         </div>
       )}
       {/* RFI Floating Form Modal */}
-        {showRfiModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in select-none">
-            <div className="relative w-full max-w-lg p-6 md:p-8 bg-white/95 backdrop-blur-xl rounded-3xl border border-white/80 shadow-2xl text-slate-900">
+      {showRfiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in select-none">
+          <div className="relative w-full max-w-lg p-6 md:p-8 bg-white/95 backdrop-blur-xl rounded-3xl border border-white/80 shadow-2xl text-slate-900">
 
-              {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
-                <div className="flex items-center space-x-3">
-                  <div className="p-3 bg-sky-100 text-sky-700 rounded-2xl">
-                    <FileQuestion className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 leading-snug">
-                      Add RFI Document
-                    </h3>
-                    <p className="text-xs text-slate-500 font-semibold">
-                      Upload RFI and attach to target section folder
-                    </p>
-                  </div>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-sky-100 text-sky-700 rounded-2xl">
+                  <FileQuestion className="h-6 w-6" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowRfiModal(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 leading-snug">
+                    Add RFI Document
+                  </h3>
+                  <p className="text-xs text-slate-500 font-semibold">
+                    Upload RFI and attach to target section folder
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRfiModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleRfiSubmit} className="space-y-4">
+
+              {/* 1. Select Section */}
+              <div>
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                  Select Section <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={rfiSelectedSection}
+                  onChange={(e) => {
+                    setRfiSelectedSection(e.target.value);
+                    setRfiSelectedMainFolder('Root');
+                    setRfiSelectedSubFolder('');
+                    setRfiSelectedFolder('Root');
+                  }}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
+                  required
                 >
-                  <X className="h-5 w-5" />
-                </button>
+                  {rfiAvailableSections.map((sec) => (
+                    <option key={sec.value} value={sec.value}>
+                      {sec.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Form */}
-              <form onSubmit={handleRfiSubmit} className="space-y-4">
-
-                {/* 1. Select Section */}
-                <div>
-                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
-                    Select Section <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={rfiSelectedSection}
-                    onChange={(e) => {
-                      setRfiSelectedSection(e.target.value);
-                      setRfiSelectedMainFolder('Root');
-                      setRfiSelectedSubFolder('');
-                      setRfiSelectedFolder('Root');
-                    }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
-                    required
-                  >
-                    {rfiAvailableSections.map((sec) => (
-                      <option key={sec.value} value={sec.value}>
-                        {sec.label}
+              {/* 2. Select Main Folder */}
+              <div>
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5 flex items-center justify-between">
+                  <span>Select Folder <span className="text-rose-500">*</span></span>
+                  {rfiFoldersLoading && (
+                    <span className="text-[10px] text-sky-600 font-semibold flex items-center">
+                      <RefreshCw className="h-3 w-3 animate-spin mr-1" /> Loading folders...
+                    </span>
+                  )}
+                </label>
+                <select
+                  value={rfiSelectedMainFolder}
+                  onChange={(e) => handleMainFolderChange(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
+                  required
+                >
+                  <option value="Root">Root Folder</option>
+                  {rfiMainFolders.map((mainF) => {
+                    const mId = getFolderId(mainF);
+                    const subs = getAllNestedSubfolders(mId);
+                    return (
+                      <option key={mId} value={mId}>
+                        📁 {mainF.name} {subs.length > 0 ? `(${subs.length} subfolder${subs.length === 1 ? '' : 's'})` : ''}
                       </option>
-                    ))}
-                  </select>
-                </div>
+                    );
+                  })}
+                </select>
+              </div>
 
-                {/* 2. Select Main Folder */}
-                <div>
-                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5 flex items-center justify-between">
-                    <span>Select Folder <span className="text-rose-500">*</span></span>
-                    {rfiFoldersLoading && (
-                      <span className="text-[10px] text-sky-600 font-semibold flex items-center">
-                        <RefreshCw className="h-3 w-3 animate-spin mr-1" /> Loading folders...
-                      </span>
-                    )}
+              {/* 2b. Select Sub-Folder (Appears dynamically when selected main folder has nested subfolders) */}
+              {rfiSelectedMainFolder !== 'Root' && getAllNestedSubfolders(rfiSelectedMainFolder).length > 0 && (
+                <div className="animate-fade-in pl-3 border-l-2 border-sky-400 space-y-1">
+                  <label className="text-xs font-bold text-sky-800 uppercase tracking-wider block flex items-center space-x-1">
+                    <Folder className="h-3.5 w-3.5 text-sky-600" />
+                    <span>Select Sub-Folder (Optional)</span>
                   </label>
                   <select
-                    value={rfiSelectedMainFolder}
-                    onChange={(e) => handleMainFolderChange(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
-                    required
+                    value={rfiSelectedSubFolder}
+                    onChange={(e) => handleSubFolderChange(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-sky-50/80 border border-sky-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
                   >
-                    <option value="Root">Root Folder</option>
-                    {rfiMainFolders.map((mainF) => {
-                      const mId = getFolderId(mainF);
-                      const subs = getAllNestedSubfolders(mId);
+                    <option value="">
+                      (Upload directly in Main Folder: "{rfiMainFolders.find(f => getFolderId(f) === rfiSelectedMainFolder)?.name || 'Main Folder'}")
+                    </option>
+                    {getAllNestedSubfolders(rfiSelectedMainFolder).map((subF) => {
+                      const sId = getFolderId(subF);
+                      const indentStr = '\u00A0\u00A0\u00A0\u00A0'.repeat(subF.depth - 1);
                       return (
-                        <option key={mId} value={mId}>
-                          📁 {mainF.name} {subs.length > 0 ? `(${subs.length} subfolder${subs.length === 1 ? '' : 's'})` : ''}
+                        <option key={sId} value={sId}>
+                          {indentStr}└─ 📁 {subF.name}
                         </option>
                       );
                     })}
                   </select>
                 </div>
+              )}
 
-                {/* 2b. Select Sub-Folder (Appears dynamically when selected main folder has nested subfolders) */}
-                {rfiSelectedMainFolder !== 'Root' && getAllNestedSubfolders(rfiSelectedMainFolder).length > 0 && (
-                  <div className="animate-fade-in pl-3 border-l-2 border-sky-400 space-y-1">
-                    <label className="text-xs font-bold text-sky-800 uppercase tracking-wider block flex items-center space-x-1">
-                      <Folder className="h-3.5 w-3.5 text-sky-600" />
-                      <span>Select Sub-Folder (Optional)</span>
-                    </label>
-                    <select
-                      value={rfiSelectedSubFolder}
-                      onChange={(e) => handleSubFolderChange(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-sky-50/80 border border-sky-200 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition cursor-pointer"
-                    >
-                      <option value="">
-                        (Upload directly in Main Folder: "{rfiMainFolders.find(f => getFolderId(f) === rfiSelectedMainFolder)?.name || 'Main Folder'}")
-                      </option>
-                      {getAllNestedSubfolders(rfiSelectedMainFolder).map((subF) => {
-                        const sId = getFolderId(subF);
-                        const indentStr = '\u00A0\u00A0\u00A0\u00A0'.repeat(subF.depth - 1);
-                        return (
-                          <option key={sId} value={sId}>
-                            {indentStr}└─ 📁 {subF.name}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                )}
-
-                {/* 3. Attachment Files */}
-                <div>
-                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
-                    Attachment Files <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50 hover:bg-slate-100/80 transition text-center cursor-pointer">
-                    <input
-                      type="file"
-                      required
-                      onChange={handleRfiFileChange}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div className="flex flex-col items-center space-y-1.5">
-                      <UploadCloud className="h-8 w-8 text-sky-600" />
-                      {rfiFileInput ? (
-                        <p className="text-xs font-bold text-emerald-700 truncate max-w-xs">
-                          Selected: {rfiFileInput.name} ({(rfiFileInput.size / 1024).toFixed(1)} KB)
-                        </p>
-                      ) : (
-                        <>
-                          <p className="text-xs font-bold text-slate-700">Click to choose a file</p>
-                          <p className="text-[10px] text-slate-400 font-medium">Supports PDF, DWG, DOCX, XLSX, Images, etc.</p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. Add File Name */}
-                <div>
-                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
-                    Add File Name <span className="text-rose-500">*</span>
-                  </label>
+              {/* 3. Attachment Files */}
+              <div>
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                  Attachment Files <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative border-2 border-dashed border-slate-200 rounded-xl p-4 bg-slate-50 hover:bg-slate-100/80 transition text-center cursor-pointer">
                   <input
-                    type="text"
+                    type="file"
                     required
-                    value={rfiFileNameInput}
-                    onChange={(e) => setRfiFileNameInput(e.target.value)}
-                    placeholder="Enter file display name"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition"
+                    onChange={handleRfiFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
-                </div>
-
-                {/* 5. Cancel & Submit Buttons */}
-                <div className="flex space-x-3 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowRfiModal(false)}
-                    className="w-1/2 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={rfiSubmitting}
-                    className="w-1/2 py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-sm transition flex justify-center items-center shadow-md shadow-sky-600/20 disabled:opacity-50 cursor-pointer"
-                  >
-                    {rfiSubmitting ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
+                  <div className="flex flex-col items-center space-y-1.5">
+                    <UploadCloud className="h-8 w-8 text-sky-600" />
+                    {rfiFileInput ? (
+                      <p className="text-xs font-bold text-emerald-700 truncate max-w-xs">
+                        Selected: {rfiFileInput.name} ({(rfiFileInput.size / 1024).toFixed(1)} KB)
+                      </p>
                     ) : (
-                      'Submit'
+                      <>
+                        <p className="text-xs font-bold text-slate-700">Click to choose a file</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Supports PDF, DWG, DOCX, XLSX, Images, etc.</p>
+                      </>
                     )}
-                  </button>
-                </div>
-
-              </form>
-
-            </div>
-          </div>
-        )}
-
-        {/* Floating Contact Directory Modal */}
-        {showContactModal && (
-          <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
-              
-              {/* Modal Header */}
-              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-sky-950 p-5 px-6 flex items-center justify-between border-b border-slate-800 text-white">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2.5 bg-sky-500/20 text-sky-300 rounded-xl border border-sky-400/30">
-                    <PhoneCall className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg md:text-xl font-black text-white tracking-wide">
-                      Key Project Contacts & Directory
-                    </h3>
-                    <p className="text-xs text-sky-200 font-medium">
-                      MMRCL Officers Contact Information Matrix
-                    </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowContactModal(false)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition duration-150 cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
               </div>
 
-              {/* Modal Body / Toolbar */}
-              <div className="p-6 overflow-y-auto space-y-4 flex-1">
-                {/* Search Bar */}
-                <div className="relative max-w-md">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by Name, Department, Designation, Email..."
-                    value={contactSearch}
-                    onChange={(e) => setContactSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs md:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition"
-                  />
-                  {contactSearch && (
-                    <button
-                      onClick={() => setContactSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+              {/* 4. Add File Name */}
+              <div>
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider block mb-1.5">
+                  Add File Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={rfiFileNameInput}
+                  onChange={(e) => setRfiFileNameInput(e.target.value)}
+                  placeholder="Enter file display name"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm font-semibold transition"
+                />
+              </div>
+
+              {/* 5. Cancel & Submit Buttons */}
+              <div className="flex space-x-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRfiModal(false)}
+                  className="w-1/2 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={rfiSubmitting}
+                  className="w-1/2 py-2.5 px-4 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-sm transition flex justify-center items-center shadow-md shadow-sky-600/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {rfiSubmitting ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    'Submit'
                   )}
-                </div>
-
-                {/* Contacts Table matching Screenshot 2 precisely */}
-                <div className="overflow-x-auto rounded-xl border border-slate-300 shadow-2xs bg-white">
-                  <table className="w-full text-left border-collapse text-xs md:text-sm">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-900 font-extrabold uppercase tracking-wider text-[11px] md:text-xs border-b border-slate-300">
-                        <th className="py-3 px-4 text-center border-r border-slate-300 w-16">Sr No</th>
-                        <th className="py-3 px-4 border-r border-slate-300 w-36">Department</th>
-                        <th className="py-3 px-4 border-r border-slate-300">Name</th>
-                        <th className="py-3 px-4 border-r border-slate-300">Designation</th>
-                        <th className="py-3 px-4 border-r border-slate-300">Contact No</th>
-                        <th className="py-3 px-4">E-mail id</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-300 text-slate-800 font-medium">
-                      {contactDirectoryData.map((deptGroup) => {
-                        const filteredContacts = deptGroup.contacts.filter(c => 
-                          !contactSearch ||
-                          c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-                          c.designation.toLowerCase().includes(contactSearch.toLowerCase()) ||
-                          c.email.toLowerCase().includes(contactSearch.toLowerCase()) ||
-                          c.phone.includes(contactSearch) ||
-                          deptGroup.department.toLowerCase().includes(contactSearch.toLowerCase())
-                        );
-
-                        if (filteredContacts.length === 0) return null;
-
-                        return filteredContacts.map((contact, idx) => (
-                          <tr key={`${deptGroup.srNo}-${contact.email}`} className="hover:bg-sky-50/50 transition duration-150 border-b border-slate-200">
-                            {idx === 0 && (
-                              <td 
-                                rowSpan={filteredContacts.length} 
-                                className="py-3 px-4 text-center font-black text-slate-900 border-r border-slate-300 bg-slate-50/50 align-top border-b border-slate-300"
-                              >
-                                {deptGroup.srNo}
-                              </td>
-                            )}
-                            {idx === 0 && (
-                              <td 
-                                rowSpan={filteredContacts.length} 
-                                className="py-3 px-4 font-extrabold text-slate-900 border-r border-slate-300 bg-slate-50/50 align-top border-b border-slate-300"
-                              >
-                                {deptGroup.department}
-                              </td>
-                            )}
-                            <td className="py-3 px-4 font-bold text-slate-900 border-r border-slate-200">
-                              {contact.name}
-                            </td>
-                            <td className="py-3 px-4 text-slate-700 border-r border-slate-200">
-                              {contact.designation}
-                            </td>
-                            <td className="py-3 px-4 border-r border-slate-200 font-semibold text-slate-900 whitespace-nowrap">
-                              <a href={`tel:${contact.phone}`} className="text-sky-700 hover:text-sky-900 hover:underline">
-                                {contact.phone}
-                              </a>
-                            </td>
-                            <td className="py-3 px-4 text-slate-700 font-medium">
-                              <a href={`mailto:${contact.email}`} className="text-indigo-700 hover:text-indigo-900 hover:underline">
-                                {contact.email}
-                              </a>
-                            </td>
-                          </tr>
-                        ));
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="bg-slate-50 p-4 px-6 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 font-semibold">
-                <span>Total Departments: {contactDirectoryData.length} | Total Contacts: {contactDirectoryData.reduce((acc, curr) => acc + curr.contacts.length, 0)}</span>
-                <button
-                  onClick={() => setShowContactModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition duration-150 shadow-xs cursor-pointer"
-                >
-                  Close Directory
                 </button>
               </div>
 
-            </div>
+            </form>
+
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Floating Contact Directory Modal */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
+
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-sky-950 p-5 px-6 flex items-center justify-between border-b border-slate-800 text-white">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-sky-500/20 text-sky-300 rounded-xl border border-sky-400/30">
+                  <PhoneCall className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg md:text-xl font-black text-white tracking-wide">
+                    Key Project Contacts & Directory
+                  </h3>
+                  <p className="text-xs text-sky-200 font-medium">
+                    MMRCL Officers Contact Information Matrix
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowContactModal(false)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition duration-150 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body / Toolbar */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {/* Search Bar */}
+              <div className="relative max-w-md">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by Name, Organization, Department, Designation, Email..."
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs md:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500 transition"
+                />
+                {contactSearch && (
+                  <button
+                    onClick={() => setContactSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Contacts Table matching Screenshot 2 precisely */}
+              <div className="overflow-x-auto rounded-xl border border-slate-300 shadow-2xs bg-white">
+                <table className="w-full text-left border-collapse text-xs md:text-sm">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-900 font-extrabold uppercase tracking-wider text-[11px] md:text-xs border-b border-slate-300">
+                      <th className="py-3 px-4 text-center border-r border-slate-300 w-16">Sr No</th>
+                      <th className="py-3 px-4 text-center border-r border-slate-300 w-36 whitespace-nowrap">Key Stack Holder</th>
+                      <th className="py-3 px-4 border-r border-slate-300 w-36">Department</th>
+                      <th className="py-3 px-4 border-r border-slate-300">Name</th>
+                      <th className="py-3 px-4 border-r border-slate-300">Designation</th>
+                      <th className="py-3 px-4 border-r border-slate-300">Contact No</th>
+                      <th className="py-3 px-4">E-mail id</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-300 text-slate-800 font-medium">
+                    {contactDirectoryData.map((deptGroup) => {
+                      const filteredContacts = deptGroup.contacts.filter(c =>
+                        !contactSearch ||
+                        c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                        c.designation.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                        c.email.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                        c.phone.includes(contactSearch) ||
+                        deptGroup.department.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                        (deptGroup.organization && deptGroup.organization.toLowerCase().includes(contactSearch.toLowerCase()))
+                      );
+
+                      if (filteredContacts.length === 0) return null;
+
+                      return filteredContacts.map((contact, idx) => (
+                        <tr key={`${deptGroup.srNo}-${contact.email}`} className="hover:bg-sky-50/50 transition duration-150 border-b border-slate-200">
+                          {idx === 0 && (
+                            <td
+                              rowSpan={filteredContacts.length}
+                              className="py-3 px-4 text-center font-black text-slate-900 border-r border-slate-300 bg-slate-50/50 align-top border-b border-slate-300"
+                            >
+                              {deptGroup.srNo}
+                            </td>
+                          )}
+                          {idx === 0 && (
+                            <td
+                              rowSpan={filteredContacts.length}
+                              className="py-3 px-4 text-center border-r border-slate-300 bg-slate-50/50 align-top border-b border-slate-300"
+                            >
+                              <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider whitespace-nowrap shadow-2xs ${deptGroup.organization === 'MMRCL'
+                                ? 'bg-sky-100 text-sky-800 border border-sky-300'
+                                : deptGroup.organization === 'PMC'
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                }`}>
+                                {deptGroup.organization}
+                              </span>
+                            </td>
+                          )}
+                          {idx === 0 && (
+                            <td
+                              rowSpan={filteredContacts.length}
+                              className="py-3 px-4 font-extrabold text-slate-900 border-r border-slate-300 bg-slate-50/50 align-top border-b border-slate-300"
+                            >
+                              {deptGroup.department}
+                            </td>
+                          )}
+                          <td className="py-3 px-4 font-bold text-slate-900 border-r border-slate-200">
+                            {contact.name}
+                          </td>
+                          <td className="py-3 px-4 text-slate-700 border-r border-slate-200">
+                            {contact.designation}
+                          </td>
+                          <td className="py-3 px-4 border-r border-slate-200 font-semibold text-slate-900 whitespace-nowrap">
+                            <a href={`tel:${contact.phone}`} className="text-sky-700 hover:text-sky-900 hover:underline">
+                              {contact.phone}
+                            </a>
+                          </td>
+                          <td className="py-3 px-4 text-slate-700 font-medium">
+                            <a href={`mailto:${contact.email}`} className="text-indigo-700 hover:text-indigo-900 hover:underline">
+                              {contact.email}
+                            </a>
+                          </td>
+                        </tr>
+                      ));
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-slate-50 p-4 px-6 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500 font-semibold">
+              <span>Total Departments: {contactDirectoryData.length} | Total Contacts: {contactDirectoryData.reduce((acc, curr) => acc + curr.contacts.length, 0)}</span>
+              <button
+                onClick={() => setShowContactModal(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition duration-150 shadow-xs cursor-pointer"
+              >
+                Close Directory
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
