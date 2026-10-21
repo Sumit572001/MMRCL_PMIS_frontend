@@ -3075,14 +3075,17 @@ function App() {
     if (openDocId) {
       sessionStorage.setItem('pendingOpenDocId', openDocId);
       if (docType) sessionStorage.setItem('pendingDocType', docType);
+      if (params.get('section')) sessionStorage.setItem('pendingSection', params.get('section'));
     } else {
       openDocId = sessionStorage.getItem('pendingOpenDocId');
       docType = sessionStorage.getItem('pendingDocType') || 'general';
     }
 
     if (openDocId && currentUser) {
+      const savedSection = sessionStorage.getItem('pendingSection');
       sessionStorage.removeItem('pendingOpenDocId');
       sessionStorage.removeItem('pendingDocType');
+      sessionStorage.removeItem('pendingSection');
       const autoOpenDoc = async () => {
         try {
           if (docType === 'submittal') {
@@ -3094,8 +3097,17 @@ function App() {
             const res = await generalDocsAPI.getDocById(openDocId);
             if (res && res.success && res.data) {
               const doc = res.data;
-              if (doc.section) {
-                const matchingSec = generalDocSections.find(s => getApiSectionName(s) === doc.section.toLowerCase());
+              const targetSec = (doc.section || params.get('section') || '').toLowerCase();
+              if (targetSec) {
+                const matchingSec = generalDocSections.find(s => {
+                  const apiName = getApiSectionName(s).toLowerCase();
+                  const sLower = s.toLowerCase();
+                  return apiName === targetSec || sLower === targetSec || 
+                    (targetSec.includes('monitor') && sLower.includes('monitor')) ||
+                    (targetSec.includes('drawing') && sLower.includes('drawing')) ||
+                    (targetSec.includes('quality') && sLower.includes('quality')) ||
+                    (targetSec.includes('ehs') && sLower.includes('ehs'));
+                });
                 if (matchingSec) {
                   setActiveSection(matchingSec);
                 }
