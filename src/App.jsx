@@ -3373,7 +3373,12 @@ function App() {
 
         const matchedFolder = tenderFolders.find(f => {
           if (!f.name) return false;
-          if (isStructureScoped && !matchesFolderStructure(f, activeProjectStructure)) return false;
+          const fName = f.name.trim().toLowerCase();
+          const fUnnumbered = fName.replace(/^\d+\.\s*/, '');
+          const structureMatch = !isStructureScoped || matchesFolderStructure(f, activeProjectStructure);
+          return (fName === cleanCat || fUnnumbered === unnumberedCat || fName.includes(unnumberedCat) || unnumberedCat.includes(fUnnumbered)) && structureMatch;
+        }) || tenderFolders.find(f => {
+          if (!f.name) return false;
           const fName = f.name.trim().toLowerCase();
           const fUnnumbered = fName.replace(/^\d+\.\s*/, '');
           return fName === cleanCat || fUnnumbered === unnumberedCat || fName.includes(unnumberedCat) || unnumberedCat.includes(fUnnumbered);
@@ -3416,7 +3421,9 @@ function App() {
         await fetchGeneralDocs();
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Upload failed');
+      console.error('Upload document error:', err);
+      const errMsg = err.response?.data?.message || (typeof err.response?.data === 'string' && !err.response?.data.includes('<!DOCTYPE') ? err.response?.data : null) || err.message || 'Upload failed';
+      alert(errMsg);
     } finally {
       setTenderUploading(false);
     }
