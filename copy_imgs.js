@@ -8,9 +8,7 @@ const destBackend = 'C:\\Users\\Sumit Verma\\Desktop\\PMIS\\PMIS_backend\\upload
 const files = [
   { src: 'media__1791525481656.jpg', destName: 'project_img_1.jpg' },
   { src: 'media__1791525481713.jpg', destName: 'project_img_2.jpg' },
-  { src: 'media__1791525481740.jpg', destName: 'project_img_3.jpg' },
-  { src: 'media__1791525481762.jpg', destName: 'project_img_4.jpg' },
-  { src: 'media__1791525481910.png', destName: 'project_img_5.png' }
+  { src: 'media__1791525481740.jpg', destName: 'project_img_3.jpg' }
 ];
 
 files.forEach(item => {

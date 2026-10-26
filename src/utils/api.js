@@ -298,6 +298,22 @@ export const generalDocsAPI = {
     const response = await api.post(`/api/${section}/${id}/sub-document/${subId}/approve`);
     return response.data;
   },
+  requestRemoveNc: async (section, id) => {
+    const response = await api.put(`/api/${section}/${id}/ncr-request`);
+    return response.data;
+  },
+  approveComplianceNc: async (section, id) => {
+    const response = await api.put(`/api/${section}/${id}/ncr-approve`);
+    return response.data;
+  },
+  requestRemoveSubDocNc: async (section, id, subId) => {
+    const response = await api.put(`/api/${section}/${id}/sub-document/${subId}/ncr-request`);
+    return response.data;
+  },
+  approveComplianceSubDocNc: async (section, id, subId) => {
+    const response = await api.put(`/api/${section}/${id}/sub-document/${subId}/ncr-approve`);
+    return response.data;
+  },
 };
 
 // Aliases for backward compatibility

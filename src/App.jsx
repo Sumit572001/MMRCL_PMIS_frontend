@@ -64,9 +64,29 @@ import {
   ArrowRight,
   PhoneCall,
   Receipt,
-  FileWarning
+  ReceiptIndianRupee,
+  IndianRupee,
+  FileWarning,
+  RotateCcw
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
+import { DocxViewer, ExcelViewer, PptxViewer } from './components/OfficeViewers';
+const renderHighlightedText = (text) => {
+  if (!text || typeof text !== 'string') return text;
+  if (!text.includes('==')) return text;
+  const parts = text.split(/(==.*?==)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('==') && part.endsWith('==')) {
+      const content = part.slice(2, -2);
+      return (
+        <mark key={idx} className="bg-amber-200 text-amber-950 font-bold px-1 py-0.5 rounded shadow-2xs">
+          {content}
+        </mark>
+      );
+    }
+    return part;
+  });
+};
 
 const approvedNocsData = [
   {
@@ -74,34 +94,53 @@ const approvedNocsData = [
     category: 'Liasoning Architect',
     title: '1. Layout Approval',
     shortName: 'Layout Approval',
+    isGreenHighlighted: true,
     status: 'Application submitted on 31/07/2026',
-    statusType: 'Submitted',
+    statusType: 'Completed',
     responsibility: 'NECPL',
-    expectedDate: '15/09/2026',
-    dateHistory: ['14/08/2026', '25/08/2026', '30/08/2026', '05/09/2026', '15/09/2026'],
+    expectedDate: '29/09/2026',
+    dateHistory: [
+      { text: '14/08/2026', strike: true },
+      { text: '25/08/2026', strike: true },
+      { text: '30/08/2026', strike: true },
+      { text: '05/09/2026', strike: true },
+      { text: '15/09/2026', strike: true },
+      { text: '25/09/2026', strike: true },
+      { text: '29/09/2026', strike: false }
+    ],
     remark: [
-      '* Layout approval is under process with BP Cell, Western Suburb-1.',
+      '* Layout approval is under process with BP Cell, Western Suburb.',
       '* Site visit is completed on 25/08/2026.',
-      '* Status of proposal SE → AE → EE → Dy. CE → CE → Dy CE to MC Office → Hon\'ble MC for further approval.'
+      '* Status of proposal: Approved on 16/09/2026',
+      '* ==Registration of terms & conditions by Project proponent and payment to the MCGM authority is completed on 24/09/2026. Final Layout issued on 29/09/2026.=='
     ]
   },
   {
     id: '2a',
     category: 'Liasoning Architect',
     group: '2. NOCs',
-    title: '2. a) Fire Noc',
+    title: '2. a) Fire Noc (Received for all three sites)',
     shortName: 'Fire NOC',
-    status: 'Application submitted to CFO on 27/07/2026\nScrutiny fees paid on 07/08/2026 for Executive Quarters, Metro Bhavan and for Dharavi plot.',
-    statusType: 'Submitted',
+    isGreenHighlighted: true,
+    status: 'Application submitted to CFO on 27/07/2026\n\nScrutiny fees paid on 07/08/2026 for Executive Quarters, Metro Bhavan and for Dharavi plot.',
+    statusType: 'Received',
     responsibility: 'NECPL',
-    expectedDate: '18/09/2026',
-    dateHistory: ['14/08/2026', '20/08/2026', '25/08/2026', '05/09/2026', '15/09/2026', '18/09/2026'],
+    expectedDate: '24/09/2026',
+    dateHistory: [
+      { text: '14/08/2026', strike: true },
+      { text: '20/08/2026', strike: true },
+      { text: '25/08/2026', strike: true },
+      { text: '05/09/2026', strike: true },
+      { text: '15/09/2026', strike: true },
+      { text: '18/09/2026', strike: true },
+      { text: '24/09/2026', strike: false }
+    ],
     remark: [
       '* Scrutiny has been completed by the Byculla, Marol and Borivali Divisional Fire Officers (DFOs).',
       '* Compliance after scrutiny is completed by SPA.',
-      '* Current Status of Dharavi proposal:- NOC Received 09/09/2026.',
-      '* Current Status of Ex. Staff Quarter proposal: - NOC Received on 09/09/2026.',
-      'Current Status of Metro Bhavan proposal ADFO → DFO → Dy. CFO for approval.'
+      '* Current Status of Dharavi proposal:- ==NOC Received 09/09/2026.==',
+      '* Current Status of Ex. Staff Quarter proposal: - ==NOC Received on 09/09/2026.==',
+      '* Current Status of Metro Bhavan proposal: ==NOC Received on 24/09/2026.=='
     ]
   },
   {
@@ -110,13 +149,16 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. b) Water Noc',
     shortName: 'Water NOC',
+    isGreenHighlighted: false,
     status: 'Pending',
     statusType: 'Pending',
     responsibility: 'NECPL',
-    expectedDate: '15/09/2026',
-    dateHistory: ['25/08/2026', '05/09/2026', '15/09/2026'],
+    expectedDate: '25/08/2026',
+    dateHistory: [
+      { text: '25/08/2026', strike: true }
+    ],
     remark: [
-      'Required after Layout Approval. However, it was required for EC approval before 1st Meeting.'
+      'Required as per Terms & conditions of Layout Approval. However, it was required for EC approval before 1st Meeting.'
     ]
   },
   {
@@ -125,13 +167,16 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. c) Drainage Noc',
     shortName: 'Drainage NOC',
+    isGreenHighlighted: false,
     status: 'Pending',
     statusType: 'Pending',
     responsibility: 'NECPL',
-    expectedDate: '15/09/2026',
-    dateHistory: ['05/09/2026', '15/09/2026'],
+    expectedDate: '05/09/2026',
+    dateHistory: [
+      { text: '05/09/2026', strike: true }
+    ],
     remark: [
-      'Required after Layout Approval. However, it was required for EC approval before 1st Meeting.'
+      'Required as per Terms & conditions of Layout Approval. However, it was required for EC approval before 1st Meeting.'
     ]
   },
   {
@@ -140,13 +185,16 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. d) Garden/Tree Noc',
     shortName: 'Garden/Tree NOC',
+    isGreenHighlighted: false,
     status: 'Pending',
     statusType: 'Pending',
     responsibility: 'NECPL',
     expectedDate: '15/09/2026',
-    dateHistory: ['15/09/2026'],
+    dateHistory: [
+      { text: '15/09/2026', strike: true }
+    ],
     remark: [
-      'Required after Layout Approval. However, it was required for EC approval before 1st Meeting.'
+      'Required as per Terms & conditions of Layout Approval. However, it was required for EC approval before 1st Meeting.'
     ]
   },
   {
@@ -155,12 +203,17 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. e) Solid Waste Noc',
     shortName: 'Solid Waste NOC',
+    isGreenHighlighted: false,
     status: 'Pending',
     statusType: 'Pending',
     responsibility: 'NECPL',
-    expectedDate: '-',
-    dateHistory: [],
-    remark: ['-']
+    expectedDate: '25/09/2026',
+    dateHistory: [
+      { text: '25/09/2026', strike: true }
+    ],
+    remark: [
+      'Required as per Terms & conditions of Layout Approval. However, it was required for EC approval before 1st Meeting.'
+    ]
   },
   {
     id: '2f',
@@ -168,25 +221,31 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. f) Storm Water Noc',
     shortName: 'Storm Water NOC',
+    isGreenHighlighted: false,
     status: 'Pending.',
     statusType: 'Pending',
     responsibility: 'NECPL',
-    expectedDate: '-',
-    dateHistory: [],
-    remark: ['-']
+    expectedDate: '15/10/2026',
+    dateHistory: [
+      { text: '15/10/2026', strike: false }
+    ],
+    remark: [
+      'Required as per Terms & conditions of Layout Approval. However, it was required for EC approval before 1st Meeting.'
+    ]
   },
   {
     id: '3',
     category: 'Liasoning Architect',
     title: '3. RG Architect',
     shortName: 'RG Architect',
+    isGreenHighlighted: true,
     status: '-',
-    statusType: 'Pending',
+    statusType: 'Received',
     responsibility: 'SPA',
-    expectedDate: '-',
+    expectedDate: 'Received',
     dateHistory: [],
     remark: [
-      'SPA will provide after layout approval.'
+      'Received'
     ]
   },
   {
@@ -194,14 +253,20 @@ const approvedNocsData = [
     category: 'Liasoning Architect',
     title: '4. Aviation NOC.',
     shortName: 'Aviation NOC',
+    isGreenHighlighted: false,
     status: '1. Application submitted for Dharavi 04.08.2026\n2. Application submitted for Metro Bhavan & staff quarters on 07.08.2026',
     statusType: 'Submitted',
     responsibility: 'NECPL',
-    expectedDate: '30/09/2026',
-    dateHistory: ['07/09/2026', '30/09/2026'],
+    expectedDate: '10/10/2026',
+    dateHistory: [
+      { text: '07/09/2026', strike: true },
+      { text: '30/09/2026', strike: true },
+      { text: '10/10/2026', strike: false }
+    ],
     remark: [
       'Both applications are rejected. Revise submission done by NECPL on 18/08/2026.',
-      'MB&SQ Online application accepted. Dharavi application under scrutiny. Visit scheduled pending.',
+      '==MB&SQ Online application accepted, and site visit also completed 25/09/2026.==',
+      '==Dharavi revised application submitted.==',
       'It is required for EC before EC\'s 1st Meeting.'
     ]
   },
@@ -210,6 +275,7 @@ const approvedNocsData = [
     category: 'Liasoning Architect',
     title: '5. Revised Demarcation for 30 Ha plot',
     shortName: 'Revised Demarcation for 30 Ha',
+    isGreenHighlighted: false,
     status: 'MMRCL has submitted request letter on 05/08/2026',
     statusType: 'Submitted',
     responsibility: 'NECPL',
@@ -217,7 +283,7 @@ const approvedNocsData = [
     dateHistory: [],
     remark: [
       '*NECPL requires to arrange demarcation.',
-      '*CTSO letter dt. 25/08/2026 informed for payment for Demarcation. Payment is under process with finance dept for payment.'
+      '*CTSO letter dt. 25/08/2026 informed for payment for Demarcation. ==Challan generated on 10/09/2026, Payment is under process in MMRCL.=='
     ]
   },
   {
@@ -225,15 +291,25 @@ const approvedNocsData = [
     category: 'Clearance Documentation',
     title: '6. Dharavi IOD',
     shortName: 'Dharavi IOD',
+    isGreenHighlighted: false,
     status: 'IOD proposal has been submitted offline to BP Cell, City Office, Wadala.',
     statusType: 'Submitted',
     responsibility: 'SPA/NECPL',
-    expectedDate: '18/09/2026',
-    dateHistory: ['For Submission', '24/08/2026', '28/08/2026', '05/09/2026', '18/09/2026'],
+    expectedDate: '15/10/2026',
+    dateHistory: [
+      { text: 'For Submission', isHeader: true },
+      { text: '24/08/2026', strike: true },
+      { text: '28/08/2026', strike: true },
+      { text: '05/09/2026', strike: true },
+      { text: '18/09/2026', strike: true },
+      { text: '21/09/2026', strike: false },
+      { text: 'For IOD approval', isHeader: true },
+      { text: '15/10/2026', strike: false }
+    ],
     remark: [
       '* Scrutiny for offline application is under process.',
-      '* IOD online Application in process.',
-      '* Thereafter, the proposal will proceed for approval through: BMC Sub-Engineer → AE → EE → Dy. CE → CE → Hon\'ble MC'
+      '* ==IOD online Application submitted on 21/09/2026.==',
+      '* Current status of proposal :==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC=='
     ]
   },
   {
@@ -241,106 +317,167 @@ const approvedNocsData = [
     category: 'Clearance Documentation',
     title: '7. DP Remarks for Dharavi',
     shortName: 'DP Remarks for Dharavi',
+    isGreenHighlighted: true,
     status: '-',
-    statusType: 'Pending',
+    statusType: 'Received',
     responsibility: '-',
     expectedDate: '18/09/2026',
-    dateHistory: ['18/09/2026'],
+    dateHistory: [
+      { text: '18/09/2026', strike: false }
+    ],
     remark: [
-      'MMRCL request letter issued on 10/09/2026 for DP remarks.'
+      'MMRCL request letter issued on 10/09/2026 for DP remarks.',
+      '==DP remarks received on 18/09/2026.=='
     ]
   },
   {
     id: '8',
     category: 'Clearance Documentation',
-    title: '8. Metro Bhavan IOD',
-    shortName: 'Metro Bhavan IOD',
+    title: '8. Survey remarks of Dharavi for IOD',
+    shortName: 'Survey remarks of Dharavi for IOD',
+    isGreenHighlighted: false,
     status: '-',
-    statusType: 'Pending',
-    responsibility: 'SPA/NECPL',
-    expectedDate: '18/09/2026',
-    dateHistory: ['For Submission', '05/09/2026', '18/09/2026'],
+    statusType: 'Submitted',
+    responsibility: 'NECPL',
+    expectedDate: '07/10/2026',
+    dateHistory: [
+      { text: '07/10/2026', strike: false }
+    ],
     remark: [
-      'IOD proposal will be submitted BP Cell, Western Suburb-1, MCGM after getting layout approval.',
-      'Online Application will be submitted after receiving Fire NOC & layout approval.'
+      'Application submitted on 21/09/2026.',
+      '==Required for IOD scrutiny for Dharavi site.=='
     ]
   },
   {
     id: '9',
     category: 'Clearance Documentation',
-    title: '9. Staff quarter IOD',
-    shortName: 'Staff Quarter IOD',
+    title: '9. Metro Bhavan IOD',
+    shortName: 'Metro Bhavan IOD',
+    isGreenHighlighted: false,
     status: '-',
-    statusType: 'Pending',
+    statusType: 'Submitted',
     responsibility: 'SPA/NECPL',
-    expectedDate: '18/09/2026',
-    dateHistory: ['For Submission', '05/09/2026', '18/09/2026'],
+    expectedDate: '15/10/2026',
+    dateHistory: [
+      { text: 'For Submission', isHeader: true },
+      { text: '05/09/2026', strike: true },
+      { text: '18/09/2026', strike: true },
+      { text: '25/09/2026', strike: true },
+      { text: '29/09/2026', strike: true },
+      { text: 'For IOD approval', isHeader: true },
+      { text: '15/10/2026', strike: false }
+    ],
     remark: [
-      'IOD proposal will be submitted BP Cell, Western Suburb-1, MCGM after getting layout approval.',
-      'Online Application will be submitted after receiving layout approval.'
+      '==IOD online Application submitted on 05/10/2026 to Western Suburb.',
+      'Current status of proposal :==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC=='
     ]
   },
   {
     id: '10',
     category: 'Clearance Documentation',
-    title: '10. DP Remarks for MB&SQ',
+    title: '10. Staff quarter IOD',
+    shortName: 'Staff Quarter IOD',
+    isGreenHighlighted: false,
+    status: '-',
+    statusType: 'Submitted',
+    responsibility: 'SPA/NECPL',
+    expectedDate: '15/10/2026',
+    dateHistory: [
+      { text: 'For Submission', isHeader: true },
+      { text: '05/09/2026', strike: true },
+      { text: '18/09/2026', strike: true },
+      { text: '25/09/2026', strike: true },
+      { text: '29/09/2026', strike: true },
+      { text: 'For IOD approval', isHeader: true },
+      { text: '15/10/2026', strike: false }
+    ],
+    remark: [
+      '==IOD online Application submitted on 05/10/2026 to Western Suburb.',
+      'Current status of proposal :==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC=='
+    ]
+  },
+  {
+    id: '11',
+    category: 'Clearance Documentation',
+    title: '11. DP Remarks for MB&SQ',
     shortName: 'DP Remarks for MB&SQ',
+    isGreenHighlighted: true,
     status: '-',
     statusType: 'Received',
     responsibility: '-',
     expectedDate: 'Received',
     dateHistory: [],
     remark: [
-      '-'
-    ]
-  },
-  {
-    id: '11',
-    category: 'Clearance Documentation',
-    title: '11. Project Proponent authorization',
-    shortName: 'Project Proponent Authorization',
-    status: '-',
-    statusType: 'Completed',
-    responsibility: 'NECPL',
-    expectedDate: '-',
-    dateHistory: [],
-    remark: [
-      'Completed on 10/08/2026'
+      'Received'
     ]
   },
   {
     id: '12',
     category: 'Clearance Documentation',
-    title: '12. Consolidate statement for EC approval',
-    shortName: 'Consolidate Statement for EC Approval',
-    status: 'NECPL environment consultants has provided.',
-    statusType: 'Submitted',
+    title: '12. Project Proponent authorization',
+    shortName: 'Project Proponent Authorization',
+    isGreenHighlighted: true,
+    status: '-',
+    statusType: 'Completed',
     responsibility: 'NECPL',
-    expectedDate: '09/09/2026',
-    dateHistory: ['24/08/2026', '31/08/2026', '02/09/2026', '09/09/2026'],
+    expectedDate: '10/08/2026',
+    dateHistory: [
+      { text: '10/08/2026', strike: false }
+    ],
     remark: [
-      'Draft EC, checked from Member secretary, SEAC II on 25/08/2026. Finalize Draft EC statement on 11/09/2026 except EMP Cost.'
+      'Completed on 10/08/2026'
     ]
   },
   {
     id: '13',
     category: 'Clearance Documentation',
-    title: '13. EC registration',
-    shortName: 'EC Registration',
-    status: 'Registration completed on 10/08/2026.\nApplication not yet submitted.',
+    title: '13. Consolidate statement for EC approval',
+    shortName: 'Consolidate Statement for EC Approval',
+    isGreenHighlighted: true,
+    status: 'NECPL environment consultants has provided.',
     statusType: 'Completed',
     responsibility: 'NECPL',
-    expectedDate: '15/09/2026',
-    dateHistory: ['15/09/2026', '15/09/2026'],
+    expectedDate: '18/09/2026',
+    dateHistory: [
+      { text: '24/08/2026', strike: true },
+      { text: '31/08/2026', strike: true },
+      { text: '02/09/2026', strike: true },
+      { text: '09/09/2026', strike: true },
+      { text: '15/09/2026', strike: true },
+      { text: '18/09/2026', strike: false }
+    ],
     remark: [
-      'Payment to be made by NECPL.'
+      'NECPL environment consultants has provided.',
+      '==SPA submitted EC Consolidate statement on 18/09/2026 and approved by MMRC on 18/09/2026.=='
     ]
   },
   {
     id: '14',
     category: 'Clearance Documentation',
-    title: '14. Geotechnical Investigation agency letter',
+    title: '14. EC registration',
+    shortName: 'EC Registration',
+    isGreenHighlighted: true,
+    status: 'Registration completed on 10/08/2026.',
+    statusType: 'Completed',
+    responsibility: 'NECPL',
+    expectedDate: '15/10/2026',
+    dateHistory: [
+      { text: '15/09/2026', strike: true },
+      { text: '19/09/2026', strike: true },
+      { text: '08/10/2026', strike: true },
+      { text: '15/10/2026', strike: false }
+    ],
+    remark: [
+      'Registration completed on 10/08/2026.',
+      '==Application submitted on 19/09/2026 and payment made by NECPL on 23/09/2026.=='
+    ]
+  },
+  {
+    id: '15',
+    category: 'Clearance Documentation',
+    title: '15. Geotechnical Investigation agency letter',
     shortName: 'Geotechnical Investigation Agency Letter',
+    isGreenHighlighted: true,
     status: '-',
     statusType: 'Received',
     responsibility: 'MMRCL',
@@ -351,10 +488,11 @@ const approvedNocsData = [
     ]
   },
   {
-    id: '15',
+    id: '16',
     category: 'Clearance Documentation',
-    title: '15. FSI and Non-FSI area for each building, as per the Car Depot drawings, required for submission towards Environmental Clearance.',
+    title: '16. FSI and Non-FSI area for each building, as per the Car Depot drawings, required for submission towards Environmental Clearance.',
     shortName: 'FSI & Non-FSI Area Statement',
+    isGreenHighlighted: true,
     status: '-',
     statusType: 'Received',
     responsibility: 'SPA',
@@ -365,17 +503,23 @@ const approvedNocsData = [
     ]
   },
   {
-    id: '16',
+    id: '17',
     category: 'Clearance Documentation',
-    title: '16. Environment Clearance',
-    shortName: 'Environment Clearance',
+    title: '17. Environment Clearance for MB &SQ',
+    shortName: 'Environment Clearance for MB & SQ',
+    isGreenHighlighted: false,
     status: '-',
     statusType: 'Pending',
     responsibility: '-',
-    expectedDate: '30/09/2026',
-    dateHistory: ['30/09/2026'],
+    expectedDate: '30/10/2026',
+    dateHistory: [
+      { text: '30/09/2026', strike: true },
+      { text: '30/10/2026', strike: false }
+    ],
     remark: [
-      'Target Date for EC is 30/09/2026.'
+      '==MPCB Site visit completed at Aarey site on 30/09/2026 and their report is uploaded.==',
+      '==Expected 1st meeting of EC on 16/10/2026.==',
+      '==Target Date for EC is 30/10/2026.=='
     ]
   }
 ];
@@ -408,20 +552,6 @@ const PROJECT_GALLERY_IMAGES = [
     subtitle: 'Executive Staff Quarters Architectural Design',
     src: '/uploads/project_img_3.jpg',
     fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/project_img_3.jpg'
-  },
-  {
-    id: 5,
-    title: 'Metro Bhawan Front Elevation & Podium',
-    subtitle: 'Modern Glass & Gold Architectural Facade (Day view)',
-    src: '/uploads/project_img_4.jpg',
-    fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/project_img_4.jpg'
-  },
-  {
-    id: 6,
-    title: 'Metro Bhawan Facade & Landscaping View',
-    subtitle: 'Modern Glass & Gold Architectural Facade (Perspective view)',
-    src: '/uploads/project_img_5.png',
-    fallbackSrc: 'https://projectmanagement.nyatigroup.com:5005/uploads/project_img_5.png'
   }
 ];
 
@@ -447,11 +577,11 @@ function ProjectGalleryCarousel() {
             const isCurrent = idx === currentIndex;
             const isPrev = idx === prevIndex;
 
-            let positionClass = 'translate-x-full opacity-0 z-0'; // Waiting on the right
+            let positionClass = 'translate-x-full opacity-0 z-0';
             if (isCurrent) {
-              positionClass = 'translate-x-0 opacity-100 z-10'; // Center active slide
+              positionClass = 'translate-x-0 opacity-100 z-10';
             } else if (isPrev) {
-              positionClass = '-translate-x-full opacity-0 z-0'; // Exited to the left
+              positionClass = '-translate-x-full opacity-0 z-0';
             }
 
             return (
@@ -1125,13 +1255,6 @@ function App() {
   const [selectedSubDocForRename, setSelectedSubDocForRename] = useState(null);
   const [subRenameNameInput, setSubRenameNameInput] = useState('');
 
-  const handleViewGeneralSubDoc = (parentDoc, subDoc) => {
-    const apiSec = getApiSectionName(activeSection);
-    if (!apiSec || !subDoc._id || !parentDoc._id) return;
-    const url = generalDocsAPI.getSubDocViewUrl(apiSec, parentDoc._id, subDoc._id);
-    window.open(url, '_blank');
-  };
-
   const handleDownloadGeneralSubDoc = (parentDoc, subDoc) => {
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec || !subDoc._id || !parentDoc._id) return;
@@ -1226,6 +1349,240 @@ function App() {
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to approve sub-document');
     }
+  };
+
+  const handleNecplRequestRemoveNc = async (doc) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !doc._id) return;
+    const requesterName = currentUser?.name || currentUser?.userId || 'NECPL';
+    const nowIso = new Date().toISOString();
+
+    setTenderDocs(prevDocs => prevDocs.map(d => {
+      if (d._id === doc._id) {
+        return {
+          ...d,
+          ncRequested: true,
+          ncRequestedBy: requesterName,
+          ncRequestedAt: nowIso,
+          ncStatus: 'NC Pending'
+        };
+      }
+      return d;
+    }));
+
+    try {
+      localStorage.setItem(`pmis_ncr_${doc._id}`, JSON.stringify({
+        ncRequested: true,
+        ncRequestedBy: requesterName,
+        ncRequestedAt: nowIso,
+        ncStatus: 'NC Pending'
+      }));
+      await generalDocsAPI.requestRemoveNc(apiSec, doc._id);
+    } catch (err) {
+      console.warn('Backend custom endpoint notice:', err?.message || err);
+    }
+    await fetchGeneralDocs();
+  };
+
+  const handleApproveCompliance = async (doc) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !doc._id) return;
+    const approverName = currentUser?.name || currentUser?.userId || 'PMC';
+    const nowIso = new Date().toISOString();
+
+    setTenderDocs(prevDocs => prevDocs.map(d => {
+      if (d._id === doc._id) {
+        return {
+          ...d,
+          ncRequested: true,
+          ncApprovedCompliance: true,
+          ncApprovedBy: approverName,
+          ncApprovedAt: nowIso,
+          ncStatus: 'NC Removed',
+          approvalStatus: 'Approved'
+        };
+      }
+      return d;
+    }));
+
+    try {
+      localStorage.setItem(`pmis_ncr_${doc._id}`, JSON.stringify({
+        ncRequested: true,
+        ncApprovedCompliance: true,
+        ncApprovedBy: approverName,
+        ncApprovedAt: nowIso,
+        ncStatus: 'NC Removed',
+        approvalStatus: 'Approved'
+      }));
+      try {
+        await generalDocsAPI.approveComplianceNc(apiSec, doc._id);
+      } catch (e1) {
+        try {
+          await generalDocsAPI.approveDocument(apiSec, doc._id);
+        } catch (e2) {}
+      }
+    } catch (err) {
+      console.warn('Backend custom endpoint notice:', err?.message || err);
+    }
+    await fetchGeneralDocs();
+  };
+
+  const handleResetNc = async (doc) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !doc._id) return;
+
+    setTenderDocs(prevDocs => prevDocs.map(d => {
+      if (d._id === doc._id) {
+        return {
+          ...d,
+          ncRequested: false,
+          ncRequestedBy: '',
+          ncRequestedAt: null,
+          ncApprovedCompliance: false,
+          ncApprovedBy: '',
+          ncApprovedAt: null,
+          ncStatus: 'NC Pending',
+          approvalStatus: 'Pending'
+        };
+      }
+      return d;
+    }));
+
+    try {
+      localStorage.removeItem(`pmis_ncr_${doc._id}`);
+    } catch (err) {
+      console.warn('Error clearing localStorage for NCR:', err);
+    }
+    await fetchGeneralDocs();
+  };
+
+  const handleNecplRequestRemoveSubDocNc = async (parentDoc, subDoc) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !parentDoc._id || !subDoc._id) return;
+    const requesterName = currentUser?.name || currentUser?.userId || 'NECPL';
+    const nowIso = new Date().toISOString();
+
+    setTenderDocs(prevDocs => prevDocs.map(d => {
+      if (d._id === parentDoc._id && d.subDocuments) {
+        return {
+          ...d,
+          subDocuments: d.subDocuments.map(s => {
+            if (s._id === subDoc._id) {
+              return {
+                ...s,
+                ncRequested: true,
+                ncRequestedBy: requesterName,
+                ncRequestedAt: nowIso,
+                ncStatus: 'NC Pending'
+              };
+            }
+            return s;
+          })
+        };
+      }
+      return d;
+    }));
+
+    try {
+      localStorage.setItem(`pmis_ncr_sub_${subDoc._id}`, JSON.stringify({
+        ncRequested: true,
+        ncRequestedBy: requesterName,
+        ncRequestedAt: nowIso,
+        ncStatus: 'NC Pending'
+      }));
+      await generalDocsAPI.requestRemoveSubDocNc(apiSec, parentDoc._id, subDoc._id);
+    } catch (err) {
+      console.warn('Backend custom endpoint notice:', err?.message || err);
+    }
+    await fetchGeneralDocs();
+  };
+
+  const handleApproveComplianceSubDoc = async (parentDoc, subDoc) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !parentDoc._id || !subDoc._id) return;
+    const approverName = currentUser?.name || currentUser?.userId || 'PMC';
+    const nowIso = new Date().toISOString();
+
+    setTenderDocs(prevDocs => prevDocs.map(d => {
+      if (d._id === parentDoc._id && d.subDocuments) {
+        return {
+          ...d,
+          subDocuments: d.subDocuments.map(s => {
+            if (s._id === subDoc._id) {
+              return {
+                ...s,
+                ncRequested: true,
+                ncApprovedCompliance: true,
+                ncApprovedBy: approverName,
+                ncApprovedAt: nowIso,
+                ncStatus: 'NC Removed',
+                approvalStatus: 'Approved'
+              };
+            }
+            return s;
+          })
+        };
+      }
+      return d;
+    }));
+
+    try {
+      localStorage.setItem(`pmis_ncr_sub_${subDoc._id}`, JSON.stringify({
+        ncRequested: true,
+        ncApprovedCompliance: true,
+        ncApprovedBy: approverName,
+        ncApprovedAt: nowIso,
+        ncStatus: 'NC Removed',
+        approvalStatus: 'Approved'
+      }));
+      try {
+        await generalDocsAPI.approveComplianceSubDocNc(apiSec, parentDoc._id, subDoc._id);
+      } catch (e1) {
+        try {
+          await generalDocsAPI.approveSubDocument(apiSec, parentDoc._id, subDoc._id);
+        } catch (e2) {}
+      }
+    } catch (err) {
+      console.warn('Backend custom endpoint notice:', err?.message || err);
+    }
+    await fetchGeneralDocs();
+  };
+
+  const handleResetSubDocNc = async (parentDoc, subDoc) => {
+    const apiSec = getApiSectionName(activeSection);
+    if (!apiSec || !parentDoc._id || !subDoc._id) return;
+
+    setTenderDocs(prevDocs => prevDocs.map(d => {
+      if (d._id === parentDoc._id && d.subDocuments) {
+        return {
+          ...d,
+          subDocuments: d.subDocuments.map(s => {
+            if (s._id === subDoc._id) {
+              return {
+                ...s,
+                ncRequested: false,
+                ncRequestedBy: '',
+                ncRequestedAt: null,
+                ncApprovedCompliance: false,
+                ncApprovedBy: '',
+                ncApprovedAt: null,
+                ncStatus: 'NC Pending',
+                approvalStatus: 'Pending'
+              };
+            }
+            return s;
+          })
+        };
+      }
+      return d;
+    }));
+
+    try {
+      localStorage.removeItem(`pmis_ncr_sub_${subDoc._id}`);
+    } catch (err) {
+      console.warn('Error clearing localStorage for subDoc NCR:', err);
+    }
+    await fetchGeneralDocs();
   };
 
   useEffect(() => {
@@ -1426,6 +1783,125 @@ function App() {
           document.body
         )}
       </div>
+    );
+  };
+
+  const renderNcrColumns = (item, isSubDoc = false, parentDoc = null) => {
+    const isApproved = Boolean(item.ncStatus === 'NC Removed' || item.approvalStatus === 'Approved' || item.ncApprovedCompliance);
+    const isRequested = Boolean(item.ncRequested || isApproved);
+    const requestedBy = item.ncRequestedBy || 'NECPL';
+    const approvedBy = item.ncApprovedBy || item.approvedBy || 'PMC';
+
+    const isAdmin = Boolean(currentUser && (currentUser.role === 'Admin' || currentUser.isAdmin));
+
+    return (
+      <React.Fragment key={`ncr-cols-${item._id || Math.random()}`}>
+        {/* Column 2: NECPL Request to Remove NC */}
+        <td className="px-3 py-3 text-center whitespace-nowrap">
+          {isApproved ? (
+            <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 font-semibold text-xs shadow-2xs">
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+              <span>Requested by {requestedBy}</span>
+            </div>
+          ) : isRequested ? (
+            <div className="inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-lg bg-sky-50 border border-sky-200 shadow-2xs">
+              <div className="inline-flex items-center text-sky-800 font-bold text-xs whitespace-nowrap">
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-sky-600 flex-shrink-0" />
+                <span>Requested by {requestedBy}</span>
+              </div>
+              {item.ncRequestedAt && (
+                <span className="text-[10px] text-sky-600 font-medium mt-0.5">
+                  {new Date(item.ncRequestedAt).toLocaleDateString()} {new Date(item.ncRequestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (isSubDoc) await handleNecplRequestRemoveSubDocNc(parentDoc, item);
+                else await handleNecplRequestRemoveNc(item);
+              }}
+              className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-xs hover:shadow transition-all duration-150 cursor-pointer active:scale-95 whitespace-nowrap group"
+              title="Click after rectifying work on site to request removal of NC"
+            >
+              <Send className="mr-1.5 h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+              <span>NECPL Request to Remove NC</span>
+            </button>
+          )}
+        </td>
+
+        {/* Column 3: Approve Compliance */}
+        <td className="px-3 py-3 text-center whitespace-nowrap">
+          {isApproved ? (
+            <div className="inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 shadow-2xs">
+              <div className="inline-flex items-center text-emerald-800 font-bold text-xs whitespace-nowrap">
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                <span>Approved by {approvedBy}</span>
+              </div>
+              {item.ncApprovedAt && (
+                <span className="text-[10px] text-emerald-600 font-medium mt-0.5">
+                  {new Date(item.ncApprovedAt).toLocaleDateString()} {new Date(item.ncApprovedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+          ) : isRequested ? (
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (isSubDoc) await handleApproveComplianceSubDoc(parentDoc, item);
+                else await handleApproveCompliance(item);
+              }}
+              className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 shadow-xs hover:shadow transition-all duration-150 cursor-pointer active:scale-95 whitespace-nowrap animate-pulse group"
+              title="Verify rectification is proper and approve compliance"
+            >
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
+              <span>Approve Compliance</span>
+            </button>
+          ) : isAdmin ? (
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (isSubDoc) await handleApproveComplianceSubDoc(parentDoc, item);
+                else await handleApproveCompliance(item);
+              }}
+              className="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 transition-all cursor-pointer whitespace-nowrap"
+              title="Admin Quick Approve Compliance"
+            >
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-slate-400 group-hover:text-emerald-600" />
+              <span>Approve Compliance</span>
+            </button>
+          ) : (
+            <div
+              className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-400 font-medium text-xs whitespace-nowrap cursor-not-allowed"
+              title="Awaiting NECPL to submit Request to Remove NC first"
+            >
+              <Clock className="mr-1.5 h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+              <span>Awaiting Request</span>
+            </div>
+          )}
+        </td>
+
+        {/* Column 4: NC Remove & NC Pending */}
+        <td className="px-3 py-3 text-center whitespace-nowrap">
+          <div className="flex items-center justify-center">
+            {isApproved ? (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs whitespace-nowrap animate-fade-in">
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                NC Removed
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs whitespace-nowrap">
+                <Clock className="mr-1.5 h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                NC Pending
+              </span>
+            )}
+          </div>
+        </td>
+      </React.Fragment>
     );
   };
 
@@ -2244,6 +2720,46 @@ function App() {
     }).length;
   };
 
+  const hasUnreadSubDocRemarks = (parentDoc, subDoc) => {
+    const target = subDoc || parentDoc;
+    if (!target) return false;
+    const remarkList = target.remarks && target.remarks.length > 0
+      ? target.remarks
+      : (target.remark ? [{ text: target.remark, userName: target.uploadedByName || 'User', createdAt: target.uploadedAt }] : []);
+    if (!remarkList || remarkList.length === 0) return false;
+    return remarkList.some(msg => {
+      const authorName = (msg.userName || '').toLowerCase();
+      const myName = (currentUser?.name || '').toLowerCase();
+      const myUserId = (currentUser?.userId || '').toLowerCase();
+      const isAuthor = (msg.user && msg.user.toString() === currentUserId) ||
+        (authorName && authorName === myName) ||
+        (authorName && authorName === myUserId);
+      if (isAuthor) return false;
+      if (!msg.readBy) return true;
+      return !msg.readBy.includes(currentUserId);
+    });
+  };
+
+  const getUnreadSubDocRemarksCount = (parentDoc, subDoc) => {
+    const target = subDoc || parentDoc;
+    if (!target) return 0;
+    const remarkList = target.remarks && target.remarks.length > 0
+      ? target.remarks
+      : (target.remark ? [{ text: target.remark, userName: target.uploadedByName || 'User', createdAt: target.uploadedAt }] : []);
+    if (!remarkList || remarkList.length === 0) return 0;
+    return remarkList.filter(msg => {
+      const authorName = (msg.userName || '').toLowerCase();
+      const myName = (currentUser?.name || '').toLowerCase();
+      const myUserId = (currentUser?.userId || '').toLowerCase();
+      const isAuthor = (msg.user && msg.user.toString() === currentUserId) ||
+        (authorName && authorName === myName) ||
+        (authorName && authorName === myUserId);
+      if (isAuthor) return false;
+      if (!msg.readBy) return true;
+      return !msg.readBy.includes(currentUserId);
+    }).length;
+  };
+
   const handleClearDocumentRemarks = async () => {
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec) return;
@@ -2488,6 +3004,7 @@ function App() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState(null);
+  const [previewBlob, setPreviewBlob] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewTextContent, setPreviewTextContent] = useState('');
 
@@ -2660,6 +3177,7 @@ function App() {
     { label: 'Environment, Health, and Safety (EHS)', value: 'Environment, Health, and Safety (EHS)' },
     { label: 'MEP & IT', value: 'MEP & IT' },
     { label: 'Project Communication & Letters', value: 'Project Communication & Letters' },
+    { label: 'Non-Conformance Report (NCR)', value: 'Non-Conformance Report (NCR)' },
   ];
 
   const getFolderId = (f) => f._id || f.id;
@@ -3102,7 +3620,7 @@ function App() {
                 const matchingSec = generalDocSections.find(s => {
                   const apiName = getApiSectionName(s).toLowerCase();
                   const sLower = s.toLowerCase();
-                  return apiName === targetSec || sLower === targetSec || 
+                  return apiName === targetSec || sLower === targetSec ||
                     (targetSec.includes('monitor') && sLower.includes('monitor')) ||
                     (targetSec.includes('drawing') && sLower.includes('drawing')) ||
                     (targetSec.includes('quality') && sLower.includes('quality')) ||
@@ -3241,6 +3759,69 @@ function App() {
               console.error('Auto-move document to Minutes of Meeting notice:', moveErr);
             }
           }
+        }
+
+        if (apiSec === 'ncr') {
+          docs = docs.map(d => {
+            let localData = null;
+            try {
+              const saved = localStorage.getItem(`pmis_ncr_${d._id}`);
+              if (saved) localData = JSON.parse(saved);
+            } catch (e) {}
+
+            const isApproved = Boolean(
+              d.approvalStatus === 'Approved' ||
+              localData?.ncStatus === 'NC Removed' ||
+              d.ncStatus === 'NC Removed' ||
+              localData?.ncApprovedCompliance ||
+              d.ncApprovedCompliance
+            );
+            const isRequested = Boolean(
+              isApproved ||
+              d.ncRequested ||
+              localData?.ncRequested
+            );
+
+            return {
+              ...d,
+              ncStatus: isApproved ? 'NC Removed' : 'NC Pending',
+              ncRequested: isRequested,
+              ncRequestedBy: d.ncRequestedBy || localData?.ncRequestedBy || (isRequested ? 'NECPL' : ''),
+              ncRequestedAt: d.ncRequestedAt || localData?.ncRequestedAt || null,
+              ncApprovedCompliance: isApproved,
+              ncApprovedBy: d.ncApprovedBy || localData?.ncApprovedBy || (isApproved ? 'PMC' : ''),
+              ncApprovedAt: d.ncApprovedAt || localData?.ncApprovedAt || null,
+              subDocuments: (d.subDocuments || []).map(s => {
+                let subLocal = null;
+                try {
+                  const savedSub = localStorage.getItem(`pmis_ncr_sub_${s._id}`);
+                  if (savedSub) subLocal = JSON.parse(savedSub);
+                } catch (e) {}
+                const subApproved = Boolean(
+                  s.approvalStatus === 'Approved' ||
+                  subLocal?.ncStatus === 'NC Removed' ||
+                  s.ncStatus === 'NC Removed' ||
+                  subLocal?.ncApprovedCompliance ||
+                  s.ncApprovedCompliance
+                );
+                const subRequested = Boolean(
+                  subApproved ||
+                  s.ncRequested ||
+                  subLocal?.ncRequested
+                );
+                return {
+                  ...s,
+                  ncStatus: subApproved ? 'NC Removed' : 'NC Pending',
+                  ncRequested: subRequested,
+                  ncRequestedBy: s.ncRequestedBy || subLocal?.ncRequestedBy || (subRequested ? 'NECPL' : ''),
+                  ncRequestedAt: s.ncRequestedAt || subLocal?.ncRequestedAt || null,
+                  ncApprovedCompliance: subApproved,
+                  ncApprovedBy: s.ncApprovedBy || subLocal?.ncApprovedBy || (subApproved ? 'PMC' : ''),
+                  ncApprovedAt: s.ncApprovedAt || subLocal?.ncApprovedAt || null,
+                };
+              })
+            };
+          });
         }
 
         setTenderDocs(docs);
@@ -3480,6 +4061,7 @@ function App() {
       URL.revokeObjectURL(previewBlobUrl);
       setPreviewBlobUrl(null);
     }
+    setPreviewBlob(null);
     setPreviewDoc({
       title,
       filename,
@@ -3493,6 +4075,7 @@ function App() {
       const detectedType = mimeType || response.headers['content-type'] || '';
       const blob = new Blob([response.data], { type: detectedType });
       const blobUrl = URL.createObjectURL(blob);
+      setPreviewBlob(blob);
       setPreviewBlobUrl(blobUrl);
 
       if (
@@ -3525,6 +4108,20 @@ function App() {
       viewUrl,
       downloadUrl,
       mimeType: doc.mimeType
+    });
+  };
+
+  const handleViewGeneralSubDoc = (parentDoc, subDoc) => {
+    const apiSec = getApiSectionName(parentDoc.section || activeSection);
+    if (!apiSec || !subDoc._id || !parentDoc._id) return;
+    const viewUrl = generalDocsAPI.getSubDocViewUrl(apiSec, parentDoc._id, subDoc._id);
+    const downloadUrl = generalDocsAPI.getSubDocDownloadUrl(apiSec, parentDoc._id, subDoc._id);
+    handleViewDocument({
+      title: subDoc.name || subDoc.originalName,
+      filename: subDoc.originalName || subDoc.name,
+      viewUrl,
+      downloadUrl,
+      mimeType: subDoc.mimeType
     });
   };
 
@@ -3714,7 +4311,7 @@ function App() {
                   {received.A1 >= expected.A1 ? (
                     <span className="text-green-600">✓ Met</span>
                   ) : (
-                    <span className="text-amber-600">⚠️ Short (-{expected.A1 - received.A1})</span>
+                    <span className="text-amber-600">⚠ Short (-{expected.A1 - received.A1})</span>
                   )}
                 </td>
               </tr>
@@ -3726,7 +4323,7 @@ function App() {
                   {received.A3 >= expected.A3 ? (
                     <span className="text-green-600">✓ Met</span>
                   ) : (
-                    <span className="text-amber-600">⚠️ Short (-{expected.A3 - received.A3})</span>
+                    <span className="text-amber-600">⚠ Short (-{expected.A3 - received.A3})</span>
                   )}
                 </td>
               </tr>
@@ -3738,7 +4335,7 @@ function App() {
                   {received.A4 >= expected.A4 ? (
                     <span className="text-green-600">✓ Met</span>
                   ) : (
-                    <span className="text-amber-600">⚠️ Short (-{expected.A4 - received.A4})</span>
+                    <span className="text-amber-600">⚠ Short (-{expected.A4 - received.A4})</span>
                   )}
                 </td>
               </tr>
@@ -4536,7 +5133,7 @@ function App() {
     { id: 'details', name: 'Project Details', icon: Building },
     { id: 'tender', name: 'Tender Documents', icon: FileText },
     { id: 'contractual', name: 'Contractual Documents', icon: FileCheck },
-    { id: 'ra_bill', name: 'RA Bill Tax Invoice', icon: Receipt },
+    { id: 'ra_bill', name: 'RA Bill Tax Invoice', icon: ReceiptIndianRupee },
   ];
 
   const projectStructuresList = [
@@ -4715,10 +5312,11 @@ function App() {
                     : 'max-h-0 opacity-0 mt-0 overflow-hidden pointer-events-none'
                     }`}
                 >
-                  {projectStructuresList.map((struct) => {
+                  {projectStructuresList.map((struct, structIdx) => {
                     const currentModulesList = structureModulesList;
 
                     const isStructActive = activeProjectStructure === struct.name && currentModulesList.some(m => m.name === activeSection);
+                    const isNearBottom = structIdx >= 2;
 
                     return (
                       <div key={struct.id} className="relative group/struct">
@@ -4745,7 +5343,7 @@ function App() {
                         </button>
 
                         {/* Side Flyout Sub-menu (Positioned on the RIGHT of section item with smooth animation) */}
-                        <div className="absolute left-full top-0 pl-2.5 z-50 opacity-0 pointer-events-none translate-x-3 scale-95 transition-all duration-200 ease-out group-hover/struct:opacity-100 group-hover/struct:pointer-events-auto group-hover/struct:translate-x-0 group-hover/struct:scale-100 origin-top-left">
+                        <div className={`absolute left-full pl-2.5 z-50 opacity-0 pointer-events-none translate-x-3 scale-95 transition-all duration-200 ease-out group-hover/struct:opacity-100 group-hover/struct:pointer-events-auto group-hover/struct:translate-x-0 group-hover/struct:scale-100 ${isNearBottom ? 'bottom-0 origin-bottom-left' : 'top-0 origin-top-left'}`}>
                           <div className="w-72 bg-white/95 backdrop-blur-md rounded-2xl p-2 shadow-2xl border border-slate-200/90 ring-1 ring-slate-900/5 space-y-1 max-h-[85vh] overflow-y-auto custom-scrollbar">
                             <div className="px-3 py-1.5 mb-1 border-b border-slate-100 flex items-center justify-between">
                               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -5527,7 +6125,7 @@ function App() {
                 </div>
               </div>
 
-              {/* Building Rendering Hero Banner Carousel (Auto moving right to left with 6 images) */}
+              {/* Building Rendering Hero Banner Carousel (Without project_img_4 and project_img_5) */}
               <div className="flex justify-center">
                 <ProjectGalleryCarousel />
               </div>
@@ -5826,7 +6424,7 @@ function App() {
                             >
                               <div className="space-y-0.5 min-w-0 pr-2">
                                 <div className="flex items-center space-x-1.5">
-                                  <span className={`text-xs font-bold truncate ${isSelected ? 'text-sky-950' : 'text-slate-800'}`}>
+                                  <span className={`text-xs font-bold truncate ${doc.isGreenHighlighted ? 'text-emerald-900 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/80 shadow-2xs' : isSelected ? 'text-sky-950' : 'text-slate-800'}`}>
                                     {titleText}
                                   </span>
                                 </div>
@@ -5942,7 +6540,7 @@ function App() {
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">Status</h4>
                               </div>
                               <p className="text-xs font-semibold text-slate-800 leading-relaxed whitespace-pre-line pt-1">
-                                {activeDoc.status && activeDoc.status !== '-' ? activeDoc.status : '-'}
+                                {activeDoc.status && activeDoc.status !== '-' ? renderHighlightedText(activeDoc.status) : '-'}
                               </p>
                             </div>
 
@@ -5978,13 +6576,30 @@ function App() {
                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Date Revision Timeline:</span>
                                     <div className="flex flex-wrap gap-1.5 items-center text-xs">
                                       {activeDoc.dateHistory.map((d, idx) => {
-                                        const isLast = idx === activeDoc.dateHistory.length - 1;
+                                        const isObject = typeof d === 'object' && d !== null;
+                                        const text = isObject ? d.text : d;
+                                        const isHeader = isObject && d.isHeader;
+                                        const isStrike = isObject ? d.strike : idx !== activeDoc.dateHistory.length - 1;
+                                        const isCurrent = !isHeader && !isStrike;
+
+                                        if (isHeader) {
+                                          return (
+                                            <div key={idx} className="w-full font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[11px] mt-1.5 first:mt-0">
+                                              {text}
+                                            </div>
+                                          );
+                                        }
+
+                                        const nextItem = activeDoc.dateHistory[idx + 1];
+                                        const nextIsHeader = typeof nextItem === 'object' && nextItem?.isHeader;
+                                        const showArrow = idx < activeDoc.dateHistory.length - 1 && !nextIsHeader;
+
                                         return (
                                           <React.Fragment key={idx}>
-                                            <span className={isLast ? 'font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200' : 'line-through text-slate-400'}>
-                                              {d}
+                                            <span className={isCurrent ? 'font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200' : isStrike ? 'line-through text-slate-400 font-medium' : 'text-slate-700 font-semibold'}>
+                                              {text}
                                             </span>
-                                            {!isLast && <ArrowRight className="h-3 w-3 text-slate-300" />}
+                                            {showArrow && <ArrowRight className="h-3 w-3 text-slate-300 flex-shrink-0" />}
                                           </React.Fragment>
                                         );
                                       })}
@@ -6005,7 +6620,7 @@ function App() {
                                   activeDoc.remark.map((rmk, idx) => (
                                     <div key={idx} className="flex items-start space-x-2 text-xs text-slate-800 font-medium leading-relaxed bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
                                       <span className="text-amber-500 font-bold mt-0.5">•</span>
-                                      <span className="flex-1 whitespace-pre-line">{rmk}</span>
+                                      <span className="flex-1 whitespace-pre-line">{renderHighlightedText(rmk)}</span>
                                     </div>
                                   ))
                                 ) : (
@@ -6037,10 +6652,12 @@ function App() {
                       {approvedNocsData.map((doc) => (
                         <tr key={doc.id} className="hover:bg-slate-50/80 transition">
                           <td className="px-4 py-3.5 font-bold text-slate-900 border-r border-slate-200 align-top">
-                            {doc.title}
+                            <span className={doc.isGreenHighlighted ? 'bg-emerald-100 text-emerald-950 px-2 py-0.5 rounded-md font-bold border border-emerald-300/80 inline-block shadow-2xs' : 'text-slate-900'}>
+                              {doc.title}
+                            </span>
                           </td>
                           <td className="px-4 py-3.5 text-slate-800 border-r border-slate-200 align-top whitespace-pre-line">
-                            {doc.status}
+                            {renderHighlightedText(doc.status)}
                           </td>
                           <td className="px-4 py-3.5 border-r border-slate-200 align-top">
                             <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 font-extrabold text-[11px] rounded-lg border border-indigo-100 inline-block">
@@ -6051,10 +6668,21 @@ function App() {
                             <div className="space-y-1">
                               {doc.dateHistory && doc.dateHistory.length > 0 ? (
                                 doc.dateHistory.map((d, idx) => {
-                                  const isLast = idx === doc.dateHistory.length - 1;
+                                  const isObject = typeof d === 'object' && d !== null;
+                                  const text = isObject ? d.text : d;
+                                  const isHeader = isObject && d.isHeader;
+                                  const isStrike = isObject ? d.strike : idx !== doc.dateHistory.length - 1;
+
+                                  if (isHeader) {
+                                    return (
+                                      <div key={idx} className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider pt-1.5 first:pt-0">
+                                        {text}
+                                      </div>
+                                    );
+                                  }
                                   return (
-                                    <div key={idx} className={isLast ? 'font-extrabold text-slate-900' : 'line-through text-slate-400'}>
-                                      {d}
+                                    <div key={idx} className={isStrike ? 'line-through text-slate-400 font-normal' : 'font-extrabold text-slate-900'}>
+                                      {text}
                                     </div>
                                   );
                                 })
@@ -6065,8 +6693,8 @@ function App() {
                           </td>
                           <td className="px-4 py-3.5 text-slate-800 align-top space-y-1.5">
                             {doc.remark.map((rmk, idx) => (
-                              <div key={idx} className="text-xs leading-relaxed">
-                                {rmk}
+                              <div key={idx} className="text-xs leading-relaxed whitespace-pre-line">
+                                {renderHighlightedText(rmk)}
                               </div>
                             ))}
                           </td>
@@ -6211,50 +6839,74 @@ function App() {
               {/* Project Approval Workflow Flowchart Box (Specific to Site Monitoring & Control, Project Monitoring & Control, Project Drawings, Quality Management, EHS, MEP & IT, NCR, RFI) */}
               {['Site Monitoring & Control', 'Project Monitoring & Control', 'Project Drawings', 'Quality Management', 'Environment, Health, and Safety (EHS)', 'MEP', 'MEP & IT', 'Non-Conformance Report (NCR)', 'RFI'].includes(activeSection) && (
                 <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl px-4 py-2.5 shadow-2xs mb-3 animate-fade-in select-none">
-                  <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5 mb-2">
-                    <div className="flex items-center space-x-2">
-                      <div className="p-1 bg-sky-50 text-sky-600 rounded-md border border-sky-100 flex items-center justify-center shadow-2xs">
-                        <FolderKanban className="h-4 w-4" />
+                  {activeSection !== 'Non-Conformance Report (NCR)' && (
+                    <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5 mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="p-1 rounded-md border flex items-center justify-center shadow-2xs bg-sky-50 text-sky-600 border-sky-100">
+                          <FolderKanban className="h-4 w-4" />
+                        </div>
+                        <h4 className="text-xs md:text-sm font-black text-slate-900 uppercase tracking-wider">
+                          APPROVAL & ESCALATION WORKFLOW & APPROVAL MATRIX
+                        </h4>
                       </div>
-                      <h4 className="text-xs md:text-sm font-black text-slate-900 uppercase tracking-wider">
-                        APPROVAL & ESCALATION WORKFLOW & APPROVAL MATRIX
-                      </h4>
+                      <span className="px-2.5 py-0.5 text-xs font-bold rounded-full border shadow-2xs bg-sky-50 text-sky-700 border-sky-200">
+                        PMIS Approval Chain
+                      </span>
                     </div>
-                    <span className="px-2.5 py-0.5 bg-sky-50 text-sky-700 text-xs font-bold rounded-full border border-sky-200 shadow-2xs">
-                      PMIS Approval Chain
-                    </span>
-                  </div>
+                  )}
 
                   {/* Flowchart Diagram Layout */}
                   <div className="overflow-x-auto py-1 px-1">
                     <div className="flex items-center justify-center space-x-3 md:space-x-5 py-2">
 
+                      {/* Step 1 for NCR: PMC (Raise NC) */}
+                      {activeSection === 'Non-Conformance Report (NCR)' && (
+                        <>
+                          <div className="flex flex-col items-center">
+                            <div className="py-2.5 rounded-xl shadow-2xs transition duration-200 text-center border-2 min-w-[220px] px-6 bg-gradient-to-br from-sky-50 to-blue-50 border-sky-300 hover:border-sky-500">
+                              <div className="text-sm md:text-base font-black tracking-wide text-sky-950">
+                                PMC
+                              </div>
+                              <div className="text-xs font-bold mt-0.5 whitespace-nowrap text-sky-700">
+                                Raise NC
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Arrow between PMC & NECPL */}
+                          <div className="flex items-center space-x-1 text-sky-500">
+                            <div className="w-8 md:w-12 h-0.5 bg-sky-400"></div>
+                            <ChevronRight className="h-4 w-4 -ml-1.5 stroke-[3] text-sky-500" />
+                          </div>
+                        </>
+                      )}
+
                       {/* Node 1: NECPL (Contractor) */}
                       <div className="flex flex-col items-center">
-                        <div className="w-44 py-2.5 px-4 bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-300 rounded-xl shadow-2xs hover:border-sky-500 transition duration-200 text-center whitespace-nowrap">
-                          <div className="text-sm md:text-base font-black text-sky-950 tracking-wide">
+                        <div className={`py-2.5 rounded-xl shadow-2xs transition duration-200 text-center border-2 ${activeSection === 'Non-Conformance Report (NCR)' ? 'min-w-[260px] px-6 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 hover:border-amber-500' : 'w-48 px-4 bg-gradient-to-br from-sky-50 to-blue-50 border-sky-300 hover:border-sky-500'}`}>
+                          <div className={`text-sm md:text-base font-black tracking-wide ${activeSection === 'Non-Conformance Report (NCR)' ? 'text-amber-950' : 'text-sky-950'}`}>
                             NECPL
                           </div>
-                          <div className="text-xs font-bold text-sky-700 mt-0.5">
-                            (Contractor)
+                          <div className={`text-xs font-bold mt-0.5 whitespace-nowrap ${activeSection === 'Non-Conformance Report (NCR)' ? 'text-amber-700' : 'text-sky-700'}`}>
+                            {activeSection === 'Non-Conformance Report (NCR)' ? 'Rectify Work & Request Removal' : '(Contractor)'}
                           </div>
                         </div>
                       </div>
 
                       {/* Arrow between NECPL & PMC */}
-                      <div className="flex items-center space-x-1 text-sky-500">
-                        <div className="w-8 md:w-12 h-0.5 bg-sky-400"></div>
-                        <ChevronRight className="h-4 w-4 -ml-1.5 text-sky-500 stroke-[3]" />
+                      <div className={`flex items-center space-x-1 ${activeSection === 'Non-Conformance Report (NCR)' ? 'text-amber-500' : 'text-sky-500'}`}>
+                        <div className={`w-8 md:w-12 h-0.5 ${activeSection === 'Non-Conformance Report (NCR)' ? 'bg-amber-400' : 'bg-sky-400'}`}></div>
+                        <ChevronRight className={`h-4 w-4 -ml-1.5 stroke-[3] ${activeSection === 'Non-Conformance Report (NCR)' ? 'text-amber-500' : 'text-sky-500'}`} />
                       </div>
 
                       {/* Node 2: PMC (Engineer) */}
                       <div className="flex flex-col items-center">
-                        <div className="w-44 py-2.5 px-4 bg-gradient-to-br from-sky-50 to-blue-50 border-2 border-sky-300 rounded-xl shadow-2xs hover:border-sky-500 transition duration-200 text-center whitespace-nowrap">
-                          <div className="text-sm md:text-base font-black text-sky-950 tracking-wide">
+                        <div className={`py-2.5 rounded-xl shadow-2xs transition duration-200 text-center border-2 ${activeSection === 'Non-Conformance Report (NCR)' ? 'min-w-[260px] px-6 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-300 hover:border-emerald-500' : 'w-48 px-4 bg-gradient-to-br from-sky-50 to-blue-50 border-sky-300 hover:border-sky-500'}`}>
+                          <div className={`text-sm md:text-base font-black tracking-wide ${activeSection === 'Non-Conformance Report (NCR)' ? 'text-emerald-950' : 'text-sky-950'}`}>
                             PMC
                           </div>
-                          <div className="text-xs font-bold text-sky-700 mt-0.5">
-                            (Engineer)
+                          <div className={`text-xs font-bold mt-0.5 whitespace-nowrap ${activeSection === 'Non-Conformance Report (NCR)' ? 'text-emerald-700' : 'text-sky-700'}`}>
+                            {activeSection === 'Non-Conformance Report (NCR)' ? 'Approve Compliance (NC Removed)' : '(Engineer)'}
                           </div>
                         </div>
                       </div>
@@ -6341,22 +6993,25 @@ function App() {
                   )}
 
                   {activeSection === 'RFI Register' && (
-                    <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 mb-3 animate-fade-in">
-                      <div className="flex items-center space-x-2">
-                        <span className="px-2.5 py-1 bg-orange-100 text-orange-950 text-xs font-black rounded-lg border border-orange-200 flex items-center shadow-2xs">
+                    <div className="bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-3 mb-3 animate-fade-in min-h-[52px]">
+                      <div className="flex items-center space-x-2.5 min-w-0 flex-shrink-0">
+                        <span className="px-2.5 py-1 bg-orange-100 text-orange-950 text-xs font-black rounded-lg border border-orange-200 flex items-center shadow-2xs flex-shrink-0">
                           <Layers className="h-3.5 w-3.5 mr-1 text-orange-600" /> Structure Filter
                         </span>
-                        <span className="text-xs text-slate-600 font-bold hidden md:inline">
+                        <span
+                          className="text-xs font-extrabold text-slate-700 truncate max-w-[220px] sm:max-w-[280px] lg:max-w-[380px] xl:max-w-[500px] 2xl:max-w-none transition-all duration-150"
+                          title={rfiStructureFilter === 'All' ? 'Centralized Master RFI Register' : rfiStructureFilter}
+                        >
                           {rfiStructureFilter === 'All' ? 'Centralized Master RFI Register' : rfiStructureFilter}
                         </span>
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5 w-full lg:w-auto">
+                      <div className="flex items-center justify-end gap-1.5 flex-nowrap overflow-x-auto ml-auto flex-shrink-0">
                         {[
-                          { label: 'All (Centralized Register)', value: 'All' },
-                          { label: 'Overall Project', value: 'Overall Project' },
-                          { label: 'Project 1 Metro Bhawan Commercial Andheri', value: 'Project 1 Metro Bhawan Commercial Andheri' },
-                          { label: 'Project 2 Executive Staff Quarters Residential Andheri', value: 'Project 2 Executive Staff Quarters Residential Andheri' },
-                          { label: 'Project 3 Non-Executive Staff Quarters Residential Dharavi', value: 'Project 3 Non-Executive Staff Quarters Residential Dharavi' }
+                          { label: 'All (Centralized)', fullName: 'All (Centralized Register)', value: 'All' },
+                          { label: 'Overall Project', fullName: 'Overall Project', value: 'Overall Project' },
+                          { label: 'Project 1 (Metro Bhawan)', fullName: 'Project 1 Metro Bhawan Commercial Andheri', value: 'Project 1 Metro Bhawan Commercial Andheri' },
+                          { label: 'Project 2 (Exec. Staff)', fullName: 'Project 2 Executive Staff Quarters Residential Andheri', value: 'Project 2 Executive Staff Quarters Residential Andheri' },
+                          { label: 'Project 3 (Non-Exec. Staff)', fullName: 'Project 3 Non-Executive Staff Quarters Residential Dharavi', value: 'Project 3 Non-Executive Staff Quarters Residential Dharavi' }
                         ].map((tab) => {
                           const isSelected = rfiStructureFilter === tab.value;
                           return (
@@ -6364,7 +7019,8 @@ function App() {
                               key={tab.value}
                               type="button"
                               onClick={() => setRfiStructureFilter(tab.value)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-2xs ${isSelected
+                              title={tab.fullName}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all duration-150 cursor-pointer shadow-2xs whitespace-nowrap flex-shrink-0 ${isSelected
                                 ? 'bg-orange-500 text-white shadow-xs'
                                 : 'bg-slate-50 text-slate-700 hover:bg-orange-50 hover:text-orange-900 border border-slate-200'
                                 }`}
@@ -6686,8 +7342,9 @@ function App() {
                       );
                     }
 
+                    const isNcrSection = activeSection === 'Non-Conformance Report (NCR)';
                     const showRemark = !['Tender Documents', 'Contractual Documents'].includes(activeSection);
-                    const showAuthorityAndApproval = !['Tender Documents', 'Contractual Documents', 'Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection);
+                    const showAuthorityAndApproval = !['Tender Documents', 'Contractual Documents', 'Project Documents & Registration', 'Project Communication & Letters', 'Non-Conformance Report (NCR)'].includes(activeSection);
 
                     const renderFilesTable = (filesList) => {
                       if (!filesList || filesList.length === 0) return null;
@@ -6697,19 +7354,31 @@ function App() {
                             <thead className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider border-b border-slate-200">
                               <tr>
                                 <th scope="col" className="px-3 py-3 whitespace-nowrap text-center w-12 text-slate-500 font-bold text-[11px]">Sr. No.</th>
-                                <th scope="col" className={`px-4 py-3 whitespace-nowrap ${showAuthorityAndApproval ? 'w-[28%] md:w-[30%]' : showRemark ? 'w-[42%]' : 'w-[46%]'}`}>Document Title</th>
-                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${showAuthorityAndApproval ? 'w-[11.5%]' : showRemark ? 'w-[16%]' : 'w-[20%]'}`}>Uploaded By</th>
-                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${showAuthorityAndApproval ? 'w-[11.5%]' : showRemark ? 'w-[16%]' : 'w-[20%]'}`}>Date & Time</th>
+                                <th scope="col" className={`px-4 py-3 whitespace-nowrap ${isNcrSection ? 'w-[25%]' : showAuthorityAndApproval ? 'w-[28%] md:w-[30%]' : showRemark ? 'w-[42%]' : 'w-[46%]'}`}>Document Title</th>
+                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${isNcrSection ? 'w-[10%]' : showAuthorityAndApproval ? 'w-[11.5%]' : showRemark ? 'w-[16%]' : 'w-[20%]'}`}>Uploaded By</th>
+                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${isNcrSection ? 'w-[10%]' : showAuthorityAndApproval ? 'w-[11.5%]' : showRemark ? 'w-[16%]' : 'w-[20%]'}`}>Date & Time</th>
                                 {showRemark && (
-                                  <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${showAuthorityAndApproval ? 'w-[11.5%]' : 'w-[16%]'}`}>Remark</th>
+                                  <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${isNcrSection ? 'w-[9%]' : showAuthorityAndApproval ? 'w-[11.5%]' : 'w-[16%]'}`}>Remark</th>
                                 )}
-                                {showAuthorityAndApproval && (
+                                {isNcrSection ? (
+                                  <>
+                                    <th scope="col" className="px-3 py-3 whitespace-nowrap text-center w-[16%]">
+                                      NECPL Request to Remove NC
+                                    </th>
+                                    <th scope="col" className="px-3 py-3 whitespace-nowrap text-center w-[15%]">
+                                      Approve Compliance
+                                    </th>
+                                    <th scope="col" className="px-3 py-3 whitespace-nowrap text-center w-[15%]">
+                                      NC Remove & NC Pending
+                                    </th>
+                                  </>
+                                ) : showAuthorityAndApproval ? (
                                   <>
                                     <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[11.5%]">Authority</th>
                                     <th scope="col" className="px-2 py-3 whitespace-nowrap text-center w-[11.5%]">Approval</th>
                                   </>
-                                )}
-                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${showAuthorityAndApproval ? 'w-[12.5%]' : 'w-[10%]'}`}></th>
+                                ) : null}
+                                <th scope="col" className={`px-2 py-3 whitespace-nowrap text-center ${isNcrSection ? 'w-[10%]' : showAuthorityAndApproval ? 'w-[12.5%]' : 'w-[10%]'}`}></th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -6805,16 +7474,18 @@ function App() {
                                           })()}
                                         </td>
                                       )}
-                                      {showAuthorityAndApproval && (
-                                        <>
-                                          <td className="px-2 py-3 text-center whitespace-nowrap">
-                                            {renderAuthorityDropdown(doc)}
-                                          </td>
-                                          <td className="px-2 py-3 text-center whitespace-nowrap">
-                                            {renderApprovalColumn(doc)}
-                                          </td>
-                                        </>
-                                      )}
+                                       {isNcrSection ? (
+                                         renderNcrColumns(doc, false, null)
+                                       ) : showAuthorityAndApproval ? (
+                                         <>
+                                           <td className="px-2 py-3 text-center whitespace-nowrap">
+                                             {renderAuthorityDropdown(doc)}
+                                           </td>
+                                           <td className="px-2 py-3 text-center whitespace-nowrap">
+                                             {renderApprovalColumn(doc)}
+                                           </td>
+                                         </>
+                                       ) : null}
                                       <td className="px-2 py-3 text-center whitespace-nowrap">
                                         <div className="flex items-center justify-center space-x-1.5">
                                           <button
@@ -6869,9 +7540,9 @@ function App() {
                                                   type="button"
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setRenameDocId(doc._id);
-                                                    setRenameDocNameInput(doc.name);
-                                                    setShowRenameDocModal(true);
+                                                    setRenameFileId(doc._id);
+                                                    setRenameFileNameInput(doc.name);
+                                                    setShowRenameModal(true);
                                                     setActiveFileMenuId(null);
                                                     setActiveFileMenuCoords(null);
                                                   }}
@@ -6943,7 +7614,7 @@ function App() {
                                     {/* Expanded Sub-Documents Accordion Row */}
                                     {expandedSubDocMap[doc._id] && doc.subDocuments && doc.subDocuments.length > 0 && (
                                       <tr key={`subdocs-${doc._id}`} className="bg-slate-50/90 border-b-2 border-sky-100">
-                                        <td colSpan={6 + (showRemark ? 1 : 0) + (showAuthorityAndApproval ? 2 : 0)} className="py-3 px-8">
+                                        <td colSpan={5 + (showRemark ? 1 : 0) + (isNcrSection ? 3 : showAuthorityAndApproval ? 2 : 0)} className="py-3 px-8">
                                           <div className="pl-6 border-l-3 border-sky-500 space-y-2">
                                             <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center space-x-1.5">
                                               <FileText className="h-3.5 w-3.5 text-sky-600" />
@@ -6961,12 +7632,18 @@ function App() {
                                                     {showRemark && (
                                                       <th className="px-4 py-2.5 text-center">Remark</th>
                                                     )}
-                                                    {showAuthorityAndApproval && (
+                                                    {isNcrSection ? (
+                                                      <>
+                                                        <th className="px-4 py-2.5 text-center">NECPL Request to Remove NC</th>
+                                                        <th className="px-4 py-2.5 text-center">Approve Compliance</th>
+                                                        <th className="px-4 py-2.5 text-center">NC Remove & NC Pending</th>
+                                                      </>
+                                                    ) : showAuthorityAndApproval ? (
                                                       <>
                                                         <th className="px-4 py-2.5 text-center">Authority</th>
                                                         <th className="px-4 py-2.5 text-center">Approval</th>
                                                       </>
-                                                    )}
+                                                    ) : null}
                                                     <th className="px-4 py-2.5 text-right">Action</th>
                                                   </tr>
                                                 </thead>
@@ -7022,7 +7699,9 @@ function App() {
                                                           })()}
                                                         </td>
                                                       )}
-                                                      {showAuthorityAndApproval && (
+                                                      {isNcrSection ? (
+                                                        renderNcrColumns(subDoc, true, doc)
+                                                      ) : showAuthorityAndApproval ? (
                                                         <>
                                                           <td className="px-4 py-2.5 text-center whitespace-nowrap">
                                                             {renderAuthorityDropdown(subDoc, true, doc)}
@@ -7031,7 +7710,7 @@ function App() {
                                                             {renderApprovalColumn(subDoc, true, doc)}
                                                           </td>
                                                         </>
-                                                      )}
+                                                      ) : null}
                                                       <td className="px-4 py-2.5 text-right whitespace-nowrap">
                                                         <div className="flex items-center justify-end space-x-1.5">
                                                           <button
@@ -7878,7 +8557,7 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Select Electronic File (PDF, DWG, ZIP)</label>
+                <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Select Electronic File (PDF, Word, Excel, PPT, DWG, ZIP)</label>
                 <input
                   type="file"
                   required
@@ -7993,7 +8672,7 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Select File (PDF, Word, Excel, ZIP, DWG)</label>
+                <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Select File (PDF, Word, Excel, PPT, ZIP, DWG)</label>
                 <input
                   type="file"
                   required
@@ -8301,7 +8980,7 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Select New Revision File</label>
+                <label className="block text-slate-400 font-semibold mb-1 uppercase tracking-wider">Select New Revision File (PDF, Word, Excel, PPT, ZIP, DWG)</label>
                 <input
                   type="file"
                   required
@@ -8762,7 +9441,7 @@ function App() {
       {/* 5. DOCUMENT PREVIEW MODAL */}
       {showPreviewModal && previewDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fade-in">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-6xl w-full h-[92vh] flex flex-col shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="px-6 py-4 bg-slate-950/60 border-b border-slate-800 flex justify-between items-center flex-shrink-0">
               <div className="flex items-center space-x-3 min-w-0 pr-4">
@@ -8801,6 +9480,7 @@ function App() {
                       URL.revokeObjectURL(previewBlobUrl);
                       setPreviewBlobUrl(null);
                     }
+                    setPreviewBlob(null);
                   }}
                   className="p-1.5 text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition cursor-pointer"
                   title="Close Preview"
@@ -8811,7 +9491,7 @@ function App() {
             </div>
 
             {/* Content Body */}
-            <div className="flex-1 bg-slate-950/40 p-4 overflow-auto flex items-center justify-center relative">
+            <div className="flex-1 bg-slate-950/40 p-3 sm:p-4 overflow-hidden flex items-center justify-center relative">
               {previewLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-sky-400 space-y-3">
                   <RefreshCw className="h-8 w-8 animate-spin" />
@@ -8822,11 +9502,14 @@ function App() {
                   const mime = (previewDoc.mimeType || '').toLowerCase();
                   const filename = (previewDoc.filename || '').toLowerCase();
 
-                  const isImage = mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/.test(filename);
-                  const isPdf = mime === 'application/pdf' || filename.endsWith('.pdf');
-                  const isText = mime.startsWith('text/') || mime.includes('json') || /\.(txt|json|csv|md|log|xml)$/.test(filename);
-                  const isVideo = mime.startsWith('video/') || /\.(mp4|webm|ogg)$/.test(filename);
-                  const isAudio = mime.startsWith('audio/') || /\.(mp3|wav|ogg)$/.test(filename);
+                  const isImage = mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(filename);
+                  const isPdf = mime === 'application/pdf' || /\.pdf$/i.test(filename);
+                  const isWord = mime.includes('word') || mime.includes('officedocument.wordprocessingml') || /\.(docx|doc)$/i.test(filename);
+                  const isExcel = mime.includes('sheet') || mime.includes('excel') || mime.includes('spreadsheet') || /\.(xlsx|xls|csv)$/i.test(filename);
+                  const isPowerPoint = mime.includes('presentation') || mime.includes('powerpoint') || /\.(pptx|ppt)$/i.test(filename);
+                  const isText = mime.startsWith('text/') || mime.includes('json') || /\.(txt|json|md|log|xml)$/i.test(filename);
+                  const isVideo = mime.startsWith('video/') || /\.(mp4|webm|ogg)$/i.test(filename);
+                  const isAudio = mime.startsWith('audio/') || /\.(mp3|wav|ogg)$/i.test(filename);
 
                   if (isPdf) {
                     return (
@@ -8834,6 +9517,42 @@ function App() {
                         src={previewBlobUrl}
                         className="w-full h-full rounded-xl border border-slate-800 bg-white"
                         title={previewDoc.title}
+                      />
+                    );
+                  }
+
+                  if (isWord) {
+                    return (
+                      <DocxViewer
+                        blob={previewBlob}
+                        blobUrl={previewBlobUrl}
+                        filename={previewDoc.filename}
+                        downloadUrl={previewDoc.downloadUrl}
+                        viewUrl={previewDoc.viewUrl}
+                      />
+                    );
+                  }
+
+                  if (isExcel) {
+                    return (
+                      <ExcelViewer
+                        blob={previewBlob}
+                        blobUrl={previewBlobUrl}
+                        filename={previewDoc.filename}
+                        downloadUrl={previewDoc.downloadUrl}
+                        viewUrl={previewDoc.viewUrl}
+                      />
+                    );
+                  }
+
+                  if (isPowerPoint) {
+                    return (
+                      <PptxViewer
+                        blob={previewBlob}
+                        blobUrl={previewBlobUrl}
+                        filename={previewDoc.filename}
+                        downloadUrl={previewDoc.downloadUrl}
+                        viewUrl={previewDoc.viewUrl}
                       />
                     );
                   }
@@ -9076,12 +9795,22 @@ function App() {
                                     <div className={`p-2 rounded-lg flex-shrink-0 ${isMe ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
                                       <FileText className="h-5 w-5" />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-semibold truncate" title={att.originalName}>{att.originalName}</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleViewGeneralDoc({
+                                        title: att.originalName,
+                                        filename: att.originalName,
+                                        mimeType: att.mimeType,
+                                        viewUrl: attUrl,
+                                        downloadUrl: attUrl
+                                      })}
+                                      className="flex-1 min-w-0 text-left cursor-pointer group"
+                                    >
+                                      <p className="text-xs font-semibold truncate group-hover:underline" title={att.originalName}>{att.originalName}</p>
                                       <p className={`text-[10px] ${isMe ? 'text-emerald-100' : 'text-slate-400'}`}>
-                                        {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : 'Attachment'}
+                                        {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : 'Click to preview'}
                                       </p>
-                                    </div>
+                                    </button>
                                     <a
                                       href={attUrl}
                                       download={att.originalName}
@@ -9214,7 +9943,7 @@ function App() {
 
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1">
-                  SELECT FILE (PDF, WORD, EXCEL, ZIP, DWG)
+                  SELECT FILE (PDF, WORD, EXCEL, PPT, ZIP, DWG)
                 </label>
                 <div className="flex items-center space-x-3 bg-slate-800/90 border border-slate-700 p-2.5 rounded-xl">
                   <label className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold rounded-lg cursor-pointer transition shadow-sm">
@@ -9443,7 +10172,7 @@ function App() {
                     ) : (
                       <>
                         <p className="text-xs font-bold text-slate-700">Click to choose a file</p>
-                        <p className="text-[10px] text-slate-400 font-medium">Supports PDF, DWG, DOCX, XLSX, Images, etc.</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Supports PDF, DWG, DOCX, XLSX, PPTX, Images, etc.</p>
                       </>
                     )}
                   </div>
