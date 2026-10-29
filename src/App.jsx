@@ -2974,8 +2974,19 @@ function App() {
 
   const isDocumentUnviewed = (doc) => {
     if (!doc) return false;
-    if (!doc.viewedBy) return true;
-    return !doc.viewedBy.includes(currentUserId);
+    if (!doc.viewedBy || !Array.isArray(doc.viewedBy) || doc.viewedBy.length === 0) return true;
+    const userIds = [
+      currentUser?._id?.toString(),
+      currentUser?.id?.toString(),
+      currentUser?.userId?.toString(),
+      currentUser?.email?.toString()
+    ].filter(Boolean).map(id => id.toLowerCase());
+
+    const hasViewed = doc.viewedBy.some(v => {
+      const vStr = (v?._id || v?.id || v || '').toString().toLowerCase();
+      return userIds.includes(vStr);
+    });
+    return !hasViewed;
   };
 
   const unviewedUploadsCount = allRecentUploads.filter(isDocumentUnviewed).length;
@@ -3000,6 +3011,27 @@ function App() {
     const targetDoc = item.docRef || item;
     handleMarkDocumentViewed(targetDoc);
 
+    // 1. Navigate to Section if different from activeSection
+    const targetSection = item.section;
+    if (targetSection && targetSection !== activeSection) {
+      setActiveSection(targetSection);
+    }
+
+    // 2. Set active Project Structure / Category if present
+    if (item.category && item.category !== '-' && item.category !== 'null' && item.category !== item.section) {
+      setActiveProjectStructure(item.category);
+    }
+
+    // 3. Expand folder in documents register so it is visible
+    const folderId = targetDoc.folder || item.folder;
+    if (folderId && folderId !== 'Root') {
+      setExpandedFoldersMap(prev => ({
+        ...prev,
+        [folderId]: true
+      }));
+    }
+
+    // 4. Open preview or remark modal
     if (item.type === 'remark') {
       handleOpenRemarkModal(targetDoc);
     } else {
@@ -3857,9 +3889,11 @@ function App() {
 
         setTenderDocs(docs);
         setTenderFolders(folders);
+        fetchAllUploads();
       } else {
         if (docsRes.success) setTenderDocs(docsRes.data);
         if (foldersRes.success) setTenderFolders(foldersRes.data);
+        fetchAllUploads();
       }
     } catch (err) {
       console.error(`Failed to load ${activeSection} documents & folders:`, err);
@@ -5869,7 +5903,7 @@ function App() {
 
                             let typeBadge = (
                               <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
-                                NEW FILE
+                                {item.isSubDoc ? 'REVISION / SUB-FILE' : 'NEW FILE'}
                               </span>
                             );
                             let IconComponent = FileText;
@@ -5897,18 +5931,30 @@ function App() {
                               <div
                                 key={item._id}
                                 onClick={() => handleSelectNotification(item)}
-                                className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-sky-50/60 border-l-4 border-l-sky-500' : 'bg-white'}`}
+                                className={`p-3.5 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-sky-50/60 border-l-4 border-l-sky-500' : 'bg-white'}`}
                               >
                                 <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${iconBg}`}>
                                   <IconComponent className="h-4 w-4" />
                                 </div>
-                                <div className="flex-1 min-w-0 space-y-1">
-                                  <div className="flex items-center justify-between">
-                                    <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={item.title || item.name}>
+                                <div className="flex-1 min-w-0 space-y-1.5">
+                                  <div className="flex items-start justify-between gap-1.5">
+                                    <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate flex-1 min-w-0" title={item.title || item.name}>
                                       {item.title || item.name}
                                     </h5>
-                                    {typeBadge}
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap" title={new Date(item.createdAt || item.uploadedAt).toLocaleString()}>
+                                        {new Date(item.createdAt || item.uploadedAt).toLocaleDateString()}
+                                      </span>
+                                      {typeBadge}
+                                    </div>
                                   </div>
+
+                                  {item.originalName && item.originalName !== (item.title || item.name) && (
+                                    <div className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1" title={item.originalName}>
+                                      <FileText className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                      <span className="truncate">{item.originalName}</span>
+                                    </div>
+                                  )}
 
                                   {eventType === 'remark' && item.remarkText && (
                                     <p className="text-[11px] text-amber-900 font-medium bg-amber-50 p-1.5 rounded border border-amber-200/60 line-clamp-2">
@@ -5917,17 +5963,17 @@ function App() {
                                   )}
 
                                   <div className="flex items-center flex-wrap gap-1 text-[10px] pt-0.5">
+                                    {item.category && item.category !== '-' && item.category !== 'null' && item.category !== item.section && (
+                                      <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold border border-indigo-200">
+                                        🏢 Structure: {item.category}
+                                      </span>
+                                    )}
                                     <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-bold border border-sky-200">
                                       📂 Section: {item.section || 'General'}
                                     </span>
                                     <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded font-semibold border border-slate-200">
                                       📁 Folder: {folderDisplayName}
                                     </span>
-                                  </div>
-
-                                  <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
-                                    <span>By: <strong className="text-slate-700">{uploader}</strong></span>
-                                    <span>{new Date(item.createdAt || item.uploadedAt).toLocaleDateString()}</span>
                                   </div>
                                 </div>
                               </div>
@@ -6042,7 +6088,7 @@ function App() {
 
                           let typeBadge = (
                             <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[9px] font-black rounded uppercase tracking-wider shadow-sm">
-                              NEW FILE
+                              {item.isSubDoc ? 'REVISION / SUB-FILE' : 'NEW FILE'}
                             </span>
                           );
                           let IconComponent = FileText;
@@ -6070,18 +6116,30 @@ function App() {
                             <div
                               key={item._id}
                               onClick={() => handleSelectNotification(item)}
-                              className={`p-3 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-sky-50/60 border-l-4 border-l-sky-500' : 'bg-white'}`}
+                              className={`p-3.5 hover:bg-sky-50/80 cursor-pointer transition flex items-start space-x-3 group ${isUnviewed ? 'bg-sky-50/60 border-l-4 border-l-sky-500' : 'bg-white'}`}
                             >
                               <div className={`p-2 rounded-xl flex-shrink-0 mt-0.5 ${iconBg}`}>
                                 <IconComponent className="h-4 w-4" />
                               </div>
-                              <div className="flex-1 min-w-0 space-y-1">
-                                <div className="flex items-center justify-between">
-                                  <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate max-w-[200px]" title={item.title || item.name}>
+                              <div className="flex-1 min-w-0 space-y-1.5">
+                                <div className="flex items-start justify-between gap-1.5">
+                                  <h5 className="text-xs font-bold text-slate-900 group-hover:text-sky-600 truncate flex-1 min-w-0" title={item.title || item.name}>
                                     {item.title || item.name}
                                   </h5>
-                                  {typeBadge}
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap" title={new Date(item.createdAt || item.uploadedAt).toLocaleString()}>
+                                      {new Date(item.createdAt || item.uploadedAt).toLocaleDateString()}
+                                    </span>
+                                    {typeBadge}
+                                  </div>
                                 </div>
+
+                                {item.originalName && item.originalName !== (item.title || item.name) && (
+                                  <div className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1" title={item.originalName}>
+                                    <FileText className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                    <span className="truncate">{item.originalName}</span>
+                                  </div>
+                                )}
 
                                 {eventType === 'remark' && item.remarkText && (
                                   <p className="text-[11px] text-amber-900 font-medium bg-amber-50 p-1.5 rounded border border-amber-200/60 line-clamp-2">
@@ -6090,17 +6148,17 @@ function App() {
                                 )}
 
                                 <div className="flex items-center flex-wrap gap-1 text-[10px] pt-0.5">
+                                  {item.category && item.category !== '-' && item.category !== 'null' && item.category !== item.section && (
+                                    <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold border border-indigo-200">
+                                      🏢 Structure: {item.category}
+                                    </span>
+                                  )}
                                   <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-bold border border-sky-200">
                                     📂 Section: {item.section || 'General'}
                                   </span>
                                   <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded font-semibold border border-slate-200">
                                     📁 Folder: {folderDisplayName}
                                   </span>
-                                </div>
-
-                                <div className="flex justify-between text-[10px] text-slate-400 font-medium pt-0.5">
-                                  <span>By: <strong className="text-slate-700">{uploader}</strong></span>
-                                  <span>{new Date(item.createdAt || item.uploadedAt).toLocaleDateString()}</span>
                                 </div>
                               </div>
                             </div>
