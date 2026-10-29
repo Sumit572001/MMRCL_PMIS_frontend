@@ -3455,6 +3455,9 @@ function App() {
       formData.append('submittalMatrixId', selectedMatrixItem._id);
       formData.append('comments', uploadComments);
       formData.append('file', uploadFile);
+      if (currentUser) {
+        formData.append('uploadedByName', currentUser.name || currentUser.userId || currentUser.email || 'coordination.mmrcl');
+      }
 
       const res = await documentsAPI.upload(formData);
       if (res.success) {
@@ -3748,6 +3751,10 @@ function App() {
     if (!currentUser) return;
     const apiSec = getApiSectionName(activeSection);
     if (!apiSec) return;
+
+    if (allUsersList.length === 0) {
+      fetchAllUsers();
+    }
 
     setTenderLoading(true);
     try {
@@ -5187,68 +5194,204 @@ function App() {
     );
   };
 
+  const KNOWN_USERS_MAP = {
+    // PMC Office (Project Management Consultant)
+    '6aa1557549bc1d2d7ad294fa': 'PMC Office',
+    'pmc_mmrcl': 'PMC Office',
+    'pmc@mmrcl.com': 'PMC Office',
+    'pmc office': 'PMC Office',
+
+    // PMC & Architect
+    '6a7c3e794d6880f31cafb5ab': 'PMC & Architect',
+    'pmc': 'PMC & Architect',
+    'pmc & architect': 'PMC & Architect',
+
+    // Architect Office
+    '6aa1557549bc1d2d7ad294f7': 'Architect Office',
+    'arch_mmrcl': 'Architect Office',
+    'architect@mmrcl.com': 'Architect Office',
+    'architect office': 'Architect Office',
+
+    // Coordination MMRCL
+    '6aa1557549bc1d2d7ad294fd': 'coordination.mmrcl',
+    'coordination.mmrcl': 'coordination.mmrcl',
+    'coordination@mmrcl.com': 'coordination.mmrcl',
+    'coordination.mmrcl@gmail.com': 'coordination.mmrcl',
+    'coordination': 'coordination.mmrcl',
+
+    // NECPL (Navin / Contractor)
+    '6a7c3e794d6880f31cafb5a5': 'NECPL',
+    'necpl': 'NECPL',
+    'necpl@gmail.com': 'NECPL',
+
+    // MMRCL (Main Employer Office)
+    '6a7c3e794d6880f31cafb5a8': 'MMRCL',
+    'mmrcl': 'MMRCL',
+
+    // Contractor & Engineer
+    '6a795a6bf07faef2a601bf6c': 'Contractor',
+    'contractor': 'Contractor',
+    '6a795a6bf07faef2a601bf6f': 'Engineer',
+    'engineer': 'Engineer',
+    '6a795a6bf07faef2a601bf72': 'Employer Rep (MMRCL Main Office)',
+    'employer': 'Employer Rep (MMRCL Main Office)',
+
+    // Official MMRCL Officers
+    '6aa1557449bc1d2d7ad294d6': 'Md Aasim Sulaiman',
+    '6aa1557449bc1d2d7ad294d9': 'Mr Rajesh Patil',
+    '6aa1557449bc1d2d7ad294dc': 'Mr Sachin Aher',
+    '6aa1557449bc1d2d7ad294df': 'Mr Vikrant Tewathia',
+    '6aa1557549bc1d2d7ad294e2': 'Dr Vishwas Ajnalkar',
+    '6aa1557549bc1d2d7ad294e5': 'Cdr Ashish Saxena',
+    '6aa1557549bc1d2d7ad294e8': 'Ms Neha Bhoi',
+    '6aa1557549bc1d2d7ad294eb': 'Mr Rajeev Kumar',
+    '6aa1557549bc1d2d7ad294ee': 'Mr Sudhir Sahare',
+    '6aa1557549bc1d2d7ad294f1': 'Mr Rutesh Jadhav',
+    '6aa1557549bc1d2d7ad294f4': 'Mr Sumit Patil',
+
+    // Nyati users
+    '6aa27de431b911923029e0b2': 'nyatigroup1997',
+    '6aa27ed631b911923029e0cb': 'sumit.verma',
+    '6aa29f4bbf5ad990eb2910e5': 'sv0572001',
+  };
+
   const formatUploaderName = (item) => {
-    if (!item) return 'User';
+    if (!item) return 'coordination.mmrcl';
+
+    // Helper to check against known static map
+    const checkKnownMap = (val) => {
+      if (!val) return null;
+      const key = val.toString().trim().toLowerCase();
+      if (KNOWN_USERS_MAP[key]) return KNOWN_USERS_MAP[key];
+      return null;
+    };
+
+    // Helper to match against allUsersList or currentUser
+    const checkDynamicUsers = (val) => {
+      if (!val) return null;
+      const strVal = val.toString().trim();
+      const lower = strVal.toLowerCase();
+
+      if (currentUser) {
+        if (
+          (currentUser._id && currentUser._id.toString() === strVal) ||
+          (currentUser.id && currentUser.id.toString() === strVal) ||
+          (currentUser.userId && currentUser.userId.toLowerCase() === lower) ||
+          (currentUser.email && currentUser.email.toLowerCase() === lower)
+        ) {
+          return currentUser.name || currentUser.userId || currentUser.email;
+        }
+      }
+
+      if (allUsersList && allUsersList.length > 0) {
+        const matched = allUsersList.find(u =>
+          (u._id && u._id.toString() === strVal) ||
+          (u.id && u.id.toString() === strVal) ||
+          (u.userId && u.userId.toLowerCase() === lower) ||
+          (u.name && u.name.toLowerCase() === lower) ||
+          (u.email && u.email.toLowerCase() === lower)
+        );
+        if (matched) {
+          const mName = matched.name || matched.userId || matched.organization;
+          if (mName && mName.toLowerCase() !== 'user') return mName;
+        }
+      }
+      return null;
+    };
 
     // 1. If populated user object
     if (typeof item.uploadedBy === 'object' && item.uploadedBy !== null) {
+      if (item.uploadedBy._id) {
+        const mapped = checkKnownMap(item.uploadedBy._id);
+        if (mapped) return mapped;
+      }
+      if (item.uploadedBy.userId) {
+        const mapped = checkKnownMap(item.uploadedBy.userId);
+        if (mapped) return mapped;
+      }
+      if (item.uploadedBy.email) {
+        const mapped = checkKnownMap(item.uploadedBy.email);
+        if (mapped) return mapped;
+      }
+      const dyn = checkDynamicUsers(item.uploadedBy._id || item.uploadedBy.userId || item.uploadedBy.email);
+      if (dyn && dyn.toLowerCase() !== 'user') return dyn;
       const objName = item.uploadedBy.name || item.uploadedBy.userId || item.uploadedBy.organization || item.uploadedBy.email;
-      if (objName && objName !== 'User') return objName;
+      if (objName && objName.toLowerCase() !== 'user') return objName;
     }
 
-    // 2. If uploadedBy matches a known user ID or username
+    // 2. If uploadedBy is a string (ObjectId or username)
     if (typeof item.uploadedBy === 'string' && item.uploadedBy.trim()) {
       const val = item.uploadedBy.trim();
-      if (/^[0-9a-fA-F]{24}$/.test(val)) {
-        if (currentUser && (currentUser._id === val || currentUser.id === val)) {
-          return currentUser.name || currentUser.userId || currentUser.email || 'User';
-        }
-        // Match in allUsersList by _id
-        const matched = allUsersList.find(u => (u._id && u._id.toString() === val) || (u.id && u.id.toString() === val));
-        if (matched) {
-          return matched.name || matched.userId || matched.organization || matched.email;
-        }
-      } else {
-        // Direct string username like "PMC", "NECPL", "MMRCL", etc.
-        const upper = val.toUpperCase();
-        const matched = allUsersList.find(u => (u.userId && u.userId.toUpperCase() === upper) || (u.name && u.name.toUpperCase() === upper));
-        if (matched) {
-          return matched.name || matched.userId || matched.organization;
-        }
-        if (val !== 'User') return val;
-      }
+      // First check static map
+      const mapped = checkKnownMap(val);
+      if (mapped) return mapped;
+
+      // Check current user or allUsersList
+      const dyn = checkDynamicUsers(val);
+      if (dyn && dyn.toLowerCase() !== 'user') return dyn;
+
+      // Check if it's a direct role name (e.g. PMC, NECPL, etc.)
+      const lower = val.toLowerCase();
+      if (lower.includes('pmc')) return 'PMC Office';
+      if (lower.includes('coord')) return 'coordination.mmrcl';
+      if (lower.includes('necpl')) return 'NECPL';
+      if (lower.includes('mmrcl')) return 'MMRCL';
+      if (!/^[0-9a-fA-F]{24}$/.test(val) && lower !== 'user') return val;
     }
 
-    // 3. Check Folder context (e.g. if document is inside "BY PMC & ARCHITECT", "BY NECPL", "BY MMRCL")
+    // 3. If uploadedByName is set
+    if (item.uploadedByName && item.uploadedByName.toLowerCase() !== 'user') {
+      const mapped = checkKnownMap(item.uploadedByName);
+      if (mapped) return mapped;
+      const lower = item.uploadedByName.toLowerCase();
+      if (lower.includes('pmc')) return 'PMC Office';
+      if (lower.includes('coord')) return 'coordination.mmrcl';
+      if (lower.includes('necpl')) return 'NECPL';
+      return item.uploadedByName;
+    }
+
+    // 4. If uploader property is set
+    if (item.uploader && item.uploader.toLowerCase() !== 'user') {
+      const mapped = checkKnownMap(item.uploader);
+      if (mapped) return mapped;
+      const lower = item.uploader.toLowerCase();
+      if (lower.includes('pmc')) return 'PMC Office';
+      if (lower.includes('coord')) return 'coordination.mmrcl';
+      if (lower.includes('necpl')) return 'NECPL';
+      return item.uploader;
+    }
+
+    // 5. Check Folder context
     if (item.folder && tenderFolders && tenderFolders.length > 0) {
-      const folderObj = tenderFolders.find(f => (f._id || f.id)?.toString() === item.folder.toString());
+      const folderObj = tenderFolders.find(f => (f._id || f.id)?.toString() === item.folder.toString() || f.name === item.folder);
       if (folderObj && folderObj.name) {
         const fUpper = folderObj.name.toUpperCase();
         if (fUpper.includes('PMC') || fUpper.includes('ARCHITECT')) return 'PMC & Architect';
         if (fUpper.includes('NECPL')) return 'NECPL';
+        if (fUpper.includes('COORDINATION')) return 'coordination.mmrcl';
         if (fUpper.includes('MMRCL')) return 'MMRCL';
         if (fUpper.includes('ENGINEER')) return 'Engineer';
         if (fUpper.includes('CONTRACTOR')) return 'Contractor';
+        if (fUpper.includes('MOM') || fUpper.includes('MINUTES') || fUpper.includes('AGENDA')) return 'PMC Office';
       }
     }
 
-    // 4. Check document title or filename (e.g. "by NECPL", "by PMC", "by MMRCL")
+    // 6. Check document title or filename
     const combinedTitle = ((item.name || '') + ' ' + (item.originalName || '')).toUpperCase();
-    if (combinedTitle.includes('BY NECPL') || combinedTitle.includes('BY_NECPL')) return 'NECPL';
-    if (combinedTitle.includes('BY PMC') || combinedTitle.includes('BY_PMC')) return 'PMC & Architect';
+    if (combinedTitle.includes('BY NECPL') || combinedTitle.includes('BY_NECPL') || combinedTitle.includes('NECPL')) return 'NECPL';
+    if (combinedTitle.includes('BY PMC') || combinedTitle.includes('BY_PMC') || combinedTitle.includes('PMC') || combinedTitle.includes('_SPA_') || combinedTitle.includes('-SPA-') || combinedTitle.includes(' SPA ')) return 'PMC Office';
+    if (combinedTitle.includes('COORDINATION')) return 'coordination.mmrcl';
+    if (combinedTitle.includes('MOM') || combinedTitle.includes('MINUTES')) return 'PMC Office';
     if (combinedTitle.includes('BY MMRCL') || combinedTitle.includes('BY_MMRCL')) return 'MMRCL';
 
-    // 5. If uploadedByName is set and not generic 'User'
-    if (item.uploadedByName && item.uploadedByName !== 'User') {
-      return item.uploadedByName;
-    }
+    // 7. Context fallback based on section / folder name string
+    const fStr = (item.folder || '').toString().toUpperCase();
+    if (fStr.includes('MOM') || fStr.includes('MINUTES') || fStr.includes('AGENDA')) return 'PMC Office';
+    if (fStr.includes('PMC')) return 'PMC Office';
+    if (fStr.includes('NECPL')) return 'NECPL';
 
-    // 6. If uploader property exists
-    if (item.uploader && item.uploader !== 'User') {
-      return item.uploader;
-    }
-
-    return item.uploadedByName || 'User';
+    // Default clean fallback: coordination.mmrcl instead of generic 'User'
+    return 'coordination.mmrcl';
   };
 
   const topNavSections = [
