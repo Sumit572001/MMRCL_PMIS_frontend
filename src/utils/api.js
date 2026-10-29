@@ -211,10 +211,14 @@ export const generalDocsAPI = {
     const response = await api.put(`/api/${section}/${id}/remark`, payload);
     return response.data;
   },
-  getRemarkAttachmentUrl: (section, filePathOrName) => {
+  getRemarkAttachmentUrl: (section, filePathOrName, originalName = '') => {
     const filename = (filePathOrName || '').replace(/^.*[\\\/]/, '');
     const token = localStorage.getItem('pmis_token');
-    return `/api/${section}/remark-attachment/${filename}?token=${token || ''}`;
+    let url = `/api/${section}/remark-attachment/${encodeURIComponent(filename)}?token=${encodeURIComponent(token || '')}`;
+    if (originalName) {
+      url += `&originalName=${encodeURIComponent(originalName)}`;
+    }
+    return url;
   },
   markRemarkRead: async (section, id) => {
     const response = await api.put(`/api/${section}/${id}/remark/read`);

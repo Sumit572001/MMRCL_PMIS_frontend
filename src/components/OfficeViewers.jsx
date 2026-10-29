@@ -24,7 +24,7 @@ import {
 /**
  * Word Document Viewer (DOCX / DOC)
  */
-export function DocxViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
+export function DocxViewer({ blob, blobUrl, filename, downloadUrl, viewUrl, onDownload }) {
   const containerRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -202,7 +202,15 @@ export function DocxViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
                   <ExternalLink className="mr-1.5 h-3.5 w-3.5 text-sky-400" /> Open in New Tab
                 </a>
               )}
-              {downloadUrl && (
+              {onDownload ? (
+                <button
+                  type="button"
+                  onClick={onDownload}
+                  className="px-3.5 py-2 bg-sky-500 hover:bg-sky-600 text-slate-950 rounded-lg text-xs font-bold flex items-center transition cursor-pointer"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" /> Download File
+                </button>
+              ) : downloadUrl && (
                 <a
                   href={downloadUrl}
                   download={filename}
@@ -234,7 +242,7 @@ export function DocxViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
 /**
  * Excel Spreadsheet Viewer (XLSX / XLS / CSV)
  */
-export function ExcelViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
+export function ExcelViewer({ blob, blobUrl, filename, downloadUrl, viewUrl, onDownload }) {
   const [workbook, setWorkbook] = useState(null);
   const [sheetNames, setSheetNames] = useState([]);
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
@@ -340,7 +348,7 @@ export function ExcelViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
           </span>
         </div>
 
-        {/* Search Input */}
+        {/* Actions & Search */}
         <div className="flex items-center space-x-2">
           <div className="relative">
             <Search className="h-3.5 w-3.5 text-slate-400 absolute left-2.5 top-2" />
@@ -352,6 +360,25 @@ export function ExcelViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
               className="pl-8 pr-3 py-1 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-44"
             />
           </div>
+          {onDownload ? (
+            <button
+              type="button"
+              onClick={onDownload}
+              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center transition cursor-pointer shadow-xs"
+              title="Download Excel Spreadsheet"
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Download
+            </button>
+          ) : downloadUrl && (
+            <a
+              href={downloadUrl}
+              download={filename}
+              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center transition shadow-xs"
+              title="Download Excel Spreadsheet"
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Download
+            </a>
+          )}
         </div>
       </div>
 
@@ -363,9 +390,33 @@ export function ExcelViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
             <span className="text-xs font-semibold text-slate-300">Loading spreadsheet data...</span>
           </div>
         ) : error ? (
-          <div className="m-auto max-w-md p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-4">
-            <AlertCircle className="h-8 w-8 text-amber-400 mx-auto" />
-            <p className="text-xs text-slate-300">{error}</p>
+          <div className="m-auto max-w-md p-6 bg-slate-900 border border-slate-800 rounded-2xl text-center space-y-4 shadow-xl">
+            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-full w-14 h-14 mx-auto flex items-center justify-center">
+              <AlertCircle className="h-7 w-7" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white mb-1">Spreadsheet Preview</h4>
+              <p className="text-xs text-slate-400 leading-relaxed">{error}</p>
+            </div>
+            <div className="flex justify-center space-x-3 pt-2">
+              {onDownload ? (
+                <button
+                  type="button"
+                  onClick={onDownload}
+                  className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-lg text-xs font-bold flex items-center transition cursor-pointer"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" /> Download Spreadsheet
+                </button>
+              ) : downloadUrl && (
+                <a
+                  href={downloadUrl}
+                  download={filename}
+                  className="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-lg text-xs font-bold flex items-center transition"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" /> Download Spreadsheet
+                </a>
+              )}
+            </div>
           </div>
         ) : filteredRows.length === 0 ? (
           <div className="text-center py-20 text-slate-500 text-xs font-medium">
@@ -463,7 +514,7 @@ export function ExcelViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
 /**
  * PowerPoint Presentation Viewer (PPTX / PPT)
  */
-export function PptxViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
+export function PptxViewer({ blob, blobUrl, filename, downloadUrl, viewUrl, onDownload }) {
   const [slides, setSlides] = useState([]);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -677,7 +728,15 @@ export function PptxViewer({ blob, blobUrl, filename, downloadUrl, viewUrl }) {
                   <ExternalLink className="mr-1.5 h-3.5 w-3.5 text-sky-400" /> Open in New Tab
                 </a>
               )}
-              {downloadUrl && (
+              {onDownload ? (
+                <button
+                  type="button"
+                  onClick={onDownload}
+                  className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-bold flex items-center transition cursor-pointer"
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" /> Download File
+                </button>
+              ) : downloadUrl && (
                 <a
                   href={downloadUrl}
                   download={filename}

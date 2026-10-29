@@ -67,6 +67,7 @@ import {
   ReceiptIndianRupee,
   IndianRupee,
   FileWarning,
+  Presentation,
   RotateCcw
 } from 'lucide-react';
 import api, { authAPI, submittalsAPI, documentsAPI, shareAPI, tenderAPI, contractualAPI, generalDocsAPI } from './utils/api';
@@ -1231,6 +1232,9 @@ function App() {
       formData.append('file', subDocFileInput);
       if (subDocTitleInput.trim()) {
         formData.append('name', subDocTitleInput.trim());
+      }
+      if (currentUser) {
+        formData.append('uploadedByName', currentUser.name || currentUser.userId || 'User');
       }
 
       const res = await generalDocsAPI.uploadSubDocument(apiSec, selectedParentDoc._id, formData);
@@ -2725,7 +2729,7 @@ function App() {
     if (!target) return false;
     const remarkList = target.remarks && target.remarks.length > 0
       ? target.remarks
-      : (target.remark ? [{ text: target.remark, userName: target.uploadedByName || 'User', createdAt: target.uploadedAt }] : []);
+      : (target.remark ? [{ text: target.remark, userName: formatUploaderName(target), createdAt: target.uploadedAt }] : []);
     if (!remarkList || remarkList.length === 0) return false;
     return remarkList.some(msg => {
       const authorName = (msg.userName || '').toLowerCase();
@@ -2745,7 +2749,7 @@ function App() {
     if (!target) return 0;
     const remarkList = target.remarks && target.remarks.length > 0
       ? target.remarks
-      : (target.remark ? [{ text: target.remark, userName: target.uploadedByName || 'User', createdAt: target.uploadedAt }] : []);
+      : (target.remark ? [{ text: target.remark, userName: formatUploaderName(target), createdAt: target.uploadedAt }] : []);
     if (!remarkList || remarkList.length === 0) return 0;
     return remarkList.filter(msg => {
       const authorName = (msg.userName || '').toLowerCase();
@@ -2892,6 +2896,7 @@ function App() {
           payload = new FormData();
           if (remarkText.trim()) payload.append('text', remarkText.trim());
           payload.append('attachments', remarkFile);
+          payload.append('file', remarkFile);
         } else {
           payload = { text: remarkText.trim() };
         }
@@ -2916,6 +2921,7 @@ function App() {
         payload = new FormData();
         if (remarkText.trim()) payload.append('text', remarkText.trim());
         payload.append('file', remarkFile);
+        payload.append('attachments', remarkFile);
       } else {
         payload = { text: remarkText.trim() };
       }
@@ -3291,6 +3297,9 @@ function App() {
       rfiFormData.append('name', fileNameToUse);
       rfiFormData.append('folder', 'Root');
       rfiFormData.append('category', structCategory);
+      if (currentUser) {
+        rfiFormData.append('uploadedByName', currentUser.name || currentUser.userId || 'User');
+      }
       await generalDocsAPI.upload('rfi', rfiFormData);
 
       // 2. Upload to Target section and folder
@@ -3299,6 +3308,9 @@ function App() {
       targetFormData.append('name', fileNameToUse);
       targetFormData.append('folder', rfiSelectedFolder || 'Root');
       targetFormData.append('category', structCategory);
+      if (currentUser) {
+        targetFormData.append('uploadedByName', currentUser.name || currentUser.userId || 'User');
+      }
       await generalDocsAPI.upload(targetApiSec, targetFormData);
 
       setShowRfiModal(false);
@@ -3994,6 +4006,9 @@ function App() {
       formData.append('folder', targetFolder);
       formData.append('category', activeProjectStructure || tenderUploadCategory || 'Overall Project');
       formData.append('file', tenderUploadFile);
+      if (currentUser) {
+        formData.append('uploadedByName', currentUser.name || currentUser.userId || 'User');
+      }
 
       const res = await generalDocsAPI.upload(apiSec, formData);
       if (res.success) {
@@ -4028,12 +4043,36 @@ function App() {
         responseType: 'blob'
       });
 
+      // Check if backend returned JSON error inside blob
+      if (response.data && response.data.type && response.data.type.includes('application/json')) {
+        const text = await response.data.text();
+        try {
+          const json = JSON.parse(text);
+          alert(json.message || 'Failed to download file.');
+          return;
+        } catch (e) {}
+      }
+
+      let downloadFilename = filename;
+      const contentDisposition = response.headers ? response.headers['content-disposition'] : null;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i);
+        if (match && match[1]) {
+          try {
+            downloadFilename = decodeURIComponent(match[1].trim());
+          } catch (e) {
+            downloadFilename = match[1].trim();
+          }
+        }
+      }
+      if (!downloadFilename) downloadFilename = 'downloaded_file';
+
       const blob = new Blob([response.data], { type: response.headers['content-type'] });
       const url = window.URL.createObjectURL(blob);
 
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', filename);
+      link.setAttribute('download', downloadFilename);
       document.body.appendChild(link);
       link.click();
 
@@ -4041,7 +4080,15 @@ function App() {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Download failed:', err);
-      alert('Failed to download file. Please check authorization or try again.');
+      let errMsg = 'Failed to download file. Please check authorization or try again.';
+      if (err.response && err.response.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          if (json.message) errMsg = json.message;
+        } catch (e) {}
+      }
+      alert(errMsg);
     }
   };
 
@@ -5128,6 +5175,27 @@ function App() {
     );
   };
 
+  const formatUploaderName = (item) => {
+    if (!item) return 'User';
+    if (item.uploadedByName && item.uploadedByName !== 'User') {
+      return item.uploadedByName;
+    }
+    if (typeof item.uploadedBy === 'object' && item.uploadedBy !== null) {
+      return item.uploadedBy.name || item.uploadedBy.userId || item.uploadedBy.email || item.uploadedByName || 'User';
+    }
+    if (typeof item.uploadedBy === 'string' && item.uploadedBy.trim()) {
+      const val = item.uploadedBy.trim();
+      if (/^[0-9a-fA-F]{24}$/.test(val)) {
+        if (currentUser && (currentUser._id === val || currentUser.id === val)) {
+          return currentUser.name || currentUser.userId || currentUser.email || 'User';
+        }
+        return item.uploadedByName || 'User';
+      }
+      return val;
+    }
+    return item.uploadedByName || item.uploader || 'User';
+  };
+
   const topNavSections = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
     { id: 'details', name: 'Project Details', icon: Building },
@@ -5554,7 +5622,7 @@ function App() {
                         ) : (
                           allRecentUploads.map((item) => {
                             const isUnviewed = isDocumentUnviewed(item);
-                            const uploader = item.uploader || item.uploadedBy?.name || 'User';
+                            const uploader = item.uploader || formatUploaderName(item);
                             const folderDisplayName = item.folderName || item.folder || 'Root Folder';
                             const eventType = item.type || 'upload';
 
@@ -5727,7 +5795,7 @@ function App() {
                       ) : (
                         allRecentUploads.map((item) => {
                           const isUnviewed = isDocumentUnviewed(item);
-                          const uploader = item.uploader || item.uploadedBy?.name || 'User';
+                          const uploader = item.uploader || formatUploaderName(item);
                           const folderDisplayName = item.folderName || item.folder || 'Root Folder';
                           const eventType = item.type || 'upload';
 
@@ -7190,6 +7258,8 @@ function App() {
 
                         // Uploaded By matching (e.g. "coordination.mmrcl" or user's name/email)
                         const uploaderStrings = [];
+                        const docUploader = formatUploaderName(doc);
+                        if (docUploader) uploaderStrings.push(docUploader.toLowerCase());
                         if (doc.uploadedByName) uploaderStrings.push(doc.uploadedByName.toString().toLowerCase());
                         if (doc.uploader) uploaderStrings.push(doc.uploader.toString().toLowerCase());
                         if (doc.uploadedBy) {
@@ -7207,6 +7277,8 @@ function App() {
                         const matchSubDocs = doc.subDocuments && doc.subDocuments.some((sd, sdIdx) => {
                           const sdSerial = (sd.serialNumber || sd.srNo || `${assignedSerial || 1}.${sdIdx + 1}`).toString().toLowerCase();
                           const sdUploaderStrings = [];
+                          const sdUploader = formatUploaderName(sd);
+                          if (sdUploader) sdUploaderStrings.push(sdUploader.toLowerCase());
                           if (sd.uploadedByName) sdUploaderStrings.push(sd.uploadedByName.toString().toLowerCase());
                           if (sd.uploader) sdUploaderStrings.push(sd.uploader.toString().toLowerCase());
                           if (sd.uploadedBy) {
@@ -7272,6 +7344,8 @@ function App() {
 
                           if (q) {
                             const uploaderStrings = [];
+                            const docUploader = formatUploaderName(d);
+                            if (docUploader) uploaderStrings.push(docUploader.toLowerCase());
                             if (d.uploadedByName) uploaderStrings.push(d.uploadedByName.toString().toLowerCase());
                             if (d.uploader) uploaderStrings.push(d.uploader.toString().toLowerCase());
                             if (d.uploadedBy) {
@@ -7436,7 +7510,7 @@ function App() {
 
 
                                       <td className="px-2 py-3 text-slate-700 font-medium text-center whitespace-nowrap">
-                                        {doc.uploadedByName || (typeof doc.uploadedBy === 'object' ? (doc.uploadedBy?.name || doc.uploadedBy?.email) : doc.uploadedBy) || 'User'}
+                                        {formatUploaderName(doc)}
                                       </td>
                                       <td className="px-2 py-3 text-slate-500 text-[11px] text-center whitespace-nowrap">
                                         {['RFI', 'RFI Register', 'RA Bill Tax Invoice'].includes(activeSection) && (
@@ -7452,7 +7526,7 @@ function App() {
                                           {(() => {
                                             const remarkList = doc.remarks && doc.remarks.length > 0
                                               ? doc.remarks
-                                              : (doc.remark ? [{ text: doc.remark, userName: doc.uploadedByName || 'User', createdAt: doc.uploadedAt }] : []);
+                                              : (doc.remark ? [{ text: doc.remark, userName: formatUploaderName(doc), createdAt: doc.uploadedAt }] : []);
                                             const totalMsgCount = remarkList.length;
                                             const unreadCount = getUnreadRemarksCount(doc);
 
@@ -7667,7 +7741,7 @@ function App() {
                                                         {(subDoc.fileSize / 1024).toFixed(1)} KB
                                                       </td>
                                                       <td className="px-4 py-2.5 text-slate-700 font-medium whitespace-nowrap">
-                                                        {subDoc.uploadedByName || (typeof subDoc.uploadedBy === 'object' ? (subDoc.uploadedBy?.name || subDoc.uploadedBy?.email) : subDoc.uploadedBy) || 'User'}
+                                                        {formatUploaderName(subDoc)}
                                                       </td>
                                                       <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
                                                         {new Date(subDoc.uploadedAt).toLocaleDateString()}
@@ -7677,7 +7751,7 @@ function App() {
                                                           {(() => {
                                                             const remarkList = subDoc.remarks && subDoc.remarks.length > 0
                                                               ? subDoc.remarks
-                                                              : (subDoc.remark ? [{ text: subDoc.remark, userName: subDoc.uploadedByName || 'User', createdAt: subDoc.uploadedAt }] : []);
+                                                              : (subDoc.remark ? [{ text: subDoc.remark, userName: formatUploaderName(subDoc), createdAt: subDoc.uploadedAt }] : []);
                                                             const totalMsgCount = remarkList.length;
                                                             const unreadCount = getUnreadSubDocRemarksCount(doc, subDoc);
 
@@ -9529,6 +9603,7 @@ function App() {
                         filename={previewDoc.filename}
                         downloadUrl={previewDoc.downloadUrl}
                         viewUrl={previewDoc.viewUrl}
+                        onDownload={() => handleDownloadSecureFile(previewDoc.downloadUrl, previewDoc.filename)}
                       />
                     );
                   }
@@ -9541,6 +9616,7 @@ function App() {
                         filename={previewDoc.filename}
                         downloadUrl={previewDoc.downloadUrl}
                         viewUrl={previewDoc.viewUrl}
+                        onDownload={() => handleDownloadSecureFile(previewDoc.downloadUrl, previewDoc.filename)}
                       />
                     );
                   }
@@ -9553,6 +9629,7 @@ function App() {
                         filename={previewDoc.filename}
                         downloadUrl={previewDoc.downloadUrl}
                         viewUrl={previewDoc.viewUrl}
+                        onDownload={() => handleDownloadSecureFile(previewDoc.downloadUrl, previewDoc.filename)}
                       />
                     );
                   }
@@ -9655,17 +9732,6 @@ function App() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                {((selectedSubDocForRemark || selectedDocForRemark)?.remarks || []).length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearDocumentRemarks}
-                    className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg text-xs font-semibold transition flex items-center space-x-1 cursor-pointer"
-                    title="Clear All Chat Messages"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    <span>Clear Chat</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setShowRemarkModal(false)}
@@ -9755,9 +9821,16 @@ function App() {
                             <div className="space-y-2 mb-1.5">
                               {msg.attachments.map((att, attIdx) => {
                                 const mime = (att.mimeType || '').toLowerCase();
-                                const filename = (att.originalName || '').toLowerCase();
+                                const filename = (att.originalName || att.filename || '').toLowerCase();
                                 const isImg = mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/.test(filename);
-                                const attUrl = generalDocsAPI.getRemarkAttachmentUrl(getApiSectionName(activeSection), att.filePath || att.originalName);
+                                const isExcel = mime.includes('sheet') || mime.includes('excel') || mime.includes('spreadsheet') || /\.(xlsx|xls|csv)$/.test(filename);
+                                const isWord = mime.includes('word') || mime.includes('officedocument.wordprocessingml') || /\.(docx|doc)$/.test(filename);
+                                const isPpt = mime.includes('presentation') || mime.includes('powerpoint') || /\.(pptx|ppt)$/.test(filename);
+                                const isPdf = mime === 'application/pdf' || /\.pdf$/.test(filename);
+
+                                const identifier = att.filename || att.filePath || att.originalName;
+                                const attUrl = generalDocsAPI.getRemarkAttachmentUrl(getApiSectionName(activeSection), identifier, att.originalName);
+                                const downloadUrl = `${attUrl}&download=true`;
 
                                 if (isImg) {
                                   return (
@@ -9766,25 +9839,23 @@ function App() {
                                         src={attUrl}
                                         alt={att.originalName}
                                         className="max-h-52 w-full object-cover cursor-pointer hover:opacity-90 transition"
-                                        onClick={() => handleViewGeneralDoc({
+                                        onClick={() => handleViewDocument({
                                           title: att.originalName,
                                           filename: att.originalName,
                                           mimeType: att.mimeType,
                                           viewUrl: attUrl,
-                                          downloadUrl: attUrl
+                                          downloadUrl: downloadUrl
                                         })}
                                       />
                                       <div className={`p-1.5 px-2 text-[10px] flex justify-between items-center ${isMe ? 'bg-emerald-700/80 text-emerald-100' : 'bg-slate-100 text-slate-700'}`}>
                                         <span className="truncate max-w-[140px] font-semibold">{att.originalName}</span>
-                                        <a
-                                          href={attUrl}
-                                          download={att.originalName}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className={`font-bold ml-2 hover:underline ${isMe ? 'text-white' : 'text-emerald-600'}`}
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDownloadSecureFile(downloadUrl, att.originalName)}
+                                          className={`font-bold ml-2 hover:underline cursor-pointer ${isMe ? 'text-white' : 'text-emerald-600'}`}
                                         >
                                           Download
-                                        </a>
+                                        </button>
                                       </div>
                                     </div>
                                   );
@@ -9792,17 +9863,39 @@ function App() {
 
                                 return (
                                   <div key={att._id || attIdx} className={`p-2.5 rounded-xl border flex items-center space-x-3 max-w-xs ${isMe ? 'bg-emerald-700/60 border-emerald-500/40 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}>
-                                    <div className={`p-2 rounded-lg flex-shrink-0 ${isMe ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700'}`}>
-                                      <FileText className="h-5 w-5" />
+                                    <div className={`p-2 rounded-lg flex-shrink-0 ${
+                                      isMe
+                                        ? 'bg-white/20 text-white'
+                                        : isExcel
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : isWord
+                                        ? 'bg-blue-100 text-blue-700'
+                                        : isPpt
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : isPdf
+                                        ? 'bg-rose-100 text-rose-700'
+                                        : 'bg-slate-100 text-slate-700'
+                                    }`}>
+                                      {isExcel ? (
+                                        <FileSpreadsheet className="h-5 w-5" />
+                                      ) : isWord ? (
+                                        <FileText className="h-5 w-5" />
+                                      ) : isPpt ? (
+                                        <Presentation className="h-5 w-5" />
+                                      ) : isPdf ? (
+                                        <FileText className="h-5 w-5" />
+                                      ) : (
+                                        <File className="h-5 w-5" />
+                                      )}
                                     </div>
                                     <button
                                       type="button"
-                                      onClick={() => handleViewGeneralDoc({
+                                      onClick={() => handleViewDocument({
                                         title: att.originalName,
                                         filename: att.originalName,
                                         mimeType: att.mimeType,
                                         viewUrl: attUrl,
-                                        downloadUrl: attUrl
+                                        downloadUrl: downloadUrl
                                       })}
                                       className="flex-1 min-w-0 text-left cursor-pointer group"
                                     >
@@ -9811,16 +9904,14 @@ function App() {
                                         {att.fileSize ? `${(att.fileSize / 1024).toFixed(1)} KB` : 'Click to preview'}
                                       </p>
                                     </button>
-                                    <a
-                                      href={attUrl}
-                                      download={att.originalName}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className={`p-1.5 rounded-lg transition ${isMe ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'}`}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDownloadSecureFile(downloadUrl, att.originalName)}
+                                      className={`p-1.5 rounded-lg transition cursor-pointer ${isMe ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'}`}
                                       title="Download File"
                                     >
                                       <Download className="h-4 w-4" />
-                                    </a>
+                                    </button>
                                   </div>
                                 );
                               })}
@@ -9840,7 +9931,17 @@ function App() {
               {remarkFile && (
                 <div className="p-2 px-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 animate-in fade-in">
                   <div className="flex items-center space-x-2 truncate">
-                    <Paperclip className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                    {/\.(xlsx|xls|csv)$/i.test(remarkFile.name) ? (
+                      <FileSpreadsheet className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                    ) : /\.(docx|doc)$/i.test(remarkFile.name) ? (
+                      <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    ) : /\.(pptx|ppt)$/i.test(remarkFile.name) ? (
+                      <Presentation className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                    ) : /\.pdf$/i.test(remarkFile.name) ? (
+                      <FileText className="h-4 w-4 text-rose-600 flex-shrink-0" />
+                    ) : (
+                      <Paperclip className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                    )}
                     <span className="font-semibold truncate max-w-xs">{remarkFile.name}</span>
                     <span className="text-[10px] text-emerald-600">({(remarkFile.size / 1024).toFixed(1)} KB)</span>
                   </div>
@@ -9861,6 +9962,7 @@ function App() {
                 <input
                   type="file"
                   ref={remarkFileInputRef}
+                  accept="*/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z,.png,.jpg,.jpeg,.webp,.svg,.dwg"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setRemarkFile(e.target.files[0]);
