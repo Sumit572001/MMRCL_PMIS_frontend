@@ -1234,7 +1234,7 @@ function App() {
         formData.append('name', subDocTitleInput.trim());
       }
       if (currentUser) {
-        formData.append('uploadedByName', currentUser.name || currentUser.userId || 'User');
+        formData.append('uploadedByName', currentUser.name || currentUser.userId || currentUser.email || 'coordination.mmrcl');
       }
 
       const res = await generalDocsAPI.uploadSubDocument(apiSec, selectedParentDoc._id, formData);
@@ -3298,7 +3298,7 @@ function App() {
       rfiFormData.append('folder', 'Root');
       rfiFormData.append('category', structCategory);
       if (currentUser) {
-        rfiFormData.append('uploadedByName', currentUser.name || currentUser.userId || 'User');
+        rfiFormData.append('uploadedByName', currentUser.name || currentUser.userId || currentUser.email || 'coordination.mmrcl');
       }
       await generalDocsAPI.upload('rfi', rfiFormData);
 
@@ -3309,7 +3309,7 @@ function App() {
       targetFormData.append('folder', rfiSelectedFolder || 'Root');
       targetFormData.append('category', structCategory);
       if (currentUser) {
-        targetFormData.append('uploadedByName', currentUser.name || currentUser.userId || 'User');
+        targetFormData.append('uploadedByName', currentUser.name || currentUser.userId || currentUser.email || 'coordination.mmrcl');
       }
       await generalDocsAPI.upload(targetApiSec, targetFormData);
 
@@ -4007,7 +4007,7 @@ function App() {
       formData.append('category', activeProjectStructure || tenderUploadCategory || 'Overall Project');
       formData.append('file', tenderUploadFile);
       if (currentUser) {
-        formData.append('uploadedByName', currentUser.name || currentUser.userId || 'User');
+        formData.append('uploadedByName', currentUser.name || currentUser.userId || currentUser.email || 'coordination.mmrcl');
       }
 
       const res = await generalDocsAPI.upload(apiSec, formData);
@@ -5176,24 +5176,33 @@ function App() {
   };
 
   const formatUploaderName = (item) => {
-    if (!item) return 'User';
+    if (!item) return 'coordination.mmrcl';
     if (item.uploadedByName && item.uploadedByName !== 'User') {
       return item.uploadedByName;
     }
     if (typeof item.uploadedBy === 'object' && item.uploadedBy !== null) {
-      return item.uploadedBy.name || item.uploadedBy.userId || item.uploadedBy.email || item.uploadedByName || 'User';
+      const objName = item.uploadedBy.name || item.uploadedBy.userId || item.uploadedBy.email;
+      if (objName && objName !== 'User') return objName;
+      if (item.uploadedByName && item.uploadedByName !== 'User') return item.uploadedByName;
     }
     if (typeof item.uploadedBy === 'string' && item.uploadedBy.trim()) {
       const val = item.uploadedBy.trim();
       if (/^[0-9a-fA-F]{24}$/.test(val)) {
         if (currentUser && (currentUser._id === val || currentUser.id === val)) {
-          return currentUser.name || currentUser.userId || currentUser.email || 'User';
+          return currentUser.name || currentUser.userId || currentUser.email || 'coordination.mmrcl';
         }
-        return item.uploadedByName || 'User';
+        if (item.uploadedByName && item.uploadedByName !== 'User') {
+          return item.uploadedByName;
+        }
+        return 'coordination.mmrcl';
       }
-      return val;
+      if (val !== 'User') return val;
     }
-    return item.uploadedByName || item.uploader || 'User';
+    return (item.uploadedByName && item.uploadedByName !== 'User')
+      ? item.uploadedByName
+      : (item.uploader && item.uploader !== 'User')
+        ? item.uploader
+        : 'coordination.mmrcl';
   };
 
   const topNavSections = [
