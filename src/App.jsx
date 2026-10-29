@@ -612,6 +612,7 @@ function ProjectGalleryCarousel() {
 function App() {
   // Authentication & RBAC states
   const [currentUser, setCurrentUser] = useState(null);
+  const [allUsersList, setAllUsersList] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -3343,6 +3344,15 @@ function App() {
     }
   };
 
+  const fetchAllUsers = async () => {
+    try {
+      const res = await authAPI.getUsers();
+      if (res.success && Array.isArray(res.data)) {
+        setAllUsersList(res.data);
+      }
+    } catch (e) {}
+  };
+
   // Check auth on load
   useEffect(() => {
     generateCaptcha();
@@ -3355,6 +3365,7 @@ function App() {
             setCurrentUser(res.user);
             localStorage.setItem('pmis_user', JSON.stringify(res.user));
             loadDashboardData();
+            fetchAllUsers();
           } else {
             authAPI.logout();
             setCurrentUser(null);
@@ -3392,6 +3403,7 @@ function App() {
       if (res.success) {
         setCurrentUser(res.user);
         loadDashboardData();
+        fetchAllUsers();
       }
     } catch (err) {
       setErrorMsg(err.response?.data?.message || 'Login failed. Try again.');
@@ -5176,33 +5188,67 @@ function App() {
   };
 
   const formatUploaderName = (item) => {
-    if (!item) return 'coordination.mmrcl';
-    if (item.uploadedByName && item.uploadedByName !== 'User') {
-      return item.uploadedByName;
-    }
+    if (!item) return 'User';
+
+    // 1. If populated user object
     if (typeof item.uploadedBy === 'object' && item.uploadedBy !== null) {
-      const objName = item.uploadedBy.name || item.uploadedBy.userId || item.uploadedBy.email;
+      const objName = item.uploadedBy.name || item.uploadedBy.userId || item.uploadedBy.organization || item.uploadedBy.email;
       if (objName && objName !== 'User') return objName;
-      if (item.uploadedByName && item.uploadedByName !== 'User') return item.uploadedByName;
     }
+
+    // 2. If uploadedBy matches a known user ID or username
     if (typeof item.uploadedBy === 'string' && item.uploadedBy.trim()) {
       const val = item.uploadedBy.trim();
       if (/^[0-9a-fA-F]{24}$/.test(val)) {
         if (currentUser && (currentUser._id === val || currentUser.id === val)) {
-          return currentUser.name || currentUser.userId || currentUser.email || 'coordination.mmrcl';
+          return currentUser.name || currentUser.userId || currentUser.email || 'User';
         }
-        if (item.uploadedByName && item.uploadedByName !== 'User') {
-          return item.uploadedByName;
+        // Match in allUsersList by _id
+        const matched = allUsersList.find(u => (u._id && u._id.toString() === val) || (u.id && u.id.toString() === val));
+        if (matched) {
+          return matched.name || matched.userId || matched.organization || matched.email;
         }
-        return 'coordination.mmrcl';
+      } else {
+        // Direct string username like "PMC", "NECPL", "MMRCL", etc.
+        const upper = val.toUpperCase();
+        const matched = allUsersList.find(u => (u.userId && u.userId.toUpperCase() === upper) || (u.name && u.name.toUpperCase() === upper));
+        if (matched) {
+          return matched.name || matched.userId || matched.organization;
+        }
+        if (val !== 'User') return val;
       }
-      if (val !== 'User') return val;
     }
-    return (item.uploadedByName && item.uploadedByName !== 'User')
-      ? item.uploadedByName
-      : (item.uploader && item.uploader !== 'User')
-        ? item.uploader
-        : 'coordination.mmrcl';
+
+    // 3. Check Folder context (e.g. if document is inside "BY PMC & ARCHITECT", "BY NECPL", "BY MMRCL")
+    if (item.folder && tenderFolders && tenderFolders.length > 0) {
+      const folderObj = tenderFolders.find(f => (f._id || f.id)?.toString() === item.folder.toString());
+      if (folderObj && folderObj.name) {
+        const fUpper = folderObj.name.toUpperCase();
+        if (fUpper.includes('PMC') || fUpper.includes('ARCHITECT')) return 'PMC & Architect';
+        if (fUpper.includes('NECPL')) return 'NECPL';
+        if (fUpper.includes('MMRCL')) return 'MMRCL';
+        if (fUpper.includes('ENGINEER')) return 'Engineer';
+        if (fUpper.includes('CONTRACTOR')) return 'Contractor';
+      }
+    }
+
+    // 4. Check document title or filename (e.g. "by NECPL", "by PMC", "by MMRCL")
+    const combinedTitle = ((item.name || '') + ' ' + (item.originalName || '')).toUpperCase();
+    if (combinedTitle.includes('BY NECPL') || combinedTitle.includes('BY_NECPL')) return 'NECPL';
+    if (combinedTitle.includes('BY PMC') || combinedTitle.includes('BY_PMC')) return 'PMC & Architect';
+    if (combinedTitle.includes('BY MMRCL') || combinedTitle.includes('BY_MMRCL')) return 'MMRCL';
+
+    // 5. If uploadedByName is set and not generic 'User'
+    if (item.uploadedByName && item.uploadedByName !== 'User') {
+      return item.uploadedByName;
+    }
+
+    // 6. If uploader property exists
+    if (item.uploader && item.uploader !== 'User') {
+      return item.uploader;
+    }
+
+    return item.uploadedByName || 'User';
   };
 
   const topNavSections = [

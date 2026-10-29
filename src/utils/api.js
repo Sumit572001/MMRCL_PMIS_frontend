@@ -59,6 +59,14 @@ export const authAPI = {
     const response = await api.post('/api/auth/reset-password', { userId, newPassword });
     return response.data;
   },
+  getUsers: async () => {
+    try {
+      const response = await api.get('/api/auth/users');
+      return response.data;
+    } catch (e) {
+      return { success: false, data: [] };
+    }
+  },
   logout: () => {
     localStorage.removeItem('pmis_token');
     localStorage.removeItem('pmis_user');
