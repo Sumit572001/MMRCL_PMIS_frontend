@@ -5373,24 +5373,67 @@ function App() {
         if (fUpper.includes('ENGINEER')) return 'Engineer';
         if (fUpper.includes('CONTRACTOR')) return 'Contractor';
         if (fUpper.includes('MOM') || fUpper.includes('MINUTES') || fUpper.includes('AGENDA')) return 'PMC Office';
+        if (fUpper.includes('LETTERS TO NYATI') || fUpper.includes('LETTER TO NYATI') || fUpper.includes('NYATI')) return 'PMC Office';
+        if (fUpper.includes('PROGRESS REPORT') || fUpper.includes('METHOD STATEMENT') || fUpper.includes('INTERFACE') || fUpper.includes('MONITORING') || fUpper.includes('DPR') || fUpper.includes('DLR')) return 'PMC Office';
       }
     }
 
     // 6. Check document title or filename
     const combinedTitle = ((item.name || '') + ' ' + (item.originalName || '')).toUpperCase();
-    if (combinedTitle.includes('BY NECPL') || combinedTitle.includes('BY_NECPL') || combinedTitle.includes('NECPL')) return 'NECPL';
+    if (combinedTitle.includes('BY NECPL') || combinedTitle.includes('BY_NECPL')) return 'NECPL';
     if (combinedTitle.includes('BY PMC') || combinedTitle.includes('BY_PMC') || combinedTitle.includes('PMC') || combinedTitle.includes('_SPA_') || combinedTitle.includes('-SPA-') || combinedTitle.includes(' SPA ')) return 'PMC Office';
+    if (combinedTitle.includes('BY MMRCL') || combinedTitle.includes('BY_MMRCL')) return 'MMRCL';
     if (combinedTitle.includes('COORDINATION')) return 'coordination.mmrcl';
     if (combinedTitle.includes('MOM') || combinedTitle.includes('MINUTES')) return 'PMC Office';
-    if (combinedTitle.includes('BY MMRCL') || combinedTitle.includes('BY_MMRCL')) return 'MMRCL';
+    if (combinedTitle.includes('SAFETY COMPLIANCE') || combinedTitle.includes('COMPLIANCE WITH MMRCL')) return 'PMC Office';
+    if (combinedTitle.includes('KICKOFF') || combinedTitle.includes('VIOLATION')) return 'PMC Office';
 
-    // 7. Context fallback based on section / folder name string
+    // 7. Section & Folder Context Fallbacks
+    const sec = (item.section || getApiSectionName(activeSection) || activeSection || '').toString().toLowerCase();
     const fStr = (item.folder || '').toString().toUpperCase();
-    if (fStr.includes('MOM') || fStr.includes('MINUTES') || fStr.includes('AGENDA')) return 'PMC Office';
+
+    // Check if in Site Monitoring & Control / Project Details (monitor)
+    if (
+      sec === 'monitor' ||
+      sec.includes('monitor') ||
+      activeSection === 'Site Monitoring & Control' ||
+      activeSection === 'Project Details' ||
+      fStr.includes('MOM') ||
+      fStr.includes('MINUTES') ||
+      fStr.includes('AGENDA') ||
+      fStr.includes('NYATI')
+    ) {
+      // In Site Monitoring & Control, PMC Office is the Monitoring Consultant who uploads monitoring documents, compliance letters, MOMs, and progress reports
+      return 'PMC Office';
+    }
+
+    if (sec === 'tender' || activeSection === 'Tender Documents') {
+      return 'coordination.mmrcl';
+    }
+
+    if (sec === 'rfi' || activeSection === 'RFI Register' || activeSection === 'RFI') {
+      return 'NECPL';
+    }
+
+    if (sec === 'quality' || activeSection === 'Quality Management' || sec === 'ehs' || activeSection === 'Environment, Health, and Safety (EHS)') {
+      return 'PMC Office';
+    }
+
+    if (sec === 'drawing' || activeSection === 'Project Drawings') {
+      return 'coordination.mmrcl';
+    }
+
+    if (sec === 'contractual' || activeSection === 'Contractual Documents') {
+      if (fStr.includes('PMC') || fStr.includes('ARCHITECT')) return 'PMC & Architect';
+      if (fStr.includes('NECPL')) return 'NECPL';
+      if (fStr.includes('MMRCL')) return 'MMRCL';
+      return 'coordination.mmrcl';
+    }
+
     if (fStr.includes('PMC')) return 'PMC Office';
     if (fStr.includes('NECPL')) return 'NECPL';
 
-    // Default clean fallback: coordination.mmrcl instead of generic 'User'
+    // Default clean fallback
     return 'coordination.mmrcl';
   };
 
