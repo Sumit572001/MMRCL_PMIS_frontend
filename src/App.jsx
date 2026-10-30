@@ -1055,14 +1055,23 @@ function App() {
 
   const matchesStructure = (itemCategory, targetStructure) => {
     if (!targetStructure) return true;
-    if (!itemCategory || itemCategory === '-' || itemCategory === 'Root') {
-      return targetStructure === 'Overall Project';
+    const tLow = targetStructure.trim().toLowerCase();
+
+    // Overall Project or All views should display all documents and submittals
+    if (tLow === 'overall project' || tLow.includes('overall') || tLow === 'all') {
+      return true;
     }
+
+    // General, unassigned, root, or global submittals are shared across all project structures
+    if (!itemCategory || itemCategory === '-' || itemCategory === 'Root' || itemCategory === 'ALL' || itemCategory.trim().toLowerCase() === 'overall project') {
+      return true;
+    }
+
     if (itemCategory === targetStructure) return true;
     const dLow = itemCategory.trim().toLowerCase();
-    const tLow = targetStructure.trim().toLowerCase();
     if (dLow === tLow) return true;
 
+    // Specific Project Structures Matching
     const isT1 = (tLow.includes('project 1') || tLow.includes('metro bhawan') || tLow.includes('commercial andheri'));
     const isD1 = (dLow.includes('project 1') || dLow.includes('metro bhawan') || dLow.includes('commercial andheri'));
     if (isT1 && isD1) return true;
@@ -1075,15 +1084,21 @@ function App() {
     const isD3 = (dLow.includes('project 3') || dLow.includes('non-executive') || dLow.includes('dharavi'));
     if (isT3 && isD3) return true;
 
-    const isTOverall = tLow.includes('overall');
-    const isDOverall = dLow.includes('overall');
-    if (isTOverall && isDOverall) return true;
+    // If itemCategory is not specifically tagged to another distinct project, allow it (e.g. folder names, general categories)
+    const isOtherProject = (
+      (isT1 && (isD2 || isD3)) ||
+      (isT2 && (isD1 || isD3)) ||
+      (isT3 && (isD1 || isD2))
+    );
+    if (!isOtherProject) return true;
 
     return false;
   };
 
   const matchesFolderStructure = (folder, targetStructure) => {
     if (!targetStructure) return true;
+    const tLow = targetStructure.trim().toLowerCase();
+    if (tLow === 'overall project' || tLow.includes('overall') || tLow === 'all') return true;
     if (!folder.category || folder.category === 'ALL' || folder.category === '-') return true;
     return matchesStructure(folder.category, targetStructure);
   };
@@ -7406,7 +7421,7 @@ function App() {
                     const qDate = generalDocDateSearch.trim();
                     const isSearching = Boolean(q || qDate);
 
-                    let currentFolders = activeSection === 'Contractual Documents' ? [] : tenderFolders.filter(f => {
+                    let currentFolders = tenderFolders.filter(f => {
                       if (isStructureScoped && !matchesFolderStructure(f, activeProjectStructure)) return false;
                       const pid = f.parentFolder ? (typeof f.parentFolder === 'object' ? (f.parentFolder._id || f.parentFolder.id) : f.parentFolder) : null;
                       if (!selectedTenderFolderId) return !pid;
@@ -7459,7 +7474,17 @@ function App() {
                     let currentFiles = tenderDocs;
 
                     if (activeSection === 'Contractual Documents') {
-                      currentFiles = tenderDocs;
+                      if (selectedTenderFolderId || selectedTenderFolder) {
+                        currentFiles = tenderDocs.filter(d => {
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return docFolder === targetFolderRef || docFolder === selectedTenderFolder || (targetFolderRef && docFolder && docFolder.toString() === targetFolderRef.toString());
+                        });
+                      } else {
+                        currentFiles = tenderDocs.filter(d => {
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return !docFolder || docFolder === 'Root';
+                        });
+                      }
                     } else if (activeSection === 'RFI') {
                       if (activeProjectStructure) {
                         currentFiles = tenderDocs.filter(d => matchesStructure(d.category, activeProjectStructure));
@@ -7467,7 +7492,10 @@ function App() {
                         currentFiles = tenderDocs;
                       }
                       if (selectedTenderFolderId || selectedTenderFolder) {
-                        currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                        currentFiles = currentFiles.filter(d => {
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return docFolder === targetFolderRef || docFolder === selectedTenderFolder || (targetFolderRef && docFolder && docFolder.toString() === targetFolderRef.toString());
+                        });
                       }
                     } else if (activeSection === 'RFI Register') {
                       if (rfiStructureFilter !== 'All') {
@@ -7476,17 +7504,36 @@ function App() {
                         currentFiles = tenderDocs;
                       }
                       if (selectedTenderFolderId || selectedTenderFolder) {
-                        currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                        currentFiles = currentFiles.filter(d => {
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return docFolder === targetFolderRef || docFolder === selectedTenderFolder || (targetFolderRef && docFolder && docFolder.toString() === targetFolderRef.toString());
+                        });
                       }
                     } else if (isStructureScoped) {
                       currentFiles = tenderDocs.filter(d => matchesStructure(d.category, activeProjectStructure));
                       if (selectedTenderFolderId || selectedTenderFolder) {
-                        currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                        currentFiles = currentFiles.filter(d => {
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return docFolder === targetFolderRef || docFolder === selectedTenderFolder || (targetFolderRef && docFolder && docFolder.toString() === targetFolderRef.toString());
+                        });
                       } else {
-                        currentFiles = currentFiles.filter(d => d.folder === targetFolderRef || d.folder === 'Root' || !d.folder || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                        currentFiles = currentFiles.filter(d => {
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return docFolder === targetFolderRef || docFolder === 'Root' || !docFolder || (selectedTenderFolder && docFolder === selectedTenderFolder);
+                        });
                       }
                     } else {
-                      currentFiles = tenderDocs.filter(d => d.folder === targetFolderRef || (selectedTenderFolder && d.folder === selectedTenderFolder));
+                      if (selectedTenderFolderId || selectedTenderFolder) {
+                        currentFiles = tenderDocs.filter(d => {
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return docFolder === targetFolderRef || docFolder === selectedTenderFolder || (targetFolderRef && docFolder && docFolder.toString() === targetFolderRef.toString());
+                        });
+                      } else {
+                        currentFiles = tenderDocs.filter(d => {
+                          const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
+                          return !docFolder || docFolder === 'Root';
+                        });
+                      }
                     }
 
                     if (activeSection === 'Contractual Documents') {
@@ -7496,6 +7543,8 @@ function App() {
                         const key = (doc.name || doc.originalName || '').trim().toLowerCase();
                         if (key && !seenNames.has(key)) {
                           seenNames.add(key);
+                          uniqueFiles.push(doc);
+                        } else if (!key) {
                           uniqueFiles.push(doc);
                         }
                       }
@@ -8199,12 +8248,27 @@ function App() {
                         const pid = f.parentFolder ? (typeof f.parentFolder === 'object' ? (f.parentFolder._id || f.parentFolder.id) : f.parentFolder) : null;
                         return pid && folder._id && pid.toString() === folder._id.toString();
                       });
-                      const allDocsInFolder = tenderDocs.filter(d => {
+                      let allDocsInFolder = tenderDocs.filter(d => {
                         if (isStructureScoped && !matchesStructure(d.category, activeProjectStructure)) return false;
                         if (!d.folder) return false;
                         const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
                         return docFolder === folder._id || docFolder === folderName || (folder._id && docFolder.toString() === folder._id.toString());
                       });
+
+                      if (activeSection === 'Contractual Documents') {
+                        const seenNames = new Set();
+                        const uniqueDocs = [];
+                        for (const doc of allDocsInFolder) {
+                          const key = (doc.name || doc.originalName || '').trim().toLowerCase();
+                          if (key && !seenNames.has(key)) {
+                            seenNames.add(key);
+                            uniqueDocs.push(doc);
+                          } else if (!key) {
+                            uniqueDocs.push(doc);
+                          }
+                        }
+                        allDocsInFolder = uniqueDocs;
+                      }
 
                       const folderDocs = allDocsInFolder.map((doc, origIdx) => {
                         const assignedSerialNo = doc.serialNumber || doc.srNo || doc.serialNo || (origIdx + 1).toString();
