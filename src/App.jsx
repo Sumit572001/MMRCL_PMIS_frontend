@@ -3766,6 +3766,7 @@ function App() {
   const getApiSectionName = (secName) => {
     if (!secName) return '';
     const lower = secName.toLowerCase();
+    if (lower === 'dashboard' || lower === 'project details') return '';
     if (lower === 'tender documents' || lower === 'tender') return 'tender';
     if (lower === 'contractual documents' || lower === 'contractual') return 'contractual';
     if (lower.includes('bill') || lower.includes('invoice') || lower === 'ra bill tax invoice') return 'ra_bill';
@@ -3784,7 +3785,7 @@ function App() {
   // Fetch general documents and folders when active section or active project structure changes
   useEffect(() => {
     const apiSec = getApiSectionName(activeSection);
-    if ((generalDocSections.includes(activeSection) || apiSec) && currentUser) {
+    if (apiSec && (generalDocSections.includes(activeSection) || generalDocSections.includes(apiSec)) && currentUser) {
       setFolderPath([]); // Reset folder path when switching sections or structure
       setGeneralDocSearch(''); // Reset search filter when switching sections or structure
       setGeneralDocDateSearch('');
