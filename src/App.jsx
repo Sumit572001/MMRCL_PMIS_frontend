@@ -1053,53 +1053,67 @@ function App() {
     return 'Earlier this year';
   };
 
-  const matchesStructure = (itemCategory, targetStructure) => {
+  const getStructureType = (val) => {
+    if (!val) return null;
+    const s = val.toString().trim().toLowerCase();
+    if (s.includes('project 1') || s.includes('metro bhawan') || s.includes('commercial andheri')) {
+      return 'project_1';
+    }
+    if (s.includes('project 2') || s.includes('executive staff') || (s.includes('residential') && s.includes('andheri'))) {
+      return 'project_2';
+    }
+    if (s.includes('project 3') || s.includes('non-executive') || s.includes('dharavi')) {
+      return 'project_3';
+    }
+    if (s === 'overall project' || s.includes('overall project') || s === 'overall') {
+      return 'overall';
+    }
+    return null;
+  };
+
+  const matchesStructure = (item, targetStructure) => {
     if (!targetStructure) return true;
-    const tLow = targetStructure.trim().toLowerCase();
+    const tLow = targetStructure.toString().trim().toLowerCase();
+    if (tLow === 'all') return true;
 
-    // Overall Project or All views should display all documents and submittals
-    if (tLow === 'overall project' || tLow.includes('overall') || tLow === 'all') {
+    const targetType = getStructureType(targetStructure);
+
+    const itemCategory = (typeof item === 'object' && item !== null) ? item.category : item;
+    const itemName = (typeof item === 'object' && item !== null) ? (item.name || item.originalName || '') : '';
+
+    // Direct case-insensitive string equality
+    if (itemCategory && itemCategory.toString().trim().toLowerCase() === tLow) {
       return true;
     }
 
-    // General, unassigned, root, or global submittals are shared across all project structures
-    if (!itemCategory || itemCategory === '-' || itemCategory === 'Root' || itemCategory === 'ALL' || itemCategory.trim().toLowerCase() === 'overall project') {
-      return true;
+    // Determine the structure type of the item from its category, or fallback to its name
+    let itemType = getStructureType(itemCategory);
+    if (!itemType && itemName) {
+      itemType = getStructureType(itemName);
     }
 
-    if (itemCategory === targetStructure) return true;
-    const dLow = itemCategory.trim().toLowerCase();
-    if (dLow === tLow) return true;
+    if (targetType) {
+      if (itemType) {
+        // Both target and item have a designated project structure -> they must match strictly!
+        return itemType === targetType;
+      }
+      // If the item has no specific project structure tagged, show it in 'overall' as general/unassigned
+      return targetType === 'overall';
+    }
 
-    // Specific Project Structures Matching
-    const isT1 = (tLow.includes('project 1') || tLow.includes('metro bhawan') || tLow.includes('commercial andheri'));
-    const isD1 = (dLow.includes('project 1') || dLow.includes('metro bhawan') || dLow.includes('commercial andheri'));
-    if (isT1 && isD1) return true;
-
-    const isT2 = (tLow.includes('project 2') || tLow.includes('executive staff') || (tLow.includes('residential') && tLow.includes('andheri')));
-    const isD2 = (dLow.includes('project 2') || dLow.includes('executive staff') || (dLow.includes('residential') && dLow.includes('andheri')));
-    if (isT2 && isD2) return true;
-
-    const isT3 = (tLow.includes('project 3') || tLow.includes('non-executive') || tLow.includes('dharavi'));
-    const isD3 = (dLow.includes('project 3') || dLow.includes('non-executive') || dLow.includes('dharavi'));
-    if (isT3 && isD3) return true;
-
-    // If itemCategory is not specifically tagged to another distinct project, allow it (e.g. folder names, general categories)
-    const isOtherProject = (
-      (isT1 && (isD2 || isD3)) ||
-      (isT2 && (isD1 || isD3)) ||
-      (isT3 && (isD1 || isD2))
-    );
-    if (!isOtherProject) return true;
-
-    return false;
+    return true;
   };
 
   const matchesFolderStructure = (folder, targetStructure) => {
     if (!targetStructure) return true;
-    const tLow = targetStructure.trim().toLowerCase();
-    if (tLow === 'overall project' || tLow.includes('overall') || tLow === 'all') return true;
-    if (!folder.category || folder.category === 'ALL' || folder.category === '-') return true;
+    const tLow = targetStructure.toString().trim().toLowerCase();
+    if (tLow === 'all') return true;
+
+    // Default category folders (without category or with ALL/-/Root) are common across all project views
+    if (!folder.category || folder.category === 'ALL' || folder.category === '-' || folder.category === 'Root') {
+      return true;
+    }
+
     return matchesStructure(folder.category, targetStructure);
   };
 
@@ -1185,9 +1199,15 @@ function App() {
   const [activeAuthorityDropdownId, setActiveAuthorityDropdownId] = useState(null);
   const [activeAuthorityDropdownCoords, setActiveAuthorityDropdownCoords] = useState(null);
 
-  // Auto-close floating dropdowns on window scroll or resize
+  // Auto-close floating dropdowns on window scroll, resize, or outside pointerdown
+  const floatingMenuOpenTimeRef = useRef(0);
+
   useEffect(() => {
-    const handleCloseFloatingMenus = () => {
+    const handleCloseFloatingMenus = (e) => {
+      // Don't close immediately upon opening (ignores focus-triggered micro-scrolls)
+      if (Date.now() - floatingMenuOpenTimeRef.current < 250) return;
+      if (e && e.target && e.target.closest && e.target.closest('[data-floating-menu]')) return;
+
       if (activeFileMenuId || activeSubFileMenuId || activeAuthorityDropdownId) {
         setActiveFileMenuId(null);
         setActiveFileMenuCoords(null);
@@ -1197,13 +1217,32 @@ function App() {
         setActiveAuthorityDropdownCoords(null);
       }
     };
+
+    const handlePointerDownOutside = (e) => {
+      // If clicking inside a floating menu or on a menu trigger button, let that button's onClick handle it
+      if (e.target && e.target.closest && (e.target.closest('[data-floating-menu]') || e.target.closest('[data-menu-trigger]'))) {
+        return;
+      }
+      if (activeFileMenuId || activeSubFileMenuId || activeAuthorityDropdownId || activeFolderMenuId) {
+        setActiveFileMenuId(null);
+        setActiveFileMenuCoords(null);
+        setActiveSubFileMenuId(null);
+        setActiveSubFileMenuCoords(null);
+        setActiveFolderMenuId(null);
+        setActiveAuthorityDropdownId(null);
+        setActiveAuthorityDropdownCoords(null);
+      }
+    };
+
     window.addEventListener('scroll', handleCloseFloatingMenus, true);
     window.addEventListener('resize', handleCloseFloatingMenus);
+    document.addEventListener('pointerdown', handlePointerDownOutside);
     return () => {
       window.removeEventListener('scroll', handleCloseFloatingMenus, true);
       window.removeEventListener('resize', handleCloseFloatingMenus);
+      document.removeEventListener('pointerdown', handlePointerDownOutside);
     };
-  }, [activeFileMenuId, activeSubFileMenuId, activeAuthorityDropdownId]);
+  }, [activeFileMenuId, activeSubFileMenuId, activeAuthorityDropdownId, activeFolderMenuId]);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameFileId, setRenameFileId] = useState(null);
   const [renameFileNameInput, setRenameFileNameInput] = useState('');
@@ -1744,8 +1783,11 @@ function App() {
               setActiveFileMenuCoords(null);
               setActiveSubFileMenuId(null);
               setActiveSubFileMenuCoords(null);
+              setActiveFolderMenuId(null);
             }
           }}
+          data-menu-trigger="true"
+          onMouseDown={(e) => e.stopPropagation()}
           className="inline-flex justify-between items-center w-full px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-sm cursor-pointer min-w-[140px] max-w-[220px]"
         >
           <span className={`truncate ${currentVal ? 'text-sky-700 font-bold' : 'text-slate-400'}`} title={currentVal || 'Assign Auth'}>
@@ -1757,6 +1799,7 @@ function App() {
         {isOpen && activeAuthorityDropdownCoords && createPortal(
           <div
             data-authority-dropdown="true"
+            data-floating-menu="true"
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'fixed',
@@ -5716,7 +5759,7 @@ function App() {
                               const isModuleActive = activeSection === mod.name && activeProjectStructure === struct.name;
                               const isRfi = mod.id === 'rfi';
                               const isNcr = mod.id === 'ncr';
-                              const sectionHasUnread = isModuleActive && tenderDocs.filter(d => matchesStructure(d.category, struct.name)).some(hasUnreadRemarks);
+                              const sectionHasUnread = isModuleActive && tenderDocs.filter(d => matchesStructure(d, struct.name)).some(hasUnreadRemarks);
 
                               let buttonStyle = `text-slate-600 hover:text-slate-900 ${struct.hoverBg} border border-transparent`;
                               let iconStyle = 'text-slate-400 group-hover:text-slate-600';
@@ -5866,7 +5909,7 @@ function App() {
 
                   {/* Floating Notifications Dropdown Panel */}
                   {showNotificationPanel && (
-                    <div className="absolute left-0 bottom-12 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
+                    <div className="absolute left-0 bottom-12 z-[9999] w-88 sm:w-[420px] md:w-[460px] max-w-[90vw] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
                       <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <Bell className="h-4 w-4 text-sky-400" />
@@ -5959,7 +6002,7 @@ function App() {
                                     </h5>
                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                       <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap" title={new Date(item.createdAt || item.uploadedAt).toLocaleString()}>
-                                        {new Date(item.createdAt || item.uploadedAt).toLocaleDateString()}
+                                        {new Date(item.createdAt || item.uploadedAt).toLocaleDateString()} {new Date(item.createdAt || item.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                       </span>
                                       {typeBadge}
                                     </div>
@@ -5978,19 +6021,26 @@ function App() {
                                     </p>
                                   )}
 
-                                  <div className="flex items-center flex-wrap gap-1 text-[10px] pt-0.5">
-                                    {item.category && item.category !== '-' && item.category !== 'null' && item.category !== item.section && (
-                                      <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold border border-indigo-200">
-                                        🏢 Structure: {item.category}
-                                      </span>
-                                    )}
-                                    <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-bold border border-sky-200">
-                                      📂 Section: {item.section || 'General'}
-                                    </span>
-                                    <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded font-semibold border border-slate-200">
-                                      📁 Folder: {folderDisplayName}
-                                    </span>
-                                  </div>
+                                  {(() => {
+                                    const pathParts = [
+                                      (item.category && item.category !== '-' && item.category !== 'null' && item.category !== item.section) ? item.category : null,
+                                      item.section || 'General',
+                                      folderDisplayName
+                                    ].filter(Boolean);
+                                    const fullPath = pathParts.join(' / ');
+
+                                    return (
+                                      <div className="pt-0.5">
+                                        <div
+                                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200/60 text-slate-700 rounded-lg font-medium border border-slate-200 text-[10px] flex items-start gap-1.5 w-full break-words leading-relaxed"
+                                          title={fullPath}
+                                        >
+                                          <Folder className="h-3 w-3 text-sky-600 flex-shrink-0 mt-0.5" />
+                                          <span className="break-words flex-1 min-w-0 font-semibold">{fullPath}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             );
@@ -6051,7 +6101,7 @@ function App() {
                 </button>
 
                 {showNotificationPanel && (
-                  <div className="absolute left-0 bottom-12 z-[9999] w-80 md:w-96 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
+                  <div className="absolute left-0 bottom-12 z-[9999] w-88 sm:w-[420px] md:w-[460px] max-w-[90vw] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-left">
                     <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between">
                       <div className="flex items-center space-x-2">
                         <Bell className="h-4 w-4 text-sky-400" />
@@ -6144,7 +6194,7 @@ function App() {
                                   </h5>
                                   <div className="flex items-center gap-1.5 flex-shrink-0">
                                     <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap" title={new Date(item.createdAt || item.uploadedAt).toLocaleString()}>
-                                      {new Date(item.createdAt || item.uploadedAt).toLocaleDateString()}
+                                      {new Date(item.createdAt || item.uploadedAt).toLocaleDateString()} {new Date(item.createdAt || item.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                     {typeBadge}
                                   </div>
@@ -6163,19 +6213,26 @@ function App() {
                                   </p>
                                 )}
 
-                                <div className="flex items-center flex-wrap gap-1 text-[10px] pt-0.5">
-                                  {item.category && item.category !== '-' && item.category !== 'null' && item.category !== item.section && (
-                                    <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded font-bold border border-indigo-200">
-                                      🏢 Structure: {item.category}
-                                    </span>
-                                  )}
-                                  <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded font-bold border border-sky-200">
-                                    📂 Section: {item.section || 'General'}
-                                  </span>
-                                  <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded font-semibold border border-slate-200">
-                                    📁 Folder: {folderDisplayName}
-                                  </span>
-                                </div>
+                                {(() => {
+                                  const pathParts = [
+                                    (item.category && item.category !== '-' && item.category !== 'null' && item.category !== item.section) ? item.category : null,
+                                    item.section || 'General',
+                                    folderDisplayName
+                                  ].filter(Boolean);
+                                  const fullPath = pathParts.join(' / ');
+
+                                  return (
+                                    <div className="pt-0.5">
+                                      <div
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200/60 text-slate-700 rounded-lg font-medium border border-slate-200 text-[10px] flex items-start gap-1.5 w-full break-words leading-relaxed"
+                                        title={fullPath}
+                                      >
+                                        <Folder className="h-3 w-3 text-sky-600 flex-shrink-0 mt-0.5" />
+                                        <span className="break-words flex-1 min-w-0 font-semibold">{fullPath}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           );
@@ -7090,20 +7147,6 @@ function App() {
             </div>
           ) : generalDocSections.includes(activeSection) ? (
             <div className="space-y-6 w-full max-w-[99%] mx-auto animate-fade-in text-slate-700 relative">
-              {(activeFolderMenuId || activeFileMenuId || activeSubFileMenuId || activeAuthorityDropdownId) && (
-                <div
-                  className="fixed inset-0 z-[99998] bg-transparent"
-                  onClick={() => {
-                    setActiveFolderMenuId(null);
-                    setActiveFileMenuId(null);
-                    setActiveFileMenuCoords(null);
-                    setActiveSubFileMenuId(null);
-                    setActiveSubFileMenuCoords(null);
-                    setActiveAuthorityDropdownId(null);
-                    setActiveAuthorityDropdownCoords(null);
-                  }}
-                />
-              )}
               <div className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/95 backdrop-blur-md p-5 rounded-xl border border-slate-200 shadow-md gap-4">
                 <div className="flex items-center space-x-3">
                   {folderPath.length > 0 ? (
@@ -7488,7 +7531,7 @@ function App() {
                       }
                     } else if (activeSection === 'RFI') {
                       if (activeProjectStructure) {
-                        currentFiles = tenderDocs.filter(d => matchesStructure(d.category, activeProjectStructure));
+                        currentFiles = tenderDocs.filter(d => matchesStructure(d, activeProjectStructure));
                       } else {
                         currentFiles = tenderDocs;
                       }
@@ -7500,7 +7543,7 @@ function App() {
                       }
                     } else if (activeSection === 'RFI Register') {
                       if (rfiStructureFilter !== 'All') {
-                        currentFiles = tenderDocs.filter(d => matchesStructure(d.category, rfiStructureFilter));
+                        currentFiles = tenderDocs.filter(d => matchesStructure(d, rfiStructureFilter));
                       } else {
                         currentFiles = tenderDocs;
                       }
@@ -7511,7 +7554,7 @@ function App() {
                         });
                       }
                     } else if (isStructureScoped) {
-                      currentFiles = tenderDocs.filter(d => matchesStructure(d.category, activeProjectStructure));
+                      currentFiles = tenderDocs.filter(d => matchesStructure(d, activeProjectStructure));
                       if (selectedTenderFolderId || selectedTenderFolder) {
                         currentFiles = currentFiles.filter(d => {
                           const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
@@ -7564,17 +7607,18 @@ function App() {
                       (currentUser.name && currentUser.name.toLowerCase().includes('coordination.mmrcl'))
                     ));
                     const isDeleteAllowed = Boolean(currentUser && (
-                      (currentUser.email && currentUser.email.toLowerCase().includes('coordination.mmrcl')) ||
-                      (currentUser.userId && currentUser.userId.toLowerCase().includes('coordination.mmrcl')) ||
-                      (currentUser.name && currentUser.name.toLowerCase().includes('coordination.mmrcl')) ||
-                      (currentUser.organization && currentUser.organization.toLowerCase().includes('coordination.mmrcl')) ||
-                      currentUser.role === 'Site Engineer' ||
-                      currentUser.role === 'Admin' ||
-                      currentUser.isAdmin ||
-                      (currentUser.userId && currentUser.userId.toUpperCase() === 'NECPL') ||
-                      (currentUser.email && currentUser.email.toLowerCase().includes('necpl')) ||
-                      (currentUser.name && currentUser.name.toUpperCase().includes('NECPL')) ||
-                      ['Project Documents & Registration', 'Project Communication & Letters'].includes(activeSection)
+                      (currentUser.email && (
+                        currentUser.email.toLowerCase().trim() === 'sumit.verma@nyatigroup.com' ||
+                        currentUser.email.toLowerCase().includes('sumit.verma@nyatigroup.com')
+                      )) ||
+                      (currentUser.userId && (
+                        currentUser.userId.toLowerCase().trim() === 'sumit.verma@nyatigroup.com' ||
+                        currentUser.userId.toLowerCase().trim() === 'sumit.verma'
+                      )) ||
+                      (currentUser.username && (
+                        currentUser.username.toLowerCase().trim() === 'sumit.verma@nyatigroup.com' ||
+                        currentUser.username.toLowerCase().trim() === 'sumit.verma'
+                      ))
                     ));
 
                     const checkDocMatchesPdrFilter = (doc, assignedSerial) => {
@@ -7920,26 +7964,35 @@ function App() {
                                           </button>
 
                                           {/* 3 Dots Menu for File */}
-                                          <div className="relative inline-block text-left">
+                                          <div className="relative inline-block text-left" onMouseDown={(e) => e.stopPropagation()}>
                                             <button
                                               type="button"
+                                              data-menu-trigger="true"
+                                              onMouseDown={(e) => e.stopPropagation()}
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (activeFileMenuId === doc._id) {
+                                                const docIdentifier = (doc._id || doc.id)?.toString();
+                                                if (!docIdentifier) return;
+                                                if (activeFileMenuId && String(activeFileMenuId) === String(docIdentifier)) {
                                                   setActiveFileMenuId(null);
                                                   setActiveFileMenuCoords(null);
                                                 } else {
                                                   const rect = e.currentTarget.getBoundingClientRect();
                                                   const spaceBelow = window.innerHeight - rect.bottom;
-                                                  const menuHeight = 85;
+                                                  const menuHeight = isDeleteAllowed ? 78 : 42;
                                                   const openUp = spaceBelow < menuHeight + 10;
+                                                  floatingMenuOpenTimeRef.current = Date.now();
                                                   setActiveFileMenuCoords({
-                                                    top: openUp ? Math.max(10, rect.top - menuHeight - 4) : (rect.bottom + 4),
+                                                    top: openUp ? null : (rect.bottom + 4),
+                                                    bottom: openUp ? (window.innerHeight - rect.top + 4) : null,
                                                     right: Math.max(10, window.innerWidth - rect.right)
                                                   });
-                                                  setActiveFileMenuId(doc._id);
+                                                  setActiveFileMenuId(docIdentifier);
                                                   setActiveSubFileMenuId(null);
                                                   setActiveSubFileMenuCoords(null);
+                                                  setActiveFolderMenuId(null);
+                                                  setActiveAuthorityDropdownId(null);
+                                                  setActiveAuthorityDropdownCoords(null);
                                                 }
                                               }}
                                               className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
@@ -7948,12 +8001,15 @@ function App() {
                                               <MoreVertical className="h-4 w-4" />
                                             </button>
 
-                                            {activeFileMenuId === doc._id && activeFileMenuCoords && createPortal(
+                                            {Boolean(activeFileMenuId && doc && String(activeFileMenuId) === String(doc._id || doc.id)) && activeFileMenuCoords && createPortal(
                                               <div
+                                                data-floating-menu="true"
                                                 onClick={(e) => e.stopPropagation()}
+                                                onMouseDown={(e) => e.stopPropagation()}
                                                 style={{
                                                   position: 'fixed',
-                                                  top: `${activeFileMenuCoords.top}px`,
+                                                  ...(activeFileMenuCoords.top != null ? { top: `${activeFileMenuCoords.top}px` } : {}),
+                                                  ...(activeFileMenuCoords.bottom != null ? { bottom: `${activeFileMenuCoords.bottom}px` } : {}),
                                                   right: `${activeFileMenuCoords.right}px`,
                                                   zIndex: 999999
                                                 }}
@@ -7963,7 +8019,7 @@ function App() {
                                                   type="button"
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setRenameFileId(doc._id);
+                                                    setRenameFileId(doc._id || doc.id);
                                                     setRenameFileNameInput(doc.name);
                                                     setShowRenameModal(true);
                                                     setActiveFileMenuId(null);
@@ -7979,7 +8035,7 @@ function App() {
                                                     onClick={(e) => {
                                                       e.stopPropagation();
                                                       if (window.confirm(`Are you sure you want to delete the file "${doc.name}"?`)) {
-                                                        handleDeleteDocument(doc._id);
+                                                        handleDeleteDocument(doc._id || doc.id);
                                                       }
                                                       setActiveFileMenuId(null);
                                                       setActiveFileMenuCoords(null);
@@ -8147,26 +8203,35 @@ function App() {
 
 
                                                           {/* 3 Dots Menu for Sub-Document */}
-                                                          <div className="relative inline-block text-left">
+                                                          <div className="relative inline-block text-left" onMouseDown={(e) => e.stopPropagation()}>
                                                             <button
                                                               type="button"
+                                                              data-menu-trigger="true"
+                                                              onMouseDown={(e) => e.stopPropagation()}
                                                               onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if (activeSubFileMenuId === subDoc._id) {
+                                                                const subDocIdentifier = (subDoc._id || subDoc.id)?.toString();
+                                                                if (!subDocIdentifier) return;
+                                                                if (activeSubFileMenuId && String(activeSubFileMenuId) === String(subDocIdentifier)) {
                                                                   setActiveSubFileMenuId(null);
                                                                   setActiveSubFileMenuCoords(null);
                                                                 } else {
                                                                   const rect = e.currentTarget.getBoundingClientRect();
                                                                   const spaceBelow = window.innerHeight - rect.bottom;
-                                                                  const menuHeight = 85;
+                                                                  const menuHeight = isDeleteAllowed ? 78 : 42;
                                                                   const openUp = spaceBelow < menuHeight + 10;
+                                                                  floatingMenuOpenTimeRef.current = Date.now();
                                                                   setActiveSubFileMenuCoords({
-                                                                    top: openUp ? Math.max(10, rect.top - menuHeight - 4) : (rect.bottom + 4),
+                                                                    top: openUp ? null : (rect.bottom + 4),
+                                                                    bottom: openUp ? (window.innerHeight - rect.top + 4) : null,
                                                                     right: Math.max(10, window.innerWidth - rect.right)
                                                                   });
-                                                                  setActiveSubFileMenuId(subDoc._id);
+                                                                  setActiveSubFileMenuId(subDocIdentifier);
                                                                   setActiveFileMenuId(null);
                                                                   setActiveFileMenuCoords(null);
+                                                                  setActiveFolderMenuId(null);
+                                                                  setActiveAuthorityDropdownId(null);
+                                                                  setActiveAuthorityDropdownCoords(null);
                                                                 }
                                                               }}
                                                               className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
@@ -8175,12 +8240,15 @@ function App() {
                                                               <MoreVertical className="h-4 w-4" />
                                                             </button>
 
-                                                            {activeSubFileMenuId === subDoc._id && activeSubFileMenuCoords && createPortal(
+                                                            {Boolean(activeSubFileMenuId && subDoc && String(activeSubFileMenuId) === String(subDoc._id || subDoc.id)) && activeSubFileMenuCoords && createPortal(
                                                               <div
+                                                                data-floating-menu="true"
                                                                 onClick={(e) => e.stopPropagation()}
+                                                                onMouseDown={(e) => e.stopPropagation()}
                                                                 style={{
                                                                   position: 'fixed',
-                                                                  top: `${activeSubFileMenuCoords.top}px`,
+                                                                  ...(activeSubFileMenuCoords.top != null ? { top: `${activeSubFileMenuCoords.top}px` } : {}),
+                                                                  ...(activeSubFileMenuCoords.bottom != null ? { bottom: `${activeSubFileMenuCoords.bottom}px` } : {}),
                                                                   right: `${activeSubFileMenuCoords.right}px`,
                                                                   zIndex: 999999
                                                                 }}
@@ -8207,7 +8275,7 @@ function App() {
                                                                     onClick={(e) => {
                                                                       e.stopPropagation();
                                                                       if (window.confirm(`Are you sure you want to delete the sub-document "${subDoc.name}"?`)) {
-                                                                        handleDeleteSubDocument(doc._id, subDoc._id);
+                                                                        handleDeleteSubDocument(doc._id || doc.id, subDoc._id || subDoc.id);
                                                                       }
                                                                       setActiveSubFileMenuId(null);
                                                                       setActiveSubFileMenuCoords(null);
@@ -8250,7 +8318,7 @@ function App() {
                         return pid && folder._id && pid.toString() === folder._id.toString();
                       });
                       let allDocsInFolder = tenderDocs.filter(d => {
-                        if (isStructureScoped && !matchesStructure(d.category, activeProjectStructure)) return false;
+                        if (isStructureScoped && !matchesStructure(d, activeProjectStructure)) return false;
                         if (!d.folder) return false;
                         const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
                         return docFolder === folder._id || docFolder === folderName || (folder._id && docFolder.toString() === folder._id.toString());
@@ -8286,7 +8354,7 @@ function App() {
 
                       const doesFolderOrDescendantsHaveMatches = (fId, fName) => {
                         const docs = tenderDocs.filter(d => {
-                          if (isStructureScoped && !matchesStructure(d.category, activeProjectStructure)) return false;
+                          if (isStructureScoped && !matchesStructure(d, activeProjectStructure)) return false;
                           if (!d.folder) return false;
                           const docFolder = typeof d.folder === 'object' ? (d.folder._id || d.folder.id) : d.folder;
                           return docFolder === fId || docFolder === fName || (fId && docFolder.toString() === fId.toString());
@@ -8418,11 +8486,25 @@ function App() {
                             </div>
 
                             {/* Options menu for Folder */}
-                            <div className="relative z-[999]" onClick={(e) => e.stopPropagation()}>
+                            <div className="relative z-[999]" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                               <button
+                                data-menu-trigger="true"
+                                onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setActiveFolderMenuId(activeFolderMenuId === folder._id ? null : folder._id);
+                                  const folderId = (folder._id || folder.id)?.toString();
+                                  if (activeFolderMenuId && String(activeFolderMenuId) === String(folderId)) {
+                                    setActiveFolderMenuId(null);
+                                  } else {
+                                    floatingMenuOpenTimeRef.current = Date.now();
+                                    setActiveFolderMenuId(folderId);
+                                    setActiveFileMenuId(null);
+                                    setActiveFileMenuCoords(null);
+                                    setActiveSubFileMenuId(null);
+                                    setActiveSubFileMenuCoords(null);
+                                    setActiveAuthorityDropdownId(null);
+                                    setActiveAuthorityDropdownCoords(null);
+                                  }
                                 }}
                                 className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition cursor-pointer"
                                 title="Folder Options"
@@ -8430,8 +8512,11 @@ function App() {
                                 <MoreVertical className="h-4 w-4" />
                               </button>
 
-                              {activeFolderMenuId === folder._id && (
-                                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 z-[9999] animate-fade-in text-xs">
+                              {Boolean(activeFolderMenuId && folder && String(activeFolderMenuId) === String(folder._id || folder.id)) && (
+                                <div
+                                  data-floating-menu="true"
+                                  className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl py-1 w-36 z-[9999] animate-fade-in text-xs"
+                                >
                                   <button
                                     type="button"
                                     onClick={(e) => {
