@@ -110,10 +110,11 @@ const approvedNocsData = [
       { text: '29/09/2026', strike: false }
     ],
     remark: [
-      '* Layout approval is under process with BP Cell, Western Suburb.',
+      '* Layout approval is under process with BP Cell, Western Suburb-1.',
       '* Site visit is completed on 25/08/2026.',
       '* Status of proposal: Approved on 16/09/2026',
-      '* ==Registration of terms & conditions by Project proponent and payment to the MCGM authority is completed on 24/09/2026. Final Layout issued on 29/09/2026.=='
+      '* Registration of terms & conditions by Project proponent and payment to the MCGM authority is completed on 24/09/2026.',
+      '==Final Layout issued on 29/09/2026.=='
     ]
   },
   {
@@ -138,10 +139,10 @@ const approvedNocsData = [
     ],
     remark: [
       '* Scrutiny has been completed by the Byculla, Marol and Borivali Divisional Fire Officers (DFOs).',
-      '* Compliance after scrutiny is completed by SPA.',
-      '* Current Status of Dharavi proposal:- ==NOC Received 09/09/2026.==',
-      '* Current Status of Ex. Staff Quarter proposal: - ==NOC Received on 09/09/2026.==',
-      '* Current Status of Metro Bhavan proposal: ==NOC Received on 24/09/2026.=='
+      '*Compliance after scrutiny is completed by SPA.',
+      '*Current Status of Dharavi proposal:- ==NOC Received 09/09/2026.==',
+      '*Current Status of Ex. Staff Quarter proposal: - ==NOC Received on 09/09/2026.==',
+      '*Current Status of Metro Bhavan proposal: ==NOC Received on 24/09/2026.=='
     ]
   },
   {
@@ -150,9 +151,9 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. b) Water Noc',
     shortName: 'Water NOC',
-    isGreenHighlighted: false,
-    status: 'Pending',
-    statusType: 'Pending',
+    isGreenHighlighted: true,
+    status: 'Received',
+    statusType: 'Received',
     responsibility: 'NECPL',
     expectedDate: '25/08/2026',
     dateHistory: [
@@ -168,9 +169,9 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. c) Drainage Noc',
     shortName: 'Drainage NOC',
-    isGreenHighlighted: false,
-    status: 'Pending',
-    statusType: 'Pending',
+    isGreenHighlighted: true,
+    status: 'Received',
+    statusType: 'Received',
     responsibility: 'NECPL',
     expectedDate: '05/09/2026',
     dateHistory: [
@@ -187,12 +188,14 @@ const approvedNocsData = [
     title: '2. d) Garden/Tree Noc',
     shortName: 'Garden/Tree NOC',
     isGreenHighlighted: false,
-    status: 'Pending',
+    status: 'Required on MMRCL letter head',
     statusType: 'Pending',
-    responsibility: 'NECPL',
-    expectedDate: '15/09/2026',
+    responsibility: 'SPA to give recommendation',
+    expectedDate: '15/10/2026',
     dateHistory: [
-      { text: '15/09/2026', strike: true }
+      { text: '15/09/2026', strike: true },
+      { text: '25/09/2026', strike: true },
+      { text: '15/10/2026', strike: false }
     ],
     remark: [
       'Required as per Terms & conditions of Layout Approval. However, it was required for EC approval before 1st Meeting.'
@@ -204,9 +207,9 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. e) Solid Waste Noc',
     shortName: 'Solid Waste NOC',
-    isGreenHighlighted: false,
-    status: 'Pending',
-    statusType: 'Pending',
+    isGreenHighlighted: true,
+    status: 'Received',
+    statusType: 'Received',
     responsibility: 'NECPL',
     expectedDate: '25/09/2026',
     dateHistory: [
@@ -222,13 +225,13 @@ const approvedNocsData = [
     group: '2. NOCs',
     title: '2. f) Storm Water Noc',
     shortName: 'Storm Water NOC',
-    isGreenHighlighted: false,
-    status: 'Pending.',
-    statusType: 'Pending',
+    isGreenHighlighted: true,
+    status: 'Received',
+    statusType: 'Received',
     responsibility: 'NECPL',
     expectedDate: '15/10/2026',
     dateHistory: [
-      { text: '15/10/2026', strike: false }
+      { text: '15/10/2026', strike: true }
     ],
     remark: [
       'Required as per Terms & conditions of Layout Approval. However, it was required for EC approval before 1st Meeting.'
@@ -255,19 +258,21 @@ const approvedNocsData = [
     title: '4. Aviation NOC.',
     shortName: 'Aviation NOC',
     isGreenHighlighted: false,
-    status: '1. Application submitted for Dharavi 04.08.2026\n2. Application submitted for Metro Bhavan & staff quarters on 07.08.2026',
+    status: '1.Application submitted for Dharavi 04.08.2026\n2. Application submitted for Metro Bhavan & staff quarters on 07.08.2026',
     statusType: 'Submitted',
     responsibility: 'NECPL',
-    expectedDate: '10/10/2026',
+    expectedDate: '15/11/2026',
     dateHistory: [
       { text: '07/09/2026', strike: true },
       { text: '30/09/2026', strike: true },
-      { text: '10/10/2026', strike: false }
+      { text: '10/10/2026', strike: true },
+      { text: '30/10/2026', strike: true },
+      { text: '15/11/2026', strike: false }
     ],
     remark: [
       'Both applications are rejected. Revise submission done by NECPL on 18/08/2026.',
       '==MB&SQ Online application accepted, and site visit also completed 25/09/2026.==',
-      '==Dharavi revised application submitted.==',
+      '==Dharavi revised application accepted..==',
       'It is required for EC before EC\'s 1st Meeting.'
     ]
   },
@@ -284,19 +289,20 @@ const approvedNocsData = [
     dateHistory: [],
     remark: [
       '*NECPL requires to arrange demarcation.',
-      '*CTSO letter dt. 25/08/2026 informed for payment for Demarcation. ==Challan generated on 10/09/2026, Payment is under process in MMRCL.=='
+      '*CTSO letter dt. 25/08/2026 informed for payment for Demarcation. ==Challan generated on 10/09/2026, Payment done by MMRCL. CTSO will convey date for joint demarcation.==',
+      '==It will be required till CC.=='
     ]
   },
   {
     id: '6',
     category: 'Clearance Documentation',
-    title: '6. Dharavi IOD',
+    title: '6. Dharavi IOD **',
     shortName: 'Dharavi IOD',
     isGreenHighlighted: false,
     status: 'IOD proposal has been submitted offline to BP Cell, City Office, Wadala.',
     statusType: 'Submitted',
     responsibility: 'SPA/NECPL',
-    expectedDate: '15/10/2026',
+    expectedDate: '30/10/2026',
     dateHistory: [
       { text: 'For Submission', isHeader: true },
       { text: '24/08/2026', strike: true },
@@ -305,12 +311,14 @@ const approvedNocsData = [
       { text: '18/09/2026', strike: true },
       { text: '21/09/2026', strike: false },
       { text: 'For IOD approval', isHeader: true },
-      { text: '15/10/2026', strike: false }
+      { text: '15/10/2026', strike: true },
+      { text: '30/10/2026', strike: false }
     ],
     remark: [
       '* Scrutiny for offline application is under process.',
       '* ==IOD online Application submitted on 21/09/2026.==',
-      '* Current status of proposal :==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC=='
+      '* Current status of proposal: ==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC==',
+      '==(MCGM Site visit completed on 09/10/2026. Ask for resubmission for land reservation clarification)=='
     ]
   },
   {
@@ -336,9 +344,9 @@ const approvedNocsData = [
     category: 'Clearance Documentation',
     title: '8. Survey remarks of Dharavi for IOD',
     shortName: 'Survey remarks of Dharavi for IOD',
-    isGreenHighlighted: false,
+    isGreenHighlighted: true,
     status: '-',
-    statusType: 'Submitted',
+    statusType: 'Received',
     responsibility: 'NECPL',
     expectedDate: '07/10/2026',
     dateHistory: [
@@ -346,7 +354,7 @@ const approvedNocsData = [
     ],
     remark: [
       'Application submitted on 21/09/2026.',
-      '==Required for IOD scrutiny for Dharavi site.=='
+      '==Required for IOD scrutiny for Dharavi site and received on 07/10/2026.=='
     ]
   },
   {
@@ -358,7 +366,7 @@ const approvedNocsData = [
     status: '-',
     statusType: 'Submitted',
     responsibility: 'SPA/NECPL',
-    expectedDate: '15/10/2026',
+    expectedDate: '02/11/2026',
     dateHistory: [
       { text: 'For Submission', isHeader: true },
       { text: '05/09/2026', strike: true },
@@ -366,23 +374,26 @@ const approvedNocsData = [
       { text: '25/09/2026', strike: true },
       { text: '29/09/2026', strike: true },
       { text: 'For IOD approval', isHeader: true },
-      { text: '15/10/2026', strike: false }
+      { text: '15/10/2026', strike: true },
+      { text: '30/10/2026', strike: true },
+      { text: '02/11/2026', strike: false }
     ],
     remark: [
-      '==IOD online Application submitted on 05/10/2026 to Western Suburb.',
-      'Current status of proposal :==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC=='
+      '==IOD online Application submitted on 05/10/2026 to Western Suburb–1, MCGM after getting layout approval.==',
+      'Current status of proposal :==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC==',
+      'IOD approved on dated 02/11/2026.'
     ]
   },
   {
     id: '10',
     category: 'Clearance Documentation',
-    title: '10. Staff quarter IOD',
-    shortName: 'Staff Quarter IOD',
+    title: '10. Executive Staff quarter IOD',
+    shortName: 'Executive Staff Quarter IOD',
     isGreenHighlighted: false,
     status: '-',
     statusType: 'Submitted',
     responsibility: 'SPA/NECPL',
-    expectedDate: '15/10/2026',
+    expectedDate: '02/11/2026',
     dateHistory: [
       { text: 'For Submission', isHeader: true },
       { text: '05/09/2026', strike: true },
@@ -390,11 +401,14 @@ const approvedNocsData = [
       { text: '25/09/2026', strike: true },
       { text: '29/09/2026', strike: true },
       { text: 'For IOD approval', isHeader: true },
-      { text: '15/10/2026', strike: false }
+      { text: '15/10/2026', strike: true },
+      { text: '30/10/2026', strike: true },
+      { text: '02/11/2026', strike: false }
     ],
     remark: [
-      '==IOD online Application submitted on 05/10/2026 to Western Suburb.',
-      'Current status of proposal :==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC=='
+      '==IOD online Application submitted on 05/10/2026 to Western Suburb–1, MCGM after getting layout approval.==',
+      'Current status of proposal :==BMC Sub-Engineer ➔ AE ➔ EE ➔ Dy. CE ➔ CE ➔ Hon\'ble MC==',
+      'IOD approved on dated 02/11/2026.'
     ]
   },
   {
@@ -448,8 +462,7 @@ const approvedNocsData = [
       { text: '18/09/2026', strike: false }
     ],
     remark: [
-      'NECPL environment consultants has provided.',
-      '==SPA submitted EC Consolidate statement on 18/09/2026 and approved by MMRC on 18/09/2026.=='
+      'SPA submitted EC Consolidate statement on ==18/09/2026 and approved by MMRC on 18/09/2026.=='
     ]
   },
   {
@@ -461,16 +474,14 @@ const approvedNocsData = [
     status: 'Registration completed on 10/08/2026.',
     statusType: 'Completed',
     responsibility: 'NECPL',
-    expectedDate: '15/10/2026',
+    expectedDate: '10/08/2026',
     dateHistory: [
       { text: '15/09/2026', strike: true },
       { text: '19/09/2026', strike: true },
-      { text: '08/10/2026', strike: true },
-      { text: '15/10/2026', strike: false }
+      { text: '10/08/2026', strike: false }
     ],
     remark: [
-      'Registration completed on 10/08/2026.',
-      '==Application submitted on 19/09/2026 and payment made by NECPL on 23/09/2026.=='
+      'Application submitted on 19/09/2026 and ==payment made by NECPL on 23/09/2026.=='
     ]
   },
   {
@@ -512,15 +523,16 @@ const approvedNocsData = [
     status: '-',
     statusType: 'Pending',
     responsibility: '-',
-    expectedDate: '30/10/2026',
+    expectedDate: '15/11/2026',
     dateHistory: [
       { text: '30/09/2026', strike: true },
-      { text: '30/10/2026', strike: false }
+      { text: '30/10/2026', strike: true },
+      { text: '15/11/2026', strike: false }
     ],
     remark: [
       '==MPCB Site visit completed at Aarey site on 30/09/2026 and their report is uploaded.==',
-      '==Expected 1st meeting of EC on 16/10/2026.==',
-      '==Target Date for EC is 30/10/2026.=='
+      '==1st Meeting conducted on 29/10/2026. And Minutes of Meeting of 1st Meeting available on 2/11/2026.==',
+      '==Target Date for EC is 15/11/2026.=='
     ]
   }
 ];
