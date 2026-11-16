@@ -870,8 +870,60 @@ function App() {
     }
   };
 
+  // =========================================================================
+  // PRE-AUTHORIZED REGISTRATION EMAILS & USER IDS (WHITELIST)
+  // A user CANNOT register or create a password unless their Email ID is in this list.
+  // When a new user provides their Email ID, add it here to allow them to register:
+  // =========================================================================
+  const AUTHORIZED_REGISTRATION_EMAILS = [
+    'md.aasim@mmrcl.com',
+    'rajesh.patil@mmrcl.com',
+    'sachin.aher@mmrcl.com',
+    'vikrant.tewathia@mmrcl.com',
+    'vishwas.ajnalkar@mmrcl.com',
+    'ashish.saxena@mmrcl.com',
+    'neha.bhoi@mmrcl.com',
+    'rajeev.kumar@mmrcl.com',
+    'sudhir.sahare@mmrcl.com',
+    'rutesh.jadhav@mmrcl.com',
+    'sumit.patil@mmrcl.com',
+    'arch.mmrcl@gmail.com',
+    'pmc.mmrcl@gmail.com',
+    'coordination.mmrcl@nyatigroup.com',
+    'qualitypmc123@gmail.com',
+    'pmcsafety30@gmail.com',
+    'safety.mmrc@mmrcl.com',
+    'sumit.verma@nyatigroup.com',
+    'nyatigroup1997@gmail.com',
+    'sv0572001@gmail.com',
+    'necpl@pmis.com',
+    'mmrcl@pmis.com',
+    'pmc@pmis.com',
+    'contractor@pmis.com',
+    'engineer@pmis.com',
+    'employer@pmis.com',
+    // Authorized User IDs
+    'necpl',
+    'mmrcl',
+    'pmc',
+    'contractor',
+    'engineer',
+    'employer',
+    'quality_pmc',
+    'safety_pmc',
+    'safety_mmrcl'
+  ];
+
+  const isEmailAuthorizedForRegistration = (emailOrUserId) => {
+    if (!emailOrUserId) return false;
+    const clean = emailOrUserId.trim().toLowerCase();
+    return AUTHORIZED_REGISTRATION_EMAILS.some(item => item.toLowerCase() === clean);
+  };
+
   // Registration modal states
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [showUnauthorizedPopup, setShowUnauthorizedPopup] = useState(false);
+  const [unauthorizedEmailAttempt, setUnauthorizedEmailAttempt] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
@@ -897,8 +949,17 @@ function App() {
     setRegErrorMsg('');
     setRegSuccessMsg('');
 
-    if (!regEmail.trim()) {
+    const targetEmail = regEmail.trim();
+    if (!targetEmail) {
       setRegErrorMsg('Please enter your Email ID / User ID.');
+      return;
+    }
+
+    // STRICT CHECK: Only pre-authorized Email IDs / User IDs can register and create password
+    if (!isEmailAuthorizedForRegistration(targetEmail)) {
+      setUnauthorizedEmailAttempt(targetEmail);
+      setShowUnauthorizedPopup(true);
+      setRegErrorMsg('This Email ID is not registered in the system. Please get your email registered by the Admin first.');
       return;
     }
 
@@ -919,10 +980,10 @@ function App() {
 
     setRegLoading(true);
     try {
-      const res = await authAPI.register(regEmail.trim(), regPassword);
+      const res = await authAPI.register(targetEmail, regPassword);
       if (res && res.success) {
         setRegSuccessMsg(res.message || 'Registration successful!');
-        setLoginEmail(regEmail.trim());
+        setLoginEmail(targetEmail);
         setLoginPassword('');
         setErrorMsg('');
         setTimeout(() => {
@@ -930,11 +991,19 @@ function App() {
           setRegLoading(false);
         }, 1000);
       } else {
+        if (res?.unauthorized) {
+          setUnauthorizedEmailAttempt(targetEmail);
+          setShowUnauthorizedPopup(true);
+        }
         setRegErrorMsg(res?.message || 'Registration failed.');
         setRegLoading(false);
       }
     } catch (err) {
       console.error('Registration submit error:', err);
+      if (err.response?.data?.unauthorized || err.response?.status === 403) {
+        setUnauthorizedEmailAttempt(targetEmail);
+        setShowUnauthorizedPopup(true);
+      }
       const errMsg = err.response?.data?.message || err.message || 'Error saving user to database. Please try again.';
       setRegErrorMsg(errMsg);
       setRegLoading(false);
@@ -987,10 +1056,10 @@ function App() {
     },
     {
       srNo: 5,
-      organization: 'PMC',
-      department: '-',
+      organization: 'MMRCL',
+      department: 'Safety',
       contacts: [
-        { name: 'Mr. Madhavesh Kulkarni', designation: 'PMC team leader', phone: '9970592658', email: 'pmc.mmrcl@gmail.com' }
+        { name: 'MMRCL Safety Team', designation: 'Safety', phone: '-', email: 'safety.mmrc@mmrcl.com' }
       ]
     },
     {
@@ -998,11 +1067,35 @@ function App() {
       organization: 'PMC',
       department: '-',
       contacts: [
-        { name: 'Ar. Priyadarshini Agrawal', designation: 'Architecture', phone: '88290 12085', email: 'arch.mmrcl@gmail.com' }
+        { name: 'Mr. Madhavesh Kulkarni', designation: 'PMC team leader', phone: '9970592658', email: 'pmc.mmrcl@gmail.com' }
       ]
     },
     {
       srNo: 7,
+      organization: 'PMC',
+      department: '-',
+      contacts: [
+        { name: 'Ar. Priyadarshini Agrawal', designation: 'Architecture', phone: '88290 12085', email: 'arch.mmrcl@gmail.com' }
+      ]
+    },
+    {
+      srNo: 8,
+      organization: 'PMC',
+      department: 'Quality',
+      contacts: [
+        { name: 'PMC Quality Team', designation: 'Quality', phone: '-', email: 'qualitypmc123@gmail.com' }
+      ]
+    },
+    {
+      srNo: 9,
+      organization: 'PMC',
+      department: 'Safety',
+      contacts: [
+        { name: 'PMC Safety Team', designation: 'Safety', phone: '-', email: 'pmcsafety30@gmail.com' }
+      ]
+    },
+    {
+      srNo: 10,
       organization: 'NECPL',
       department: '-',
       contacts: [
@@ -4896,6 +4989,17 @@ function App() {
                 </button>
               </div>
 
+              {/* Pre-Authorization Notice */}
+              <div className="mb-4 bg-sky-50/80 border border-sky-200 rounded-2xl p-3 text-xs text-sky-950 flex items-start space-x-2.5 shadow-2xs">
+                <Info className="h-4 w-4 text-sky-600 flex-shrink-0 mt-0.5" />
+                <div className="leading-snug">
+                  <span className="font-bold text-sky-900">Pre-Registration Required:</span>
+                  <span className="text-sky-800 ml-1">
+                    Only Email IDs pre-authorized by the Admin can register and create a password.
+                  </span>
+                </div>
+              </div>
+
               {regErrorMsg && (
                 <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-700 p-3.5 rounded-xl text-xs flex items-center shadow-sm">
                   <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0 text-rose-600" />
@@ -5007,6 +5111,69 @@ function App() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Unauthorized Registration Alert Popup Modal */}
+        {showUnauthorizedPopup && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in select-none">
+            <div className="relative max-w-md w-full p-6 md:p-8 bg-white/95 backdrop-blur-2xl rounded-3xl border border-rose-200 shadow-2xl text-slate-900 text-center">
+              {/* Close Button top-right */}
+              <button
+                type="button"
+                onClick={() => setShowUnauthorizedPopup(false)}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              {/* Warning Shield Icon */}
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center mb-4 shadow-sm">
+                <ShieldAlert className="h-9 w-9 text-rose-600" />
+              </div>
+
+              {/* Title & Subtitle */}
+              <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1">
+                Registration Not Authorized
+              </h3>
+              <p className="text-xs font-bold text-rose-600 uppercase tracking-wider mb-4">
+                Access Restricted — Pre-Registration Required
+              </p>
+
+              {/* Email Attempt Display */}
+              <div className="mb-4 inline-block px-3.5 py-1.5 bg-slate-100 rounded-xl border border-slate-200 font-mono text-xs font-bold text-slate-800 break-all max-w-full">
+                {unauthorizedEmailAttempt || regEmail}
+              </div>
+
+              {/* Explanation Note */}
+              <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-4 text-left text-xs text-amber-950 leading-relaxed mb-5 space-y-2">
+                <p className="font-bold text-amber-900 flex items-center">
+                  <AlertTriangle className="h-4 w-4 mr-1.5 flex-shrink-0 text-amber-600" />
+                  This Email ID is not registered in the system.
+                </p>
+                <p className="text-slate-700 font-semibold">
+                  Please get your email registered by the Admin first.
+                </p>
+                <p className="text-slate-600">
+                  In accordance with the portal's security policy, only pre-authorized users are permitted to create an account and password. Once your email is added to the system, you will be able to register.
+                </p>
+              </div>
+
+              {/* Policy Contact Box */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 mb-6 flex items-center justify-between">
+                <span className="font-bold text-slate-700">Access Policy:</span>
+                <span className="font-semibold text-sky-700 select-none">Contact Portal Administrator</span>
+              </div>
+
+              {/* Action Button */}
+              <button
+                type="button"
+                onClick={() => setShowUnauthorizedPopup(false)}
+                className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition shadow-lg shadow-slate-900/20 active:scale-[0.98]"
+              >
+                Understood / Close
+              </button>
             </div>
           </div>
         )}
@@ -5300,6 +5467,24 @@ function App() {
   };
 
   const KNOWN_USERS_MAP = {
+    // PMC Quality
+    'quality_pmc': 'PMC Quality Team',
+    'qualitypmc123@gmail.com': 'PMC Quality Team',
+    'qualitypmc123': 'PMC Quality Team',
+    'pmc quality': 'PMC Quality Team',
+
+    // PMC Safety
+    'safety_pmc': 'PMC Safety Team',
+    'pmcsafety30@gmail.com': 'PMC Safety Team',
+    'pmcsafety30': 'PMC Safety Team',
+    'pmc safety': 'PMC Safety Team',
+
+    // MMRCL Safety
+    'safety_mmrcl': 'MMRCL Safety Team',
+    'safety.mmrc@mmrcl.com': 'MMRCL Safety Team',
+    'safety.mmrc': 'MMRCL Safety Team',
+    'mmrcl safety': 'MMRCL Safety Team',
+
     // PMC Office (Project Management Consultant)
     '6aa1557549bc1d2d7ad294fa': 'PMC Office',
     'pmc_mmrcl': 'PMC Office',
