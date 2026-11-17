@@ -894,6 +894,7 @@ function App() {
     'pmcsafety30@gmail.com',
     'safety.mmrc@mmrcl.com',
     'sumit.verma@nyatigroup.com',
+    'vinod.nemade@nyatigroup.com',
     'nyatigroup1997@gmail.com',
     'sv0572001@gmail.com',
     'necpl@pmis.com',
@@ -911,7 +912,8 @@ function App() {
     'employer',
     'quality_pmc',
     'safety_pmc',
-    'safety_mmrcl'
+    'safety_mmrcl',
+    'vinod.nemade'
   ];
 
   const isEmailAuthorizedForRegistration = (emailOrUserId) => {
@@ -1099,7 +1101,8 @@ function App() {
       organization: 'NECPL',
       department: '-',
       contacts: [
-        { name: 'Appaji Hongekar', designation: 'Sr. Zonal VP', phone: '9822261217', email: 'coordination.mmrcl@nyatigroup.com' }
+        { name: 'Appaji Hongekar', designation: 'Sr. Zonal VP', phone: '9822261217', email: 'coordination.mmrcl@nyatigroup.com' },
+        { name: 'Vinod Nemade', designation: 'Nyati Team', phone: '-', email: 'vinod.nemade@nyatigroup.com' }
       ]
     }
   ];
@@ -5543,6 +5546,9 @@ function App() {
     '6aa27de431b911923029e0b2': 'nyatigroup1997',
     '6aa27ed631b911923029e0cb': 'sumit.verma',
     '6aa29f4bbf5ad990eb2910e5': 'sv0572001',
+    'vinod.nemade@nyatigroup.com': 'vinod.nemade',
+    'vinod.nemade': 'vinod.nemade',
+    'vinod nemade': 'vinod.nemade',
   };
 
   const formatUploaderName = (item) => {
