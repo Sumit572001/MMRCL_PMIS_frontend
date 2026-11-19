@@ -6159,7 +6159,7 @@ function App() {
                         ) : (
                           allRecentUploads.map((item) => {
                             const isUnviewed = isDocumentUnviewed(item);
-                            const uploader = item.uploader || formatUploaderName(item);
+                            const uploader = formatUploaderName(item.docRef || item) || item.uploader || 'coordination.mmrcl';
                             const folderDisplayName = item.folderName || item.folder || 'Root Folder';
                             const eventType = item.type || 'upload';
 
@@ -6204,7 +6204,7 @@ function App() {
                                       {item.title || item.name}
                                     </h5>
                                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                                      <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap" title={new Date(item.createdAt || item.uploadedAt).toLocaleString()}>
+                                      <span className="text-[10px] text-slate-900 font-semibold whitespace-nowrap" title={new Date(item.createdAt || item.uploadedAt).toLocaleString()}>
                                         {new Date(item.createdAt || item.uploadedAt).toLocaleDateString()} {new Date(item.createdAt || item.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                       </span>
                                       {typeBadge}
@@ -6212,8 +6212,8 @@ function App() {
                                   </div>
 
                                   {item.originalName && item.originalName !== (item.title || item.name) && (
-                                    <div className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1" title={item.originalName}>
-                                      <FileText className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                    <div className="text-[10px] text-slate-900 font-medium truncate flex items-center gap-1" title={item.originalName}>
+                                      <FileText className="h-3 w-3 text-slate-600 flex-shrink-0" />
                                       <span className="truncate">{item.originalName}</span>
                                     </div>
                                   )}
@@ -6222,6 +6222,16 @@ function App() {
                                     <p className="text-[11px] text-amber-900 font-medium bg-amber-50 p-1.5 rounded border border-amber-200/60 line-clamp-2">
                                       💬 "{item.remarkText}"
                                     </p>
+                                  )}
+
+                                  {uploader && (
+                                    <div className="text-[10px] text-slate-900 font-medium flex items-center gap-1.5" title={`Uploaded by: ${uploader}`}>
+                                      <User className="h-3 w-3 text-sky-600 flex-shrink-0" />
+                                      <span>
+                                        {eventType === 'remark' ? 'Remark by: ' : eventType === 'approval' ? 'Approved by: ' : 'Uploaded by: '}
+                                        <strong className="font-bold text-slate-900">{uploader}</strong>
+                                      </span>
+                                    </div>
                                   )}
 
                                   {(() => {
@@ -6235,7 +6245,7 @@ function App() {
                                     return (
                                       <div className="pt-0.5">
                                         <div
-                                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200/60 text-slate-700 rounded-lg font-medium border border-slate-200 text-[10px] flex items-start gap-1.5 w-full break-words leading-relaxed"
+                                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200/60 text-slate-900 rounded-lg font-semibold border border-slate-300 text-[10px] flex items-start gap-1.5 w-full break-words leading-relaxed"
                                           title={fullPath}
                                         >
                                           <Folder className="h-3 w-3 text-sky-600 flex-shrink-0 mt-0.5" />
@@ -6351,7 +6361,7 @@ function App() {
                       ) : (
                         allRecentUploads.map((item) => {
                           const isUnviewed = isDocumentUnviewed(item);
-                          const uploader = item.uploader || formatUploaderName(item);
+                          const uploader = formatUploaderName(item.docRef || item) || item.uploader || 'coordination.mmrcl';
                           const folderDisplayName = item.folderName || item.folder || 'Root Folder';
                           const eventType = item.type || 'upload';
 
@@ -6396,7 +6406,7 @@ function App() {
                                     {item.title || item.name}
                                   </h5>
                                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap" title={new Date(item.createdAt || item.uploadedAt).toLocaleString()}>
+                                    <span className="text-[10px] text-slate-900 font-semibold whitespace-nowrap" title={new Date(item.createdAt || item.uploadedAt).toLocaleString()}>
                                       {new Date(item.createdAt || item.uploadedAt).toLocaleDateString()} {new Date(item.createdAt || item.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                     {typeBadge}
@@ -6404,8 +6414,8 @@ function App() {
                                 </div>
 
                                 {item.originalName && item.originalName !== (item.title || item.name) && (
-                                  <div className="text-[10px] text-slate-500 font-medium truncate flex items-center gap-1" title={item.originalName}>
-                                    <FileText className="h-3 w-3 text-slate-400 flex-shrink-0" />
+                                  <div className="text-[10px] text-slate-900 font-medium truncate flex items-center gap-1" title={item.originalName}>
+                                    <FileText className="h-3 w-3 text-slate-600 flex-shrink-0" />
                                     <span className="truncate">{item.originalName}</span>
                                   </div>
                                 )}
@@ -6414,6 +6424,16 @@ function App() {
                                   <p className="text-[11px] text-amber-900 font-medium bg-amber-50 p-1.5 rounded border border-amber-200/60 line-clamp-2">
                                     💬 "{item.remarkText}"
                                   </p>
+                                )}
+
+                                {uploader && (
+                                  <div className="text-[10px] text-slate-900 font-medium flex items-center gap-1.5" title={`Uploaded by: ${uploader}`}>
+                                    <User className="h-3 w-3 text-sky-600 flex-shrink-0" />
+                                    <span>
+                                      {eventType === 'remark' ? 'Remark by: ' : eventType === 'approval' ? 'Approved by: ' : 'Uploaded by: '}
+                                      <strong className="font-bold text-slate-900">{uploader}</strong>
+                                    </span>
+                                  </div>
                                 )}
 
                                 {(() => {
@@ -6427,7 +6447,7 @@ function App() {
                                   return (
                                     <div className="pt-0.5">
                                       <div
-                                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200/60 text-slate-700 rounded-lg font-medium border border-slate-200 text-[10px] flex items-start gap-1.5 w-full break-words leading-relaxed"
+                                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200/60 text-slate-900 rounded-lg font-semibold border border-slate-300 text-[10px] flex items-start gap-1.5 w-full break-words leading-relaxed"
                                         title={fullPath}
                                       >
                                         <Folder className="h-3 w-3 text-sky-600 flex-shrink-0 mt-0.5" />
